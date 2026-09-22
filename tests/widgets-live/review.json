@@ -1,0 +1,122 @@
+{
+ "weather": {
+  "mark": "✅",
+  "text": "Frankfurt (Heimatort); „0 mm“ und „13,8 km/h“ — Zahlen bekommen ihre Einheit (W3 behoben)"
+ },
+ "timer": {
+  "mark": "✅",
+  "text": "Läuft live, Endzeit stimmt"
+ },
+ "departures": {
+  "mark": "✅",
+  "text": "Echte Abfahrten über die feste Quelle, 37 s statt 120 s (W8 behoben)"
+ },
+ "converter": {
+  "mark": "✅",
+  "text": "Echter Kurs, Umrechnung stimmt"
+ },
+ "parcel": {
+  "mark": "✅",
+  "text": "Kein Widget, weil DHL nichts lieferte — nichts erfunden"
+ },
+ "todo": {
+  "mark": "✅",
+  "text": "Erledigtes richtig abgehakt"
+ },
+ "route": {
+  "mark": "✅",
+  "text": "Echte Route (Valhalla/OSM), Karte als „Schematisch“ markiert"
+ },
+ "calendar": {
+  "mark": "✅",
+  "text": "Termine korrekt eingetragen"
+ },
+ "ticker": {
+  "mark": "✅",
+  "text": "Karte wird gezeichnet, auch mit Zahlen; neuer Lauf schickt Text mit Einheit (W1 behoben)"
+ },
+ "worldclock": {
+  "mark": "✅",
+  "text": "Live-Uhrzeit, Tokio/Sydney richtig schon Montag"
+ },
+ "agent-run": {
+  "mark": "✅",
+  "text": ""
+ },
+ "test-result": {
+  "mark": "✅",
+  "text": "Test wirklich ausgeführt: 56/56"
+ },
+ "quota": {
+  "mark": "✅",
+  "text": "Anbieterlogos statt Buchstaben"
+ },
+ "server": {
+  "mark": "✅",
+  "text": "Echte Daten per SSH; Kopf „1 Warnung“, volle Containernamen in 2 Spalten (W2, W4 behoben)"
+ },
+ "deploy": {
+  "mark": "✅",
+  "text": ""
+ },
+ "verification": {
+  "mark": "✅",
+  "text": ""
+ },
+ "scrape-run": {
+  "mark": "✅",
+  "text": ""
+ },
+ "workflow": {
+  "mark": "✅",
+  "text": ""
+ },
+ "query-result": {
+  "mark": "✅",
+  "text": "Echte Daten aus dem Exokortex"
+ },
+ "graph-node": {
+  "mark": "✅",
+  "text": "Ehrlich: nur eine Kante, nur aus dem CV"
+ },
+ "decision": {
+  "mark": "✅",
+  "text": "Echte Datei aus 50-Entscheidungen"
+ },
+ "place-naming": {
+  "mark": "✅",
+  "text": "Echte Ortsgruppe aus events.sqlite"
+ },
+ "timeline": {
+  "mark": "✅",
+  "text": "Keine Tagesdaten → nur Text, kein Widget (W5 behoben)"
+ },
+ "jobs": {
+  "mark": "✅",
+  "text": ""
+ },
+ "design-diff": {
+  "mark": "✅",
+  "text": ""
+ },
+ "palette": {
+  "mark": "✅",
+  "text": "Kontraste von Cortex berechnet"
+ },
+ "audio-takes": {
+  "mark": "✅",
+  "text": "Ohne Pegelwerte flache Linie, wie vorgesehen"
+ },
+ "kpis": {
+  "mark": "✅",
+  "text": "Schritt-Quoten von Cortex berechnet"
+ },
+ "quiz": {
+  "mark": "✅",
+  "text": ""
+ },
+ "game-theory": {
+  "mark": "✅",
+  "text": "Beschriftung sichtbar, `hidden` nicht mehr zweckentfremdet (W6, W7 behoben)"
+ }
+}

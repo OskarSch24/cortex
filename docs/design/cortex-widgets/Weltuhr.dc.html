@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #101113; }
+  a { color: #6aa8ff; text-decoration: none; } a:hover { color: #9cc5ff; }
+  .page { width: 816px; box-sizing: border-box; padding: 40px 40px 48px; background: #101113; color: #ededee;
+          font: 15px/23px 'SF Pro Text', -apple-system, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+  .col { display: flex; flex-direction: column; gap: 14px; width: 736px; }
+  .user { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .bubble { max-width: 70%; padding: 10px 16px 11px; border-radius: 20px; background: #ffffff12; font-size: 15px; line-height: 23px; }
+  .line { display: flex; align-items: center; gap: 8px; min-height: 23px; color: #8f9094; font-size: 15px; line-height: 23px; }
+  .prose { margin: 0; text-wrap: pretty; }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: 'SF Mono', Menlo, monospace; }
+  .w { border: 1px solid #ffffff12; border-radius: 12px; background: #ffffff06; overflow: hidden; }
+  .wh { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; }
+  .mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 9px; background: #ffffff0c; color: #ededee; font-size: 11px; font-weight: 600; letter-spacing: -.2px; }
+  .wt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .wt strong { font-size: 15px; line-height: 21px; font-weight: 500; color: #ededee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wt small { display: flex; align-items: center; gap: 6px; font-size: 13.5px; line-height: 19px; color: #8f9094; }
+  .acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 10px; border: 1px solid #ffffff1c; border-radius: 8px; color: #ededee; font-size: 14px; line-height: 20px; white-space: nowrap; }
+  .btn.primary { background: #eeeef0; border-color: #f4f4f5; color: #131416; font-weight: 500; }
+  .btn.quiet { border-color: transparent; color: #999a9d; padding: 5px 8px; }
+  .sep { border-top: 1px solid #ffffff10; }
+  .pad { padding: 14px; }
+  .row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 14px; color: #8f9094; font-size: 14.5px; line-height: 20px; }
+  .rows .row + .row::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; border-top: 1px solid #ffffff0a; }
+  .v { color: #ededee; }
+  .dim { color: #707277; }
+  .muted { color: #999a9d; }
+  .grow { flex: 1; min-width: 0; }
+  .label { font-size: 12px; line-height: 16px; color: #707277; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 12px; line-height: 20px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pill.pos { background: #88b99b1f; color: #9fd0b2; }
+  .pill.neg { background: #e36a6a1f; color: #f08a8a; }
+  .pill.warn { background: #d8b36a1f; color: #e3c285; }
+  .pill.info { background: #6aa8ff1f; color: #8dbcff; }
+  .pill.violet { background: #9d8fd91f; color: #b5aae6; }
+  .pill.mute { background: #ffffff0d; color: #999a9d; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .meter { position: relative; height: 4px; border-radius: 2px; background: #ffffff1a; overflow: hidden; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: #ededee; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px 10px; border-top: 1px solid #ffffff10; color: #707277; font-size: 12.5px; line-height: 18px; }
+  .seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff08; flex: none; }
+  .seg span { padding: 2px 8px; border-radius: 6px; color: #8f9094; font-size: 12.5px; line-height: 20px; white-space: nowrap; }
+  .seg span.on { background: #ffffff14; color: #ededee; }
+  .box { border: 1px solid #ffffff14; border-radius: 10px; background: #ffffff05; }
+  .chk { display: grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #ffffff38; box-sizing: border-box; color: #131416; }
+  .chk.on { background: #ededee; border-color: #ededee; }
+  .tile { display: grid; place-items: center; flex: none; border-radius: 6px; font-size: 11px; font-weight: 600; color: #ededee; }
+  .code { margin: 0; padding: 10px 12px; border-radius: 8px; background: #ffffff08; color: #b9babd; font: 12px/1.55 'SF Mono', Menlo, monospace; white-space: pre; overflow: hidden; }
+  .stat { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; }
+  .stat b { font-size: 20px; line-height: 26px; font-weight: 440; letter-spacing: -.2px; color: #ededee; font-variant-numeric: tabular-nums; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cells > * + * { border-left: 1px solid #ffffff0a; }
+</style>
+</helmet>
+<div class="page"><div class="col">
+<div class="user"><div class="bubble">Wie spät ist es in New York, Bogotá, Tokio und Sydney?</div></div>
+
+<div class="w">
+  <div class="wh"><div class="mark" style=""><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="9"></circle><ellipse cx="12" cy="12" rx="4" ry="9"></ellipse><path d="M3 12h18"></path></svg></div>
+  <div class="wt"><strong>Weltuhr</strong><small>Sonntag, 13. September · 14:32 in Frankfurt</small></div><div class="acts"><span class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M12 5v14M5 12h14"></path></svg>Stadt</span></div></div>
+  <div class="sep rows" style="padding: 2px 0"><div class="row" style="min-height: 58px">
+  <span class="grow" style="display: flex; flex-direction: column"><span class="v" style="font-size: 15px; display: flex; align-items: center; gap: 8px">Frankfurt<span class="pill mute">Hier</span></span><span class="label">Sonntag · Mitteleuropäische Sommerzeit</span></span>
+  <div style="position: relative; width: 300px; height: 20px; flex: none">
+  <div style="position: absolute; left: 0; right: 0; top: 8px; height: 4px; border-radius: 2px; background: #ffffff0c"></div>
+  <div style="position: absolute; left: 28.8%; width: 52.7%; top: 8px; height: 4px; border-radius: 2px; background: #ededee; opacity: .22"></div>
+  <div style="position: absolute; left: calc(60.5% - 1px); top: 2px; width: 2px; height: 16px; border-radius: 1px; background: #ededee"></div>
+</div>
+  <span style="display: flex; align-items: center; gap: 8px; width: 108px; justify-content: flex-end"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d8b36a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg><span class="num" style="font-size: 24px; line-height: 30px; font-weight: 300; letter-spacing: -.4px">14:32</span></span>
+</div><div class="row" style="min-height: 58px">
+  <span class="grow" style="display: flex; flex-direction: column"><span class="v" style="font-size: 15px; display: flex; align-items: center; gap: 8px">New York</span><span class="label">Sonntag · −6 Std</span></span>
+  <div style="position: relative; width: 300px; height: 20px; flex: none">
+  <div style="position: absolute; left: 0; right: 0; top: 8px; height: 4px; border-radius: 2px; background: #ffffff0c"></div>
+  <div style="position: absolute; left: 27.9%; width: 51.7%; top: 8px; height: 4px; border-radius: 2px; background: #ededee; opacity: .22"></div>
+  <div style="position: absolute; left: calc(35.5% - 1px); top: 2px; width: 2px; height: 16px; border-radius: 1px; background: #ededee"></div>
+</div>
+  <span style="display: flex; align-items: center; gap: 8px; width: 108px; justify-content: flex-end"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d8b36a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg><span class="num" style="font-size: 24px; line-height: 30px; font-weight: 300; letter-spacing: -.4px">08:32</span></span>
+</div><div class="row" style="min-height: 58px">
+  <span class="grow" style="display: flex; flex-direction: column"><span class="v" style="font-size: 15px; display: flex; align-items: center; gap: 8px">Bogotá</span><span class="label">Sonntag · −7 Std</span></span>
+  <div style="position: relative; width: 300px; height: 20px; flex: none">
+  <div style="position: absolute; left: 0; right: 0; top: 8px; height: 4px; border-radius: 2px; background: #ffffff0c"></div>
+  <div style="position: absolute; left: 24.0%; width: 50.6%; top: 8px; height: 4px; border-radius: 2px; background: #ededee; opacity: .22"></div>
+  <div style="position: absolute; left: calc(31.4% - 1px); top: 2px; width: 2px; height: 16px; border-radius: 1px; background: #ededee"></div>
+</div>
+  <span style="display: flex; align-items: center; gap: 8px; width: 108px; justify-content: flex-end"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d8b36a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg><span class="num" style="font-size: 24px; line-height: 30px; font-weight: 300; letter-spacing: -.4px">07:32</span></span>
+</div><div class="row" style="min-height: 58px">
+  <span class="grow" style="display: flex; flex-direction: column"><span class="v" style="font-size: 15px; display: flex; align-items: center; gap: 8px">Tokio</span><span class="label">Sonntag · +7 Std</span></span>
+  <div style="position: relative; width: 300px; height: 20px; flex: none">
+  <div style="position: absolute; left: 0; right: 0; top: 8px; height: 4px; border-radius: 2px; background: #ffffff0c"></div>
+  <div style="position: absolute; left: 22.5%; width: 52.1%; top: 8px; height: 4px; border-radius: 2px; background: #ededee; opacity: .22"></div>
+  <div style="position: absolute; left: calc(89.7% - 1px); top: 2px; width: 2px; height: 16px; border-radius: 1px; background: #ededee"></div>
+</div>
+  <span style="display: flex; align-items: center; gap: 8px; width: 108px; justify-content: flex-end"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#999a9d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5Z"></path></svg><span class="num" style="font-size: 24px; line-height: 30px; font-weight: 300; letter-spacing: -.4px">21:32</span></span>
+</div><div class="row" style="min-height: 58px">
+  <span class="grow" style="display: flex; flex-direction: column"><span class="v" style="font-size: 15px; display: flex; align-items: center; gap: 8px">Sydney</span><span class="label">Sonntag · +8 Std</span></span>
+  <div style="position: relative; width: 300px; height: 20px; flex: none">
+  <div style="position: absolute; left: 0; right: 0; top: 8px; height: 4px; border-radius: 2px; background: #ffffff0c"></div>
+  <div style="position: absolute; left: 24.6%; width: 49.2%; top: 8px; height: 4px; border-radius: 2px; background: #ededee; opacity: .22"></div>
+  <div style="position: absolute; left: calc(93.9% - 1px); top: 2px; width: 2px; height: 16px; border-radius: 1px; background: #ededee"></div>
+</div>
+  <span style="display: flex; align-items: center; gap: 8px; width: 108px; justify-content: flex-end"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#999a9d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5Z"></path></svg><span class="num" style="font-size: 24px; line-height: 30px; font-weight: 300; letter-spacing: -.4px">22:32</span></span>
+</div></div>
+  <div class="foot"><span>Balken: Ortszeit 0–24 Uhr, heller Teil ist Tageslicht</span><span style="display: flex; gap: 6px; align-items: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d8b36a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg>Tag <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5Z"></path></svg>Nacht</span></div>
+</div>
+
+</div></div>
+</x-dc>
+</body>
+</html>

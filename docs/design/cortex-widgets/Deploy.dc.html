@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #101113; }
+  a { color: #6aa8ff; text-decoration: none; } a:hover { color: #9cc5ff; }
+  .page { width: 816px; box-sizing: border-box; padding: 40px 40px 48px; background: #101113; color: #ededee;
+          font: 15px/23px 'SF Pro Text', -apple-system, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+  .col { display: flex; flex-direction: column; gap: 14px; width: 736px; }
+  .user { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .bubble { max-width: 70%; padding: 10px 16px 11px; border-radius: 20px; background: #ffffff12; font-size: 15px; line-height: 23px; }
+  .line { display: flex; align-items: center; gap: 8px; min-height: 23px; color: #8f9094; font-size: 15px; line-height: 23px; }
+  .prose { margin: 0; text-wrap: pretty; }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: 'SF Mono', Menlo, monospace; }
+  .w { border: 1px solid #ffffff12; border-radius: 12px; background: #ffffff06; overflow: hidden; }
+  .wh { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; }
+  .mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 9px; background: #ffffff0c; color: #ededee; font-size: 11px; font-weight: 600; letter-spacing: -.2px; }
+  .wt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .wt strong { font-size: 15px; line-height: 21px; font-weight: 500; color: #ededee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wt small { display: flex; align-items: center; gap: 6px; font-size: 13.5px; line-height: 19px; color: #8f9094; }
+  .acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 10px; border: 1px solid #ffffff1c; border-radius: 8px; color: #ededee; font-size: 14px; line-height: 20px; white-space: nowrap; }
+  .btn.primary { background: #eeeef0; border-color: #f4f4f5; color: #131416; font-weight: 500; }
+  .btn.quiet { border-color: transparent; color: #999a9d; padding: 5px 8px; }
+  .sep { border-top: 1px solid #ffffff10; }
+  .pad { padding: 14px; }
+  .row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 14px; color: #8f9094; font-size: 14.5px; line-height: 20px; }
+  .rows .row + .row::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; border-top: 1px solid #ffffff0a; }
+  .v { color: #ededee; }
+  .dim { color: #707277; }
+  .muted { color: #999a9d; }
+  .grow { flex: 1; min-width: 0; }
+  .label { font-size: 12px; line-height: 16px; color: #707277; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 12px; line-height: 20px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pill.pos { background: #88b99b1f; color: #9fd0b2; }
+  .pill.neg { background: #e36a6a1f; color: #f08a8a; }
+  .pill.warn { background: #d8b36a1f; color: #e3c285; }
+  .pill.info { background: #6aa8ff1f; color: #8dbcff; }
+  .pill.violet { background: #9d8fd91f; color: #b5aae6; }
+  .pill.mute { background: #ffffff0d; color: #999a9d; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .meter { position: relative; height: 4px; border-radius: 2px; background: #ffffff1a; overflow: hidden; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: #ededee; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px 10px; border-top: 1px solid #ffffff10; color: #707277; font-size: 12.5px; line-height: 18px; }
+  .seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff08; flex: none; }
+  .seg span { padding: 2px 8px; border-radius: 6px; color: #8f9094; font-size: 12.5px; line-height: 20px; white-space: nowrap; }
+  .seg span.on { background: #ffffff14; color: #ededee; }
+  .box { border: 1px solid #ffffff14; border-radius: 10px; background: #ffffff05; }
+  .chk { display: grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #ffffff38; box-sizing: border-box; color: #131416; }
+  .chk.on { background: #ededee; border-color: #ededee; }
+  .tile { display: grid; place-items: center; flex: none; border-radius: 6px; font-size: 11px; font-weight: 600; color: #ededee; }
+  .code { margin: 0; padding: 10px 12px; border-radius: 8px; background: #ffffff08; color: #b9babd; font: 12px/1.55 'SF Mono', Menlo, monospace; white-space: pre; overflow: hidden; }
+  .stat { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; }
+  .stat b { font-size: 20px; line-height: 26px; font-weight: 440; letter-spacing: -.2px; color: #ededee; font-variant-numeric: tabular-nums; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cells > * + * { border-left: 1px solid #ffffff0a; }
+</style>
+</helmet>
+<div class="page"><div class="col">
+<div class="user"><div class="bubble">Deploy Nordwind Clips auf den Server.</div></div>
+
+<div class="w">
+  <div class="wh"><div class="mark" style=""><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M12 15V4m-5 5 5-5 5 5"></path><path d="M4 16v3a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-3"></path></svg></div>
+  <div class="wt"><strong>Nordwind Clips → Hetzner</strong><small><span class="mono" style="font-size: 12.5px">main · a3f9c2e</span>· Header nach Figma angeglichen</small></div><div class="acts"><span class="pill info num"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0"><circle cx="12" cy="12" r="8.5" stroke="#6aa8ff" stroke-opacity=".22" stroke-width="2"></circle><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" stroke="#6aa8ff" stroke-width="2" stroke-linecap="round"></path></svg>1:48</span></div></div>
+  <div class="sep" style="position: relative; padding: 18px 14px 14px">
+    <div style="position: absolute; top: 29px; left: calc(14px + 10%); width: calc((100% - 28px) * .6); height: 2px; background: #88b99b; opacity: .55"></div>
+    <div style="position: absolute; top: 29px; left: calc(14px + 70%); width: calc((100% - 28px) * .2); border-top: 2px dashed #6aa8ff66"></div>
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr))"><div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; z-index: 1">
+  <span style="display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #88b99b29; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#88b99b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span><span style="font-size: 14px; line-height: 20px; color: #ededee">Build</span><span class="label num" style="margin-top: -8px">1:02</span>
+</div><div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; z-index: 1">
+  <span style="display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #88b99b29; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#88b99b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span><span style="font-size: 14px; line-height: 20px; color: #ededee">Tests</span><span class="label num" style="margin-top: -8px">0:21</span>
+</div><div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; z-index: 1">
+  <span style="display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #88b99b29; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#88b99b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span><span style="font-size: 14px; line-height: 20px; color: #ededee">Upload</span><span class="label num" style="margin-top: -8px">0:14</span>
+</div><div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; z-index: 1">
+  <span style="display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #88b99b29; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#88b99b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span><span style="font-size: 14px; line-height: 20px; color: #ededee">Neustart</span><span class="label num" style="margin-top: -8px">0:06</span>
+</div><div style="display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; z-index: 1">
+  <span style="display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #6aa8ff1f; box-shadow: 0 0 0 4px #6aa8ff14"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0"><circle cx="12" cy="12" r="8.5" stroke="#6aa8ff" stroke-opacity=".22" stroke-width="2"></circle><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" stroke="#6aa8ff" stroke-width="2" stroke-linecap="round"></path></svg></span><span style="font-size: 14px; line-height: 20px; color: #ededee">Healthcheck</span><span class="label num" style="margin-top: -8px">2 von 3</span>
+</div></div>
+  </div>
+  <pre class="code" style="margin: 0 14px 14px"><span class="dim">14:36:02</span>  GET /health  <span style="color: #7ccf8e">200</span>  38 ms
+<span class="dim">14:36:07</span>  GET /health  <span style="color: #7ccf8e">200</span>  41 ms
+<span class="dim">14:36:12</span>  <span style="color: #8dbcff">warte auf dritten Check …</span></pre>
+  <div class="foot" style="padding: 10px 14px"><span class="acts"><span class="btn">Log öffnen</span><span class="btn quiet">Zurückrollen auf 91be0d4</span></span><span>clips.amq · Container clips-web</span></div>
+</div>
+
+</div></div>
+</x-dc>
+</body>
+</html>

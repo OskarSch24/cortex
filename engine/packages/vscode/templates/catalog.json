@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "templates": [
+    {
+      "directory": "artifacts/design-report"
+    },
+    {
+      "directory": "artifacts/experiment-analysis"
+    },
+    {
+      "directory": "artifacts/investment-committee-memo"
+    },
+    {
+      "directory": "artifacts/legal-memorandum"
+    },
+    {
+      "directory": "artifacts/minimal-letterhead"
+    },
+    {
+      "directory": "artifacts/strategy-memorandum"
+    },
+    {
+      "directory": "artifacts/system-design"
+    },
+    {
+      "directory": "artifacts/business-review"
+    },
+    {
+      "directory": "artifacts/market-trends-report"
+    },
+    {
+      "directory": "artifacts/operating-review"
+    },
+    {
+      "directory": "artifacts/project-kickoff"
+    },
+    {
+      "directory": "artifacts/team-alignment"
+    },
+    {
+      "directory": "artifacts/simple-light-mode"
+    },
+    {
+      "directory": "artifacts/simple-dark-mode"
+    },
+    {
+      "directory": "artifacts/analytics-dashboard"
+    },
+    {
+      "directory": "artifacts/financial-budget"
+    },
+    {
+      "directory": "artifacts/operating-calendar"
+    },
+    {
+      "directory": "artifacts/project-tracker"
+    },
+    {
+      "directory": "artifacts/sales-pipeline"
+    },
+    {
+      "directory": "artifacts/three-statement-forecast"
+    }
+  ]
+}

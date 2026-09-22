@@ -1,0 +1,152 @@
+/* Cortex menus share the existing neutral palette. These rules deliberately
+   name menu surfaces; cards, dialogs, native editor menus and slash results
+   retain their own layouts. Also embedded in the titlebar workbench patch. */
+:root {
+  --cx-menu-surface: var(--cx-template-panel, #2d2d2d);
+  --cx-menu-border: var(--cx-command-border, #3e3e3e);
+  --cx-menu-hover: var(--cx-command-selected, #3d3d3d);
+  --cx-menu-text: var(--cx-text, #ededee);
+  --cx-menu-muted: var(--cx-muted, #999a9d);
+  --cx-menu-radius: 12px;
+  --cx-menu-row-radius: 7px;
+  --cx-menu-corner: round;
+  --cx-menu-shadow: 0 8px 28px #00000040;
+}
+@supports (corner-shape: superellipse(1.5)) {
+  :root { --cx-menu-radius: 15px; --cx-menu-row-radius: 9px; --cx-menu-corner: superellipse(1.5); }
+}
+
+.cxs-menu,
+.cx-shell :is(.menu-popup, .cx-template-categories, .cx-tools-popup, .cx-plugin-popup,
+  .cx-c-menu, .cx-dock-picks, .cx-crumb-menu, .cx-dock-open-menu) {
+  border: 1px solid var(--cx-menu-border);
+  border-radius: var(--cx-menu-radius);
+  corner-shape: var(--cx-menu-corner);
+  background: var(--cx-menu-surface);
+  box-shadow: var(--cx-menu-shadow);
+  color: var(--cx-menu-text);
+  font-family: var(--cx-body-font);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.cxs-menu .cxs-menu-item {
+  border-radius: var(--cx-menu-row-radius);
+  corner-shape: var(--cx-menu-corner);
+}
+.cxs-menu .cxs-menu-item:is(:hover, :focus-visible):not(:disabled) { background: var(--cx-menu-hover); }
+/* The reasoning dialog keeps its measured 254px size and slider geometry. */
+.cx-shell .menu-popup.reasoning-popup.cx-rz {
+  border-color: var(--cx-menu-border);
+  border-radius: var(--cx-menu-radius);
+  background: var(--cx-menu-surface);
+  box-shadow: var(--cx-menu-shadow);
+}
+.cx-shell :is(.menu-popup, .cx-template-categories, .cx-tools-popup, .cx-plugin-popup,
+  .cx-c-menu, .cx-dock-picks, .cx-crumb-menu, .cx-dock-open-menu) :is(.menu-row, .cx-rz-row),
+.cx-shell :is(.cx-template-categories, .cx-tools-popup, .cx-plugin-popup, .cx-c-menu,
+  .cx-dock-picks, .cx-crumb-menu, .cx-dock-open-menu) > button {
+  min-height: 28.5px;
+  border-radius: var(--cx-menu-row-radius);
+  corner-shape: var(--cx-menu-corner);
+  color: var(--cx-menu-text);
+  font: 400 13px/20px var(--cx-body-font);
+}
+.cx-shell .add-popup .menu-name,
+.cx-shell .permission-popup .menu-name { font: 400 13px/20px var(--cx-body-font); }
+.cx-shell .menu-popup .menu-label {
+  color: var(--cx-menu-muted);
+  font: 400 11.5px/16px var(--cx-body-font);
+  letter-spacing: normal;
+  opacity: 1;
+}
+.cx-shell :is(.menu-popup, .cx-template-categories, .cx-tools-popup, .cx-plugin-popup,
+  .cx-c-menu, .cx-dock-picks, .cx-crumb-menu, .cx-dock-open-menu)
+  :is(.menu-row, .cx-rz-row, [role^="menuitem"]):is(:hover, :focus-visible):not(:disabled),
+.cx-shell :is(.cx-tools-popup, .cx-plugin-popup, .cx-c-menu, .cx-dock-picks,
+  .cx-crumb-menu, .cx-dock-open-menu) > button:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--cx-menu-hover);
+  color: var(--cx-menu-text);
+}
+.cx-shell :is(.menu-popup, .cx-template-categories, .cx-tools-popup, .cx-plugin-popup,
+  .cx-c-menu, .cx-dock-picks, .cx-crumb-menu, .cx-dock-open-menu) button:focus-visible {
+  outline: 1px solid var(--cx-menu-muted);
+  outline-offset: -1px;
+}
+.cx-shell .cx-c-menu-rule { background: var(--cx-menu-border); }
+.cx-shell .menu-popup .menu-row.is-full .menu-name { color: #ff8746; }
+
+/* Only the Cortex titlebar submenu receives this class. Monaco retains its
+   real command actions, checked states, focus management and key bindings. */
+.cortex-context-menu {
+  --vscode-menu-background: var(--cx-menu-surface);
+  --vscode-menu-foreground: var(--cx-menu-text);
+  --vscode-menu-selectionBackground: var(--cx-menu-hover);
+  --vscode-menu-selectionForeground: var(--cx-menu-text);
+  --vscode-menu-selectionBorder: transparent;
+  --vscode-menu-separatorBackground: var(--cx-menu-border);
+  --vscode-menu-border: transparent;
+  --vscode-menu-borderRadius: var(--cx-menu-radius);
+  --vscode-menu-shadow: var(--cx-menu-shadow);
+  --vscode-cornerRadius-large: var(--cx-menu-radius);
+  color: var(--cx-menu-text);
+  border-radius: var(--cx-menu-radius);
+  corner-shape: var(--cx-menu-corner);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+}
+.cortex-context-menu.context-view.monaco-menu-container {
+  border: 1px solid var(--cx-menu-border);
+  border-radius: var(--cx-menu-radius);
+  corner-shape: var(--cx-menu-corner);
+  background: var(--cx-menu-surface);
+  box-shadow: var(--cx-menu-shadow);
+}
+.cortex-context-menu .monaco-menu {
+  min-width: 212px;
+  border: 0;
+  border-radius: inherit;
+  background: var(--cx-menu-surface);
+  font-family: inherit;
+}
+.cortex-context-menu .monaco-scrollable-element {
+  background-color: var(--cx-menu-surface) !important;
+  color: var(--cx-menu-text) !important;
+  outline: none !important;
+  border-radius: var(--cx-menu-radius) !important;
+}
+.cortex-context-menu .monaco-menu .monaco-action-bar.vertical { padding: 5px; }
+.cortex-context-menu .monaco-menu .monaco-action-bar.vertical .action-menu-item {
+  min-height: 28.5px;
+  height: auto;
+  margin: 0;
+  border-radius: var(--cx-menu-row-radius);
+  corner-shape: var(--cx-menu-corner);
+  color: var(--cx-menu-text) !important;
+  font: 400 13px/20px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+}
+.cortex-context-menu .monaco-menu .monaco-action-bar.vertical .action-menu-item .action-label { padding: 0 12px 0 24px; font: inherit; line-height: 28.5px; }
+.cortex-context-menu .monaco-menu .monaco-action-bar.vertical .menu-item-check { left: 5px; color: inherit !important; }
+.cortex-context-menu .monaco-menu .monaco-action-bar.vertical .action-item.focused > .action-menu-item {
+  background: var(--cx-menu-hover) !important;
+  color: var(--cx-menu-text) !important;
+  outline: none !important;
+}
+.cortex-context-menu .monaco-menu .monaco-action-bar.vertical .action-item.disabled > .action-menu-item {
+  opacity: .42;
+}
+.cortex-context-menu .monaco-menu .monaco-action-bar.vertical .action-item .action-label.separator {
+  min-height: 0;
+  margin: 4px 6px;
+  border-color: var(--cx-menu-border) !important;
+}
+.vs .cortex-context-menu, .hc-light .cortex-context-menu {
+  --cx-menu-surface: #fff;
+  --cx-menu-border: #d5d5d5;
+  --cx-menu-hover: #ededed;
+  --cx-menu-text: #202020;
+  --cx-menu-muted: #686868;
+  --cx-menu-shadow: 0 8px 28px #0000001f;
+}
+.hc-black .cortex-context-menu { --cx-menu-border: #fff; --cx-menu-text: #fff; }
+@media (forced-colors: active) {
+  .cortex-context-menu, .cx-shell [role="menu"] { border-color: CanvasText; }
+}

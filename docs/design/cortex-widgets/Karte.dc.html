@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #101113; }
+  a { color: #6aa8ff; text-decoration: none; } a:hover { color: #9cc5ff; }
+  .page { width: 816px; box-sizing: border-box; padding: 40px 40px 48px; background: #101113; color: #ededee;
+          font: 15px/23px 'SF Pro Text', -apple-system, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+  .col { display: flex; flex-direction: column; gap: 14px; width: 736px; }
+  .user { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .bubble { max-width: 70%; padding: 10px 16px 11px; border-radius: 20px; background: #ffffff12; font-size: 15px; line-height: 23px; }
+  .line { display: flex; align-items: center; gap: 8px; min-height: 23px; color: #8f9094; font-size: 15px; line-height: 23px; }
+  .prose { margin: 0; text-wrap: pretty; }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: 'SF Mono', Menlo, monospace; }
+  .w { border: 1px solid #ffffff12; border-radius: 12px; background: #ffffff06; overflow: hidden; }
+  .wh { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; }
+  .mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 9px; background: #ffffff0c; color: #ededee; font-size: 11px; font-weight: 600; letter-spacing: -.2px; }
+  .wt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .wt strong { font-size: 15px; line-height: 21px; font-weight: 500; color: #ededee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wt small { display: flex; align-items: center; gap: 6px; font-size: 13.5px; line-height: 19px; color: #8f9094; }
+  .acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 10px; border: 1px solid #ffffff1c; border-radius: 8px; color: #ededee; font-size: 14px; line-height: 20px; white-space: nowrap; }
+  .btn.primary { background: #eeeef0; border-color: #f4f4f5; color: #131416; font-weight: 500; }
+  .btn.quiet { border-color: transparent; color: #999a9d; padding: 5px 8px; }
+  .sep { border-top: 1px solid #ffffff10; }
+  .pad { padding: 14px; }
+  .row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 14px; color: #8f9094; font-size: 14.5px; line-height: 20px; }
+  .rows .row + .row::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; border-top: 1px solid #ffffff0a; }
+  .v { color: #ededee; }
+  .dim { color: #707277; }
+  .muted { color: #999a9d; }
+  .grow { flex: 1; min-width: 0; }
+  .label { font-size: 12px; line-height: 16px; color: #707277; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 12px; line-height: 20px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pill.pos { background: #88b99b1f; color: #9fd0b2; }
+  .pill.neg { background: #e36a6a1f; color: #f08a8a; }
+  .pill.warn { background: #d8b36a1f; color: #e3c285; }
+  .pill.info { background: #6aa8ff1f; color: #8dbcff; }
+  .pill.violet { background: #9d8fd91f; color: #b5aae6; }
+  .pill.mute { background: #ffffff0d; color: #999a9d; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .meter { position: relative; height: 4px; border-radius: 2px; background: #ffffff1a; overflow: hidden; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: #ededee; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px 10px; border-top: 1px solid #ffffff10; color: #707277; font-size: 12.5px; line-height: 18px; }
+  .seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff08; flex: none; }
+  .seg span { padding: 2px 8px; border-radius: 6px; color: #8f9094; font-size: 12.5px; line-height: 20px; white-space: nowrap; }
+  .seg span.on { background: #ffffff14; color: #ededee; }
+  .box { border: 1px solid #ffffff14; border-radius: 10px; background: #ffffff05; }
+  .chk { display: grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #ffffff38; box-sizing: border-box; color: #131416; }
+  .chk.on { background: #ededee; border-color: #ededee; }
+  .tile { display: grid; place-items: center; flex: none; border-radius: 6px; font-size: 11px; font-weight: 600; color: #ededee; }
+  .code { margin: 0; padding: 10px 12px; border-radius: 8px; background: #ffffff08; color: #b9babd; font: 12px/1.55 'SF Mono', Menlo, monospace; white-space: pre; overflow: hidden; }
+  .stat { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; }
+  .stat b { font-size: 20px; line-height: 26px; font-weight: 440; letter-spacing: -.2px; color: #ededee; font-variant-numeric: tabular-nums; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cells > * + * { border-left: 1px solid #ffffff0a; }
+</style>
+</helmet>
+<div class="page"><div class="col">
+<div class="user"><div class="bubble">Wie weit ist es zu Fuß zur Paulskirche?</div></div>
+
+<div class="w">
+  <svg width="736" height="230" viewBox="0 0 736 230" style="display: block">
+  <rect width="736" height="230" fill="#141518"></rect>
+  <path d="M0 40 C120 52 260 30 420 46 S640 70 736 58" stroke="#ffffff14" stroke-width="7" fill="none"></path><path d="M0 96 C160 90 300 110 470 98 S640 84 736 92" stroke="#ffffff12" stroke-width="5" fill="none"></path><path d="M90 0 L120 200" stroke="#ffffff0e" stroke-width="4"></path><path d="M250 0 L236 190" stroke="#ffffff0e" stroke-width="4"></path><path d="M380 0 L410 175" stroke="#ffffff0e" stroke-width="4"></path><path d="M560 0 L540 170" stroke="#ffffff0e" stroke-width="4"></path><path d="M660 0 L700 165" stroke="#ffffff0e" stroke-width="3"></path><path d="M0 140 C200 132 420 150 736 128" stroke="#ffffff10" stroke-width="3" fill="none"></path><path d="M170 0 L180 150M320 20 L300 160M470 10 L480 150M610 0 L620 140" stroke="#ffffff08" stroke-width="2"></path>
+  <path d="M0 186 C180 170 360 196 520 182 S700 170 736 176 V230 H0 Z" fill="#6aa8ff" fill-opacity=".09"></path>
+  <text x="560" y="214" fill="#6aa8ff" fill-opacity=".45" font-size="11" font-family="SF Pro Text, -apple-system, sans-serif" letter-spacing="1">Elbe</text>
+  <path d="M112 104 C160 112 196 124 236 128 S330 138 380 142 S470 150 520 156 S600 164 640 158" stroke="#ededee" stroke-opacity=".14" stroke-width="9" fill="none" stroke-linecap="round"></path>
+  <path d="M112 104 C160 112 196 124 236 128 S330 138 380 142 S470 150 520 156 S600 164 640 158" stroke="#ededee" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-dasharray="0.1 6"></path>
+  <circle cx="112" cy="104" r="7" fill="#101113" stroke="#ededee" stroke-width="2.5"></circle>
+  <circle cx="640" cy="158" r="14" fill="#6aa8ff" fill-opacity=".2"></circle>
+  <circle cx="640" cy="158" r="6" fill="#6aa8ff" stroke="#101113" stroke-width="2"></circle>
+  <rect x="62" y="70" width="100" height="22" rx="6" fill="#1b1c1f" stroke="#ffffff1a"></rect>
+  <text x="112" y="85" text-anchor="middle" fill="#ededee" font-size="12" font-family="SF Pro Text, -apple-system, sans-serif">Bornheim</text>
+  <rect x="566" y="120" width="148" height="22" rx="6" fill="#1b1c1f" stroke="#ffffff1a"></rect>
+  <text x="640" y="135" text-anchor="middle" fill="#ededee" font-size="12" font-family="SF Pro Text, -apple-system, sans-serif">Paulskirche</text>
+</svg>
+  <div class="wh" style="border-top: 1px solid #ffffff10">
+    <div class="mark" style="color: #6aa8ff"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z"></path><circle cx="12" cy="10" r="2.3"></circle></svg></div>
+    <div class="wt"><strong>Paulskirche</strong><small class="num">Innenstadt · 2,1 km am Mainufer entlang</small></div>
+    <div class="acts"><div class="seg"><span class="on">Zu Fuß 26 min</span><span class="">Rad 9 min</span><span class="">Bus 14 min</span></div><span class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M14 4h6v6M20 4l-9 9"></path><path d="M18 14v5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 19V7.5A1.5 1.5 0 0 1 5.5 6H10"></path></svg>In Karten öffnen</span></div>
+  </div>
+  <div class="foot"><span>© OpenStreetMap-Mitwirkende</span><span class="num">Ankunft 15:00</span></div>
+</div>
+
+</div></div>
+</x-dc>
+</body>
+</html>

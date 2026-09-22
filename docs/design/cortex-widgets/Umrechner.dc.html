@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #101113; }
+  a { color: #6aa8ff; text-decoration: none; } a:hover { color: #9cc5ff; }
+  .page { width: 816px; box-sizing: border-box; padding: 40px 40px 48px; background: #101113; color: #ededee;
+          font: 15px/23px 'SF Pro Text', -apple-system, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+  .col { display: flex; flex-direction: column; gap: 14px; width: 736px; }
+  .user { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .bubble { max-width: 70%; padding: 10px 16px 11px; border-radius: 20px; background: #ffffff12; font-size: 15px; line-height: 23px; }
+  .line { display: flex; align-items: center; gap: 8px; min-height: 23px; color: #8f9094; font-size: 15px; line-height: 23px; }
+  .prose { margin: 0; text-wrap: pretty; }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: 'SF Mono', Menlo, monospace; }
+  .w { border: 1px solid #ffffff12; border-radius: 12px; background: #ffffff06; overflow: hidden; }
+  .wh { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; }
+  .mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 9px; background: #ffffff0c; color: #ededee; font-size: 11px; font-weight: 600; letter-spacing: -.2px; }
+  .wt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .wt strong { font-size: 15px; line-height: 21px; font-weight: 500; color: #ededee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wt small { display: flex; align-items: center; gap: 6px; font-size: 13.5px; line-height: 19px; color: #8f9094; }
+  .acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 10px; border: 1px solid #ffffff1c; border-radius: 8px; color: #ededee; font-size: 14px; line-height: 20px; white-space: nowrap; }
+  .btn.primary { background: #eeeef0; border-color: #f4f4f5; color: #131416; font-weight: 500; }
+  .btn.quiet { border-color: transparent; color: #999a9d; padding: 5px 8px; }
+  .sep { border-top: 1px solid #ffffff10; }
+  .pad { padding: 14px; }
+  .row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 14px; color: #8f9094; font-size: 14.5px; line-height: 20px; }
+  .rows .row + .row::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; border-top: 1px solid #ffffff0a; }
+  .v { color: #ededee; }
+  .dim { color: #707277; }
+  .muted { color: #999a9d; }
+  .grow { flex: 1; min-width: 0; }
+  .label { font-size: 12px; line-height: 16px; color: #707277; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 12px; line-height: 20px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pill.pos { background: #88b99b1f; color: #9fd0b2; }
+  .pill.neg { background: #e36a6a1f; color: #f08a8a; }
+  .pill.warn { background: #d8b36a1f; color: #e3c285; }
+  .pill.info { background: #6aa8ff1f; color: #8dbcff; }
+  .pill.violet { background: #9d8fd91f; color: #b5aae6; }
+  .pill.mute { background: #ffffff0d; color: #999a9d; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .meter { position: relative; height: 4px; border-radius: 2px; background: #ffffff1a; overflow: hidden; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: #ededee; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px 10px; border-top: 1px solid #ffffff10; color: #707277; font-size: 12.5px; line-height: 18px; }
+  .seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff08; flex: none; }
+  .seg span { padding: 2px 8px; border-radius: 6px; color: #8f9094; font-size: 12.5px; line-height: 20px; white-space: nowrap; }
+  .seg span.on { background: #ffffff14; color: #ededee; }
+  .box { border: 1px solid #ffffff14; border-radius: 10px; background: #ffffff05; }
+  .chk { display: grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #ffffff38; box-sizing: border-box; color: #131416; }
+  .chk.on { background: #ededee; border-color: #ededee; }
+  .tile { display: grid; place-items: center; flex: none; border-radius: 6px; font-size: 11px; font-weight: 600; color: #ededee; }
+  .code { margin: 0; padding: 10px 12px; border-radius: 8px; background: #ffffff08; color: #b9babd; font: 12px/1.55 'SF Mono', Menlo, monospace; white-space: pre; overflow: hidden; }
+  .stat { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; }
+  .stat b { font-size: 20px; line-height: 26px; font-weight: 440; letter-spacing: -.2px; color: #ededee; font-variant-numeric: tabular-nums; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cells > * + * { border-left: 1px solid #ffffff0a; }
+</style>
+</helmet>
+<div class="page"><div class="col">
+<div class="user"><div class="bubble">Wie viel sind 250 Euro in Dänischen Kronen?</div></div>
+
+<div class="w">
+  <div class="pad" style="display: flex; align-items: center; gap: 10px">
+    <div class="box grow" style="padding: 12px 14px 14px">
+  <div class="label">Du gibst</div>
+  <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px">
+    <span class="num grow" style="font-size: 28px; line-height: 34px; font-weight: 300; letter-spacing: -.5px">250,00</span>
+    <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 5px; border-radius: 8px; background: #ffffff0c; font-size: 14px"><span class="tile" style="width: 20px; height: 20px; border-radius: 5px; background: #ffffff14; font-size: 11px">€</span>EUR<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m6 9 6 6 6-6"></path></svg></span>
+  </div>
+</div>
+    <span style="display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid #ffffff1c; color: #999a9d; flex: none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M4 8h14m-4-4 4 4-4 4M20 16H6m4-4-4 4 4 4"></path></svg></span>
+    <div class="box grow" style="padding: 12px 14px 14px">
+  <div class="label">Du bekommst</div>
+  <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px">
+    <span class="num grow" style="font-size: 28px; line-height: 34px; font-weight: 300; letter-spacing: -.5px">1.865,13</span>
+    <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 5px; border-radius: 8px; background: #ffffff0c; font-size: 14px"><span class="tile" style="width: 20px; height: 20px; border-radius: 5px; background: #ffffff14; font-size: 11px">kr</span>DKK<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m6 9 6 6 6-6"></path></svg></span>
+  </div>
+</div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 6px; padding: 0 14px 14px"><span class="pill mute" style="height: 26px; padding: 0 10px; font-size: 13px; ">50 €</span><span class="pill mute" style="height: 26px; padding: 0 10px; font-size: 13px; ">100 €</span><span class="pill " style="height: 26px; padding: 0 10px; font-size: 13px; background: #ffffff14; color: #ededee">250 €</span><span class="pill mute" style="height: 26px; padding: 0 10px; font-size: 13px; ">500 €</span><span class="pill mute" style="height: 26px; padding: 0 10px; font-size: 13px; ">1.000 €</span></div>
+  <div class="foot"><span class="num">1 EUR = <span class="muted">7,4605 DKK</span> · 1 DKK = <span class="muted">0,1340 EUR</span></span><span>EZB-Referenzkurs vom 11.09.</span></div>
+</div>
+
+</div></div>
+</x-dc>
+</body>
+</html>

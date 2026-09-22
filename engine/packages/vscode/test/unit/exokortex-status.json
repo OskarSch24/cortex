@@ -1,0 +1,154 @@
+{
+  "erzeugt": {
+    "t_instant": "2026-09-09T16:39:10Z",
+    "t_local": "2026-09-09T18:39:10",
+    "tz": "Europe/Berlin",
+    "t_precision": "second"
+  },
+  "urteil": {
+    "zustand": "warnung",
+    "satz": "Exokortex bereit — Plattenplatz: 11.1 GB frei",
+    "hinweis": "Unter 3 GB laeuft nichts mehr."
+  },
+  "pruefungen": [
+    {
+      "name": "Plattenplatz",
+      "zustand": "warnung",
+      "wert": "11.1 GB frei",
+      "hinweis": "Unter 3 GB laeuft nichts mehr."
+    },
+    {
+      "name": "Schreibsperre",
+      "zustand": "ok",
+      "wert": "frei",
+      "hinweis": ""
+    },
+    {
+      "name": "Leseserver",
+      "zustand": "ok",
+      "wert": "5 Werkzeuge, 66 ms",
+      "hinweis": ""
+    },
+    {
+      "name": "Graphindex",
+      "zustand": "ok",
+      "wert": "aktuell",
+      "hinweis": ""
+    },
+    {
+      "name": "Speicher",
+      "zustand": "ok",
+      "wert": "Inhalt 823 MB · Graph 156 MB · Index 143 MB",
+      "hinweis": ""
+    },
+    {
+      "name": "Chat-Ablage",
+      "zustand": "ok",
+      "wert": "4 Chats, zuletzt vor 3 min, 4 noch nicht eingespeist",
+      "hinweis": "Der naechste stuendliche Lauf holt sie."
+    },
+    {
+      "name": "Stuendlicher Lauf",
+      "zustand": "ok",
+      "wert": "2 Laeufe, zuletzt in Ordnung",
+      "hinweis": ""
+    },
+    {
+      "name": "Vault-Projektion",
+      "zustand": "ok",
+      "wert": "aktuell, vor 3 h geschrieben",
+      "hinweis": ""
+    },
+    {
+      "name": "Werkzeugkette",
+      "zustand": "ok",
+      "wert": "vollstaendig",
+      "hinweis": ""
+    },
+    {
+      "name": "Schreibpuffer",
+      "zustand": "ok",
+      "wert": "0 MB",
+      "hinweis": ""
+    }
+  ],
+  "graph": {
+    "gebaut_am": "2026-09-09 15:39",
+    "knoten": 30698,
+    "kanten": 128606
+  },
+  "abnahme": {
+    "herkunft": "abnahme",
+    "gerissen": 2,
+    "gesamt": 17,
+    "gemessen": "2026-09-09 18:26",
+    "veraltet": false,
+    "befunde": [
+      {
+        "name": "Vollstaendigkeit Nordwind Studio",
+        "wert": "95.1% (1.137 da, 59 fehlen)",
+        "ok": false,
+        "regel": ">= 99%",
+        "herkunft": "Der erste Lauf nahm nur die Ordnernamen auf, der zweite dreizehn handverlesene Knoten aus 136.507 Dateien.",
+        "hinweis": "Vollstaendige Fehlliste: ~/.exokortex/einspeisungen/fehlend_9b3758253184.txt"
+      },
+      {
+        "name": "Vollstaendigkeit Persönliche Projekte",
+        "wert": "95.9% (4.344 da, 188 fehlen)",
+        "ok": false,
+        "regel": ">= 99%",
+        "herkunft": "Der erste Lauf nahm nur die Ordnernamen auf, der zweite dreizehn handverlesene Knoten aus 136.507 Dateien.",
+        "hinweis": "Vollstaendige Fehlliste: ~/.exokortex/einspeisungen/fehlend_b52ec47f4108.txt"
+      }
+    ]
+  },
+  "arbeitsliste": {
+    "offene_entscheidungen": 4,
+    "unbenannte_orte": 240,
+    "fehlende_dateien": 247,
+    "fehllisten": [
+      {
+        "datei": "~/.exokortex/einspeisungen/fehlend_9b3758253184.txt",
+        "anzahl": 59
+      },
+      {
+        "datei": "~/.exokortex/einspeisungen/fehlend_b52ec47f4108.txt",
+        "anzahl": 188
+      }
+    ]
+  },
+  "chronik": [
+    {
+      "zeit": "2026-09-09 15:39",
+      "quellen": [
+        "Cortex-Chats"
+      ],
+      "dauer_s": 369.0705518722534,
+      "exitcode": 1,
+      "abgebrochen_in": null,
+      "chats": 4,
+      "maskiert": 0
+    },
+    {
+      "zeit": "2026-09-07 23:48",
+      "quellen": [
+        "Testquelle Lauf"
+      ],
+      "dauer_s": 160.3,
+      "exitcode": null,
+      "abgebrochen_in": null,
+      "stufen": {
+        "vorflug:Testquelle Lauf": 0,
+        "speise:Testquelle Lauf": 0,
+        "verbinde": 0,
+        "abnahme": 0
+      }
+    }
+  ],
+  "pfade": {
+    "speicher": "~/.exokortex",
+    "vault": "~/Obsidian-Vault",
+    "chats": "~/Cortex-Chats",
+    "log": "~/Library/Logs/exokortex-chats.log"
+  }
+}

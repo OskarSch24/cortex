@@ -1,0 +1,48 @@
+{
+  "name": "theme-oskars",
+  "displayName": "Cortex Dark",
+  "description": "Default dark workbench for Cortex.",
+  "version": "0.1.0",
+  "publisher": "oskarschiermeister",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Themes"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "label": "Cortex Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/oskars-dark.json"
+      }
+    ],
+    "configurationDefaults": {
+      "workbench.colorTheme": "Cortex Dark",
+      "workbench.startupEditor": "none",
+      "window.titleBarStyle": "custom",
+      "window.density.editorTabHeight": "compact",
+      "editor.fontSize": 13,
+      "workbench.tree.indent": 8,
+      "workbench.activityBar.location": "hidden",
+      "workbench.statusBar.visible": false,
+      "workbench.editor.showTabs": "none",
+      "debug.toolBarLocation": "hidden",
+      "debug.openDebug": "neverOpen",
+      "window.commandCenter": true,
+      "editor.minimap.enabled": false,
+      "editor.cursorBlinking": "smooth",
+      "editor.cursorSmoothCaretAnimation": "on",
+      "editor.smoothScrolling": true,
+      "workbench.list.smoothScrolling": true,
+      "editor.fontLigatures": true,
+      "editor.renderLineHighlight": "line",
+      "editor.padding.top": 8,
+      "files.autoSave": "off",
+      "workbench.layoutControl.enabled": false,
+      "workbench.editor.editorActionsLocation": "hidden",
+      "window.customTitleBarVisibility": "auto"
+    }
+  }
+}

@@ -1,0 +1,327 @@
+{
+  "pages": [
+    {
+      "id": "ueberblick",
+      "name": "Überblick"
+    },
+    {
+      "id": "alltag",
+      "name": "Alltag"
+    },
+    {
+      "id": "arbeit",
+      "name": "Arbeit"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1208,
+      "title": "Cortex · Widgets im Verlauf",
+      "page": "ueberblick"
+    },
+    {
+      "file": "Wetter.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 816,
+      "h": 593,
+      "title": "01 · Wetter",
+      "page": "alltag"
+    },
+    {
+      "file": "Timer.dc.html",
+      "x": 916,
+      "y": 0,
+      "w": 816,
+      "h": 344,
+      "title": "02 · Timer",
+      "page": "alltag"
+    },
+    {
+      "file": "Abfahrten.dc.html",
+      "x": 1832,
+      "y": 0,
+      "w": 816,
+      "h": 545,
+      "title": "03 · Abfahrten",
+      "page": "alltag"
+    },
+    {
+      "file": "Umrechner.dc.html",
+      "x": 2748,
+      "y": 0,
+      "w": 816,
+      "h": 358,
+      "title": "04 · Umrechner",
+      "page": "alltag"
+    },
+    {
+      "file": "Sendung.dc.html",
+      "x": 3664,
+      "y": 0,
+      "w": 816,
+      "h": 496,
+      "title": "05 · Sendung",
+      "page": "alltag"
+    },
+    {
+      "file": "ToDo.dc.html",
+      "x": 0,
+      "y": 753,
+      "w": 816,
+      "h": 505,
+      "title": "06 · To-do",
+      "page": "alltag"
+    },
+    {
+      "file": "Karte.dc.html",
+      "x": 916,
+      "y": 753,
+      "w": 816,
+      "h": 501,
+      "title": "07 · Karte",
+      "page": "alltag"
+    },
+    {
+      "file": "Kalender.dc.html",
+      "x": 1832,
+      "y": 753,
+      "w": 816,
+      "h": 727,
+      "title": "08 · Kalender",
+      "page": "alltag"
+    },
+    {
+      "file": "Kurs.dc.html",
+      "x": 2748,
+      "y": 753,
+      "w": 816,
+      "h": 632,
+      "title": "09 · Kurs",
+      "page": "alltag"
+    },
+    {
+      "file": "Weltuhr.dc.html",
+      "x": 3664,
+      "y": 753,
+      "w": 816,
+      "h": 565,
+      "title": "10 · Weltuhr",
+      "page": "alltag"
+    },
+    {
+      "file": "AgentenLauf.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 816,
+      "h": 503,
+      "title": "01 · Agenten-Lauf",
+      "page": "arbeit"
+    },
+    {
+      "file": "Tests.dc.html",
+      "x": 916,
+      "y": 0,
+      "w": 816,
+      "h": 603,
+      "title": "02 · Tests",
+      "page": "arbeit"
+    },
+    {
+      "file": "Limits.dc.html",
+      "x": 1832,
+      "y": 0,
+      "w": 816,
+      "h": 507,
+      "title": "03 · Limits",
+      "page": "arbeit"
+    },
+    {
+      "file": "Server.dc.html",
+      "x": 2748,
+      "y": 0,
+      "w": 816,
+      "h": 679,
+      "title": "04 · Server",
+      "page": "arbeit"
+    },
+    {
+      "file": "Deploy.dc.html",
+      "x": 3664,
+      "y": 0,
+      "w": 816,
+      "h": 476,
+      "title": "05 · Deploy",
+      "page": "arbeit"
+    },
+    {
+      "file": "Verifikation.dc.html",
+      "x": 0,
+      "y": 839,
+      "w": 816,
+      "h": 576,
+      "title": "06 · Verifikation",
+      "page": "arbeit"
+    },
+    {
+      "file": "ScrapeLauf.dc.html",
+      "x": 916,
+      "y": 839,
+      "w": 816,
+      "h": 574,
+      "title": "07 · Scrape-Lauf",
+      "page": "arbeit"
+    },
+    {
+      "file": "Workflow.dc.html",
+      "x": 1832,
+      "y": 839,
+      "w": 816,
+      "h": 535,
+      "title": "08 · Workflow",
+      "page": "arbeit"
+    },
+    {
+      "file": "Abfrage.dc.html",
+      "x": 2748,
+      "y": 839,
+      "w": 816,
+      "h": 628,
+      "title": "09 · Abfrage",
+      "page": "arbeit"
+    },
+    {
+      "file": "Knoten.dc.html",
+      "x": 3664,
+      "y": 839,
+      "w": 816,
+      "h": 507,
+      "title": "10 · Knoten",
+      "page": "arbeit"
+    },
+    {
+      "file": "Entscheidung.dc.html",
+      "x": 0,
+      "y": 1627,
+      "w": 816,
+      "h": 567,
+      "title": "11 · Entscheidung",
+      "page": "arbeit"
+    },
+    {
+      "file": "Orte.dc.html",
+      "x": 916,
+      "y": 1627,
+      "w": 816,
+      "h": 627,
+      "title": "12 · Orte",
+      "page": "arbeit"
+    },
+    {
+      "file": "Tageszeitleiste.dc.html",
+      "x": 1832,
+      "y": 1627,
+      "w": 816,
+      "h": 493,
+      "title": "13 · Tageszeitleiste",
+      "page": "arbeit"
+    },
+    {
+      "file": "JobTreffer.dc.html",
+      "x": 2748,
+      "y": 1627,
+      "w": 816,
+      "h": 602,
+      "title": "14 · Job-Treffer",
+      "page": "arbeit"
+    },
+    {
+      "file": "FigmaAbgleich.dc.html",
+      "x": 3664,
+      "y": 1627,
+      "w": 816,
+      "h": 620,
+      "title": "15 · Figma-Abgleich",
+      "page": "arbeit"
+    },
+    {
+      "file": "Farbpalette.dc.html",
+      "x": 0,
+      "y": 2414,
+      "w": 816,
+      "h": 589,
+      "title": "16 · Farbpalette",
+      "page": "arbeit"
+    },
+    {
+      "file": "AudioTakes.dc.html",
+      "x": 916,
+      "y": 2414,
+      "w": 816,
+      "h": 463,
+      "title": "17 · Audio-Takes",
+      "page": "arbeit"
+    },
+    {
+      "file": "Kampagne.dc.html",
+      "x": 1832,
+      "y": 2414,
+      "w": 816,
+      "h": 546,
+      "title": "18 · Kampagne",
+      "page": "arbeit"
+    },
+    {
+      "file": "Pruefung.dc.html",
+      "x": 2748,
+      "y": 2414,
+      "w": 816,
+      "h": 576,
+      "title": "19 · Prüfung",
+      "page": "arbeit"
+    },
+    {
+      "file": "Spieltheorie.dc.html",
+      "x": 3664,
+      "y": 2414,
+      "w": 816,
+      "h": 664,
+      "title": "20 · Spieltheorie",
+      "page": "arbeit"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "regeln",
+      "x": 1520,
+      "y": 0,
+      "w": 420,
+      "page": "ueberblick",
+      "text": "Cortex Chat-Widgets\nJedes Widget ist eine Karte im Verlauf: Radius 12, Rand #ffffff12, Fläche #ffffff06, Kopf mit 36-px-Marke, Titel 15/21, Unterzeile 13,5/19.\n\nFarbe nur, wo sie etwas bedeutet: Grün gut, Rot Fehler, Bernstein Warnung, Blau läuft oder Link, Violett als zweite Reihe. Nach dem Fey-Kit: gepunktete Bezugslinien, leuchtender Endpunkt, Wert-Pillen mit getönter Fläche.\n\nAlle Werte sind Beispiele."
+    },
+    {
+      "id": "alltag-hinweis",
+      "x": 0,
+      "y": -150,
+      "w": 520,
+      "page": "alltag",
+      "text": "Alltag · 10 Widgets\nJedes Artboard zeigt Frage, Widget und bei Bedarf einen Satz Antwort, so wie es im Cortex-Chat steht (Spalte 736 px)."
+    },
+    {
+      "id": "arbeit-hinweis",
+      "x": 0,
+      "y": -150,
+      "w": 520,
+      "page": "arbeit",
+      "text": "Arbeit · 20 Widgets\nInhalte aus dem Exokortex, wo es sie gibt: Stationen aus dem CV, DEC-2026-09-06-01, Container auf demo-hetzner. Firmen, Handles und Kennzahlen sind erfunden."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "ueberblick"
+  }
+}

@@ -1,0 +1,125 @@
+:root {
+  --cxd-pane-width: 0px; --cxd-terminal-height: 0px; --cxd-terminal-left: 0px;
+  /* The renderer owns its theme; no workbench injects these compatibility
+     tokens. Existing Cortex components keep the same palette after migration. */
+  --vscode-font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  --vscode-font-size: 13px;
+  --vscode-editor-font-family: 'SF Mono', Menlo, monospace;
+  --vscode-editor-font-size: 14px;
+  --vscode-foreground: #D8D6D2;
+  --vscode-descriptionForeground: #999a9d;
+  --vscode-editor-background: #181818;
+  --vscode-sideBar-background: #353030;
+  --vscode-editorWidget-background: #2d2d2d;
+  --vscode-input-background: #353535;
+  --vscode-input-foreground: #D8D6D2;
+  --vscode-input-border: #414141;
+  --vscode-button-background: #D6B78C;
+  --vscode-button-foreground: #0b0b0c;
+  --vscode-button-hoverBackground: #E5CEAB;
+  --vscode-textLink-foreground: #83a9e8;
+  --vscode-focusBorder: #D6B78C66;
+  --vscode-errorForeground: #e34671;
+  --vscode-icon-foreground: #D8D6D2;
+  --vscode-textCodeBlock-background: #ffffff0e;
+  --vscode-toolbar-hoverBackground: #ffffff0c;
+  --vscode-list-hoverBackground: #ffffff0c;
+  --vscode-list-activeSelectionBackground: #ffffff14;
+  --vscode-list-activeSelectionForeground: #f2efea;
+  --vscode-scrollbarSlider-background: #ffffff10;
+  --vscode-inputValidation-errorBackground: #e3467118;
+  --vscode-charts-green: #88b99b;
+  --vscode-charts-yellow: #d0a54e;
+  --vscode-charts-orange: #d08a4e;
+  --vscode-charts-red: #e34671;
+  --vscode-charts-blue: #83a9e8;
+  --vscode-charts-purple: #b18cd9;
+}
+body.cortex-desktop-shell { margin: 0; overflow: hidden; background: var(--cx-bg, #181818); color: var(--cx-text, #ededee); font-family: var(--vscode-font-family); -webkit-font-smoothing: antialiased; }
+.cortex-desktop-shell > #root { position: absolute; inset: 0 var(--cxd-pane-width) 0 0; min-width: 0; min-height: 0; }
+.cortex-desktop-shell .cx-shell { height: 100%; }
+.cortex-desktop-shell .cx-main, .cortex-desktop-shell .cx-settings-mode { height: calc(100% - var(--cxd-terminal-height)); }
+.cortex-desktop-shell.cxd-auto-sidebar .cx-sidebar { margin-left: calc(-1 * var(--cx-sidebar-width, 250px)) !important; opacity: 0; pointer-events: none; }
+.cortex-desktop-shell.cxd-auto-sidebar .cx-main { --cx-history-left: 86px; }
+.cortex-desktop-shell.cxd-compact-workspace .cx-welcome { flex: 1; min-height: 0; overflow: hidden; margin: 44px 0 12px; padding: 10px 20px; }
+.cortex-desktop-shell.cxd-compact-workspace .cx-welcome-mark, .cortex-desktop-shell.cxd-compact-workspace .cx-start-cards { display: none; }
+.cortex-desktop-shell.cxd-compact-workspace .cx-welcome h1 { font-size: 20px; margin: 0; }
+.cortex-desktop-shell .cx-rail-brand { position: relative; z-index: 4; margin-top: 44px; }
+.cortex-desktop-shell .cx-history, .cortex-desktop-shell button, .cortex-desktop-shell input, .cortex-desktop-shell textarea, .cortex-desktop-shell select { -webkit-app-region: no-drag; }
+/* Der Streifen zum Verschieben des Fensters. Er liegt vor der Oberfläche im
+   Dokument und unter ihr in der Stapelung: sonst gewinnt er gegen die
+   no-drag-Ausnahmen der Knöpfe darunter, und die obersten 44 Pixel der
+   Oberfläche nehmen keine Klicks mehr an. Im Vollbild lässt sich ein Fenster
+   ohnehin nicht verschieben — dort rückt die Kopfzeile der Seitenleiste nach
+   oben, also muss der Streifen weg. */
+.cxd-dragbar { position: fixed; z-index: 0; top: 0; left: 0; right: 0; height: 44px; -webkit-app-region: drag; }
+.cxd-fullscreen .cxd-dragbar { display: none; }
+.cxd-fullscreen .cortex-desktop-shell .cx-rail-brand { margin-top: 8px; }
+.cxd-toolbar, .cxd-side, .cxd-terminal, .cxd-menu, .cxd-modal-backdrop, .cxd-toast { font: 13px/1.5 var(--cx-body-font, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif); color: var(--cx-text, #ededee); box-sizing: border-box; -webkit-app-region: no-drag; }
+.cxd-toolbar *, .cxd-side *, .cxd-terminal *, .cxd-menu *, .cxd-modal-backdrop * { box-sizing: border-box; }
+.cxd-toolbar { position: fixed; right: 10px; top: 7px; height: 30px; display: flex; align-items: center; gap: 3px; z-index: 30; }
+.cxd-toolbar[hidden], .cxd-side[hidden], .cxd-terminal[hidden], .cxd-browser[hidden], .cxd-editor-panel[hidden], .cxd-editor-surface[hidden], .cxd-terminal-session[hidden], .cxd-toast[hidden], .cxd-browser-notice[hidden] { display: none !important; }
+.cxd-icon { border: 0; padding: 5px; width: 28px; height: 28px; border-radius: 6px; color: var(--cx-muted, #999a9d); background: transparent; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; cursor: pointer; }
+.cxd-icon svg { display: block; width: 17px; height: 17px; }
+.cxd-icon:hover, .cxd-icon.selected { color: var(--cx-text, #ededee); background: var(--cx-hover, #2d2d2d); }
+.cxd-icon:disabled { opacity: .35; cursor: default; background: transparent; }
+.cxd-icon:focus-visible, .cxd-tab:focus-visible, .cxd-menu button:focus-visible, .cxd-resize:focus-visible { outline: 2px solid var(--cx-accent, #ededee); outline-offset: -2px; }
+.cxd-side { position: fixed; top: 44px; right: 0; bottom: var(--cxd-terminal-height); width: var(--cxd-pane-width); background: var(--cx-bg, #181818); border-left: 1px solid var(--cx-strong-line, #ffffff18); display: flex; flex-direction: column; min-width: 0; z-index: 10; }
+.cxd-tabs { display: flex; flex: 1; min-width: 0; align-items: stretch; overflow-x: auto; scrollbar-width: thin; }
+.cxd-side-tabs { min-height: 38px; max-height: 38px; flex: 0 0 38px; border-top: 1px solid var(--cx-line, #ffffff0e); border-bottom: 1px solid var(--cx-line, #ffffff0e); background: var(--cx-raised, #1f1f1f); }
+.cxd-tab-wrap { display: flex; align-items: center; max-width: 240px; border-right: 1px solid var(--cx-line, #ffffff0e); position: relative; flex-shrink: 0; }
+.cxd-tab-wrap.selected { background: var(--cx-bg, #181818); }
+.cxd-tab-wrap.selected::after { content: ''; height: 2px; background: var(--cx-muted, #999a9d); position: absolute; left: 0; right: 0; bottom: 0; }
+.cxd-tab { display: flex; align-items: center; gap: 9px; border: 0; background: transparent; color: var(--cx-muted, #999a9d); font: inherit; padding: 6px 6px 6px 13px; height: 100%; max-width: 205px; min-width: 50px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; }
+.cxd-tab-wrap.selected .cxd-tab { color: var(--cx-text, #ededee); }
+.cxd-tab-close { height: 22px; width: 22px; margin-right: 5px; padding: 5px; }
+.cxd-tab-close svg { height: 13px; width: 13px; }
+.cxd-dirty { font-size: 17px; color: var(--cx-muted, #999a9d); }
+.cxd-browser, .cxd-editor-panel { min-height: 0; display: flex; flex: 1; flex-direction: column; }
+.cxd-browser-controls { padding: 7px 8px; gap: 2px; display: flex; align-items: center; border-bottom: 1px solid var(--cx-line, #ffffff0e); }
+.cxd-address { min-width: 0; flex: 1; height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--cx-strong-line, #ffffff18); background: var(--cx-raised, #1f1f1f); color: inherit; font: inherit; outline: none; }
+.cxd-address:focus { border-color: var(--cx-muted, #999a9d); }
+.cxd-browser-content { flex: 1; min-height: 0; position: relative; }
+.cxd-browser-notice { margin: 50px 28px; text-align: center; color: var(--cx-muted, #999a9d); }
+.cxd-editor-header { min-height: 38px; display: flex; align-items: center; gap: 10px; padding: 4px 8px 4px 13px; border-bottom: 1px solid var(--cx-line, #ffffff0e); }
+.cxd-editor-path { min-width: 0; flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: var(--cx-muted, #999a9d); font-size: 11px; }
+.cxd-editor-status { color: var(--cx-dim, #707277); font-size: 11px; white-space: nowrap; }
+.cxd-editor-surface { flex: 1; min-height: 0; width: 100%; overflow: hidden; }
+.cxd-terminal { position: fixed; left: var(--cxd-terminal-left); right: 0; bottom: 0; height: var(--cxd-terminal-height); border-top: 1px solid var(--cx-strong-line, #ffffff18); border-left: 1px solid var(--cx-line, #ffffff0e); background: var(--cx-bg, #181818); display: flex; flex-direction: column; z-index: 12; }
+.cxd-terminal-header { height: 35px; min-height: 35px; display: flex; align-items: stretch; padding-right: 7px; background: var(--cx-raised, #1f1f1f); border-bottom: 1px solid var(--cx-line, #ffffff0e); }
+.cxd-terminal-header > .cxd-icon { align-self: center; }
+.cxd-terminals { flex: 1; position: relative; min-height: 0; padding: 9px 10px 5px 14px; }
+.cxd-terminal-session { height: 100%; width: 100%; }
+.cxd-terminal-session .xterm { height: 100%; }
+.cxd-resize { position: absolute; z-index: 20; touch-action: none; }
+.cxd-side-resize { top: 0; bottom: 0; width: 7px; left: -4px; cursor: col-resize; }
+.cxd-terminal-resize { left: 0; right: 0; top: -4px; height: 7px; cursor: row-resize; }
+.cxd-resize:hover, .cxd-resize:focus-visible { background: #ffffff18; }
+.cxd-menu { position: fixed; z-index: 5000; top: 42px; right: 10px; width: 236px; max-height: calc(100vh - 70px); overflow-y: auto; padding: 6px; border-radius: 14px; border: 1px solid var(--cx-strong-line, #ffffff18); background: #2d2d2d; box-shadow: 0 12px 32px #0005; }
+.cxd-menu button { display: block; width: 100%; padding: 7px 10px; border: 0; border-radius: 7px; color: var(--cx-text, #ededee); background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.cxd-menu button:hover, .cxd-menu button:focus { background: #ffffff0e; outline: none; }
+.cxd-menu hr { border: 0; height: 1px; background: var(--cx-strong-line, #ffffff18); margin: 5px 7px; }
+.cxd-modal-backdrop { position: fixed; z-index: 10000; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding: clamp(70px, 14vh, 150px) 24px 30px; background: #0007; }
+.cxd-dialog { width: min(520px, 100%); max-height: calc(100vh - 120px); overflow: auto; border-radius: 19px; border: 1px solid #ffffff20; background: var(--cx-raised, #222); padding: 22px; box-shadow: 0 24px 80px #0008; }
+.cxd-dialog h2 { margin: 0 0 15px; font-size: 17px; font-weight: 600; line-height: 1.35; }
+.cxd-prompt-detail { margin: -4px 0 14px; color: var(--cx-muted, #999a9d); white-space: pre-wrap; }
+.cxd-prompt-input { display: block; width: 100%; border: 1px solid #ffffff28; background: var(--cx-bg, #181818); padding: 10px 12px; border-radius: 9px; color: inherit; font: inherit; outline: none; }
+.cxd-prompt-input:focus { border-color: #ffffff65; }
+.cxd-prompt-choices { margin-top: 10px; max-height: min(370px, 43vh); overflow-y: auto; padding: 2px; }
+.cxd-choice { display: block; width: 100%; padding: 9px 11px; border: 0; border-radius: 8px; font: inherit; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.cxd-choice.focused { background: var(--cx-hover, #2d2d2d); }
+.cxd-choice.selected { box-shadow: inset 3px 0 0 var(--cx-accent, #ededee); }
+.cxd-choice:disabled { opacity: .4; cursor: default; }
+.cxd-choice-caption { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px; }
+.cxd-choice strong { font-weight: 500; }
+.cxd-choice-caption > span, .cxd-choice small { color: var(--cx-muted, #999a9d); }
+.cxd-choice small { display: block; font-size: 11px; white-space: pre-wrap; }
+.cxd-prompt-group { color: var(--cx-dim, #707277); padding: 10px 11px 4px; font-size: 11px; }
+.cxd-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.cxd-primary, .cxd-secondary { min-height: 32px; padding: 6px 13px; font: inherit; cursor: pointer; border-radius: 8px; }
+.cxd-primary { background: var(--cx-text, #ededee); color: var(--cx-bg, #181818); border: 1px solid transparent; }
+.cxd-secondary { background: transparent; color: inherit; border: 1px solid #ffffff20; }
+.cxd-empty { padding: 12px; color: var(--cx-muted, #999a9d); text-align: center; }
+.cxd-toast { position: fixed; z-index: 10001; bottom: 22px; left: 50%; transform: translateX(-50%); max-width: min(600px, calc(100vw - 40px)); border: 1px solid #ffffff24; background: #303030; padding: 11px 16px; border-radius: 11px; box-shadow: 0 8px 30px #0005; white-space: pre-wrap; }
+.cxd-toast.is-error { border-color: #aa6459; }
+@media (prefers-reduced-motion: reduce) { .cxd-side, .cxd-terminal { scroll-behavior: auto; } }

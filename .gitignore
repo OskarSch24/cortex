@@ -1,0 +1,37 @@
+.cache/
+brand/icon.iconset/
+*.vsix
+
+# --- öffentliche Fassung: niemals einchecken ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.mobileprovision
+*.sqlite
+*.sqlite3
+*.db
+*.log
+.DS_Store
+.claude/
+.cache/
+node_modules/
+dist/
+build/
+out/
+.venv/
+__pycache__/
+*.pyc
+coverage/
+test-output/
+
+# generiert von engine/packages/desktop/build.mjs
+engine/packages/desktop/resources/cortex/
+engine/packages/desktop/resources/licenses/
+*.map
+backups/
+
+# proprietäre OpenAI-Vorlagen, nicht weiterverbreiten
+engine/packages/vscode/templates/artifacts/

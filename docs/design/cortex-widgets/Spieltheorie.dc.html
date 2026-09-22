@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #101113; }
+  a { color: #6aa8ff; text-decoration: none; } a:hover { color: #9cc5ff; }
+  .page { width: 816px; box-sizing: border-box; padding: 40px 40px 48px; background: #101113; color: #ededee;
+          font: 15px/23px 'SF Pro Text', -apple-system, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+  .col { display: flex; flex-direction: column; gap: 14px; width: 736px; }
+  .user { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .bubble { max-width: 70%; padding: 10px 16px 11px; border-radius: 20px; background: #ffffff12; font-size: 15px; line-height: 23px; }
+  .line { display: flex; align-items: center; gap: 8px; min-height: 23px; color: #8f9094; font-size: 15px; line-height: 23px; }
+  .prose { margin: 0; text-wrap: pretty; }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: 'SF Mono', Menlo, monospace; }
+  .w { border: 1px solid #ffffff12; border-radius: 12px; background: #ffffff06; overflow: hidden; }
+  .wh { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; }
+  .mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 9px; background: #ffffff0c; color: #ededee; font-size: 11px; font-weight: 600; letter-spacing: -.2px; }
+  .wt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .wt strong { font-size: 15px; line-height: 21px; font-weight: 500; color: #ededee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wt small { display: flex; align-items: center; gap: 6px; font-size: 13.5px; line-height: 19px; color: #8f9094; }
+  .acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 10px; border: 1px solid #ffffff1c; border-radius: 8px; color: #ededee; font-size: 14px; line-height: 20px; white-space: nowrap; }
+  .btn.primary { background: #eeeef0; border-color: #f4f4f5; color: #131416; font-weight: 500; }
+  .btn.quiet { border-color: transparent; color: #999a9d; padding: 5px 8px; }
+  .sep { border-top: 1px solid #ffffff10; }
+  .pad { padding: 14px; }
+  .row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 14px; color: #8f9094; font-size: 14.5px; line-height: 20px; }
+  .rows .row + .row::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; border-top: 1px solid #ffffff0a; }
+  .v { color: #ededee; }
+  .dim { color: #707277; }
+  .muted { color: #999a9d; }
+  .grow { flex: 1; min-width: 0; }
+  .label { font-size: 12px; line-height: 16px; color: #707277; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 12px; line-height: 20px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pill.pos { background: #88b99b1f; color: #9fd0b2; }
+  .pill.neg { background: #e36a6a1f; color: #f08a8a; }
+  .pill.warn { background: #d8b36a1f; color: #e3c285; }
+  .pill.info { background: #6aa8ff1f; color: #8dbcff; }
+  .pill.violet { background: #9d8fd91f; color: #b5aae6; }
+  .pill.mute { background: #ffffff0d; color: #999a9d; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .meter { position: relative; height: 4px; border-radius: 2px; background: #ffffff1a; overflow: hidden; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: #ededee; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px 10px; border-top: 1px solid #ffffff10; color: #707277; font-size: 12.5px; line-height: 18px; }
+  .seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff08; flex: none; }
+  .seg span { padding: 2px 8px; border-radius: 6px; color: #8f9094; font-size: 12.5px; line-height: 20px; white-space: nowrap; }
+  .seg span.on { background: #ffffff14; color: #ededee; }
+  .box { border: 1px solid #ffffff14; border-radius: 10px; background: #ffffff05; }
+  .chk { display: grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #ffffff38; box-sizing: border-box; color: #131416; }
+  .chk.on { background: #ededee; border-color: #ededee; }
+  .tile { display: grid; place-items: center; flex: none; border-radius: 6px; font-size: 11px; font-weight: 600; color: #ededee; }
+  .code { margin: 0; padding: 10px 12px; border-radius: 8px; background: #ffffff08; color: #b9babd; font: 12px/1.55 'SF Mono', Menlo, monospace; white-space: pre; overflow: hidden; }
+  .stat { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; }
+  .stat b { font-size: 20px; line-height: 26px; font-weight: 440; letter-spacing: -.2px; color: #ededee; font-variant-numeric: tabular-nums; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cells > * + * { border-left: 1px solid #ffffff0a; }
+</style>
+</helmet>
+<div class="page"><div class="col">
+<div class="user"><div class="bubble">Wie gehe ich ins Gehaltsgespräch nach der Ausbildung?</div></div>
+<div class="line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M12 3.5c.6 4.3 2.2 5.9 6.5 6.5-4.3.6-5.9 2.2-6.5 6.5-.6-4.3-2.2-5.9-6.5-6.5 4.3-.6 5.9-2.2 6.5-6.5Z"></path></svg><span>Situation spieltheoretisch zerlegt</span></div>
+<div class="w">
+  <div class="wh"><div class="mark" style=""><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="8.5" cy="8" r="3"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3 19.5c.5-3 2.8-5 5.5-5s5 2 5.5 5M14.5 14.6c3-.6 5.8 1.3 6.5 4.4"></path></svg></div>
+  <div class="wt"><strong>Gehaltsgespräch nach der Ausbildung</strong><small>Strategische Lage · 3 Beteiligte</small></div><div class="acts"><span class="btn">Ganzen Bericht öffnen</span></div></div>
+  <div class="sep" style="padding: 6px 0 0"><svg width="706" height="220" viewBox="0 0 706 220" style="display: block">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#ffffff66"></path></marker>
+  <marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#d8b36a"></path></marker></defs>
+  <rect x="20" y="30" width="190" height="58" rx="10" fill="#1b1c1f" stroke="#ededee" stroke-opacity="0.8" ></rect><circle cx="38" cy="51" r="4" fill="#ededee"></circle><text x="50" y="55" fill="#ededee" font-size="13" font-weight="500" font-family="SF Pro Text, -apple-system, sans-serif">Du</text><text x="34" y="75" fill="#8f9094" font-size="11.5" font-family="SF Pro Text, -apple-system, sans-serif">Mehr Gehalt, sicher bleiben</text>
+  <rect x="496" y="30" width="190" height="58" rx="10" fill="#1b1c1f" stroke="#6aa8ff" stroke-opacity="0.8" ></rect><circle cx="514" cy="51" r="4" fill="#6aa8ff"></circle><text x="526" y="55" fill="#ededee" font-size="13" font-weight="500" font-family="SF Pro Text, -apple-system, sans-serif">Ausbildungsbetrieb</text><text x="510" y="75" fill="#8f9094" font-size="11.5" font-family="SF Pro Text, -apple-system, sans-serif">Dich halten, aber günstig</text>
+  <rect x="258" y="150" width="190" height="58" rx="10" fill="#1b1c1f" stroke="#d8b36a" stroke-opacity="0.6" stroke-dasharray="4 4"></rect><circle cx="276" cy="171" r="4" fill="#d8b36a"></circle><text x="288" y="175" fill="#ededee" font-size="13" font-weight="500" font-family="SF Pro Text, -apple-system, sans-serif">Anderes Angebot</text><text x="272" y="195" fill="#8f9094" font-size="11.5" font-family="SF Pro Text, -apple-system, sans-serif">Noch nicht bekannt</text>
+  <path d="M216 50 C300 34 400 34 490 50" fill="none" stroke="#ffffff40" stroke-width="1.5" marker-end="url(#ah)"></path>
+  <text x="353" y="30" text-anchor="middle" fill="#999a9d" font-size="11.5" font-family="SF Pro Text, -apple-system, sans-serif">will mehr Gehalt</text>
+  <path d="M490 74 C400 90 300 90 216 74" fill="none" stroke="#ffffff40" stroke-width="1.5" marker-end="url(#ah)"></path>
+  <text x="353" y="104" text-anchor="middle" fill="#999a9d" font-size="11.5" font-family="SF Pro Text, -apple-system, sans-serif">will Einarbeitung nicht verlieren</text>
+  <path d="M452 168 C500 150 560 120 585 94" fill="none" stroke="#d8b36a" stroke-opacity=".7" stroke-width="1.5" stroke-dasharray="3 4" marker-end="url(#aw)"></path>
+  <text x="560" y="160" fill="#e3c285" font-size="11.5" font-family="SF Pro Text, -apple-system, sans-serif">würde Druck machen</text>
+</svg></div>
+  <div style="padding: 0 14px 14px">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 8px"><span class="label">Du brauchst ihn mehr</span><span style="font-size: 13px" class="v">Wer braucht wen mehr?</span><span class="label">Er braucht dich mehr</span></div>
+    <div style="position: relative; height: 14px">
+      <div style="position: absolute; left: 0; right: 0; top: 5px; height: 4px; border-radius: 2px; background: #ffffff10"></div>
+      <div style="position: absolute; left: 50%; top: 1px; width: 1px; height: 12px; background: #ffffff30"></div>
+      <div style="position: absolute; left: 50%; width: 8%; top: 5px; height: 4px; background: #6aa8ff; opacity: .7"></div>
+      <div style="position: absolute; left: calc(58% - 6px); top: 1px; width: 12px; height: 12px; border-radius: 50%; background: #6aa8ff; box-shadow: 0 0 0 4px #6aa8ff26"></div>
+    </div>
+    <div class="muted" style="font-size: 13px; line-height: 19px; margin-top: 8px">Leicht beim Betrieb: Dich neu zu besetzen kostet ihn Monate.</div>
+  </div>
+  <div style="margin: 0 14px 14px; padding: 12px 14px; border-radius: 10px; background: #ffffff08; display: flex; gap: 10px">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ededee" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M12 3.5c.6 4.3 2.2 5.9 6.5 6.5-4.3.6-5.9 2.2-6.5 6.5-.6-4.3-2.2-5.9-6.5-6.5 4.3-.6 5.9-2.2 6.5-6.5Z"></path></svg>
+    <div style="font-size: 14.5px; line-height: 22px"><span class="v">Mach das andere Angebot sichtbar, bevor du eine Zahl nennst.</span> <span class="muted">Nenn dann einen festen Betrag statt einer Spanne, sonst landet ihr am unteren Ende.</span></div>
+  </div>
+</div>
+
+</div></div>
+</x-dc>
+</body>
+</html>

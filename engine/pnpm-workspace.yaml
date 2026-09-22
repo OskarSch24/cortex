@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+allowBuilds:
+  electron: true
+  '@vscode/vsce-sign': true
+  esbuild: true
+  keytar: false
+minimumReleaseAgeExclude:
+  - electron@44.4.3

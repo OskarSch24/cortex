@@ -1,0 +1,182 @@
+{
+ "weather": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "timer": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "departures": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "converter": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "parcel": {
+  "cards": 0,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "todo": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "route": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "calendar": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "ticker": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "worldclock": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "agent-run": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "test-result": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "quota": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "server": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "deploy": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "verification": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "scrape-run": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "workflow": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "query-result": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "graph-node": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "decision": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "place-naming": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "timeline": {
+  "cards": 0,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "jobs": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "design-diff": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "palette": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "audio-takes": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "kpis": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "quiz": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ },
+ "game-theory": {
+  "cards": 1,
+  "fallbacks": [],
+  "errors": [],
+  "overflow": false
+ }
+}

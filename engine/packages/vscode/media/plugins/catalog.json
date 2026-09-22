@@ -1,0 +1,1846 @@
+{
+  "entries": [
+    {
+      "id": "figma",
+      "name": "Figma",
+      "tagline": "Entwürfe lesen und in Code umsetzen",
+      "description": "Liest Rahmen, Komponenten und Variablen aus einer Figma-Datei und schreibt Entwürfe auch zurück. Damit lässt sich ein Bildschirm aus dem Entwurf bauen, ohne Maße abzutippen.",
+      "category": "kreativitaet",
+      "developer": "Figma",
+      "server": "figma",
+      "definition": {
+        "url": "https://mcp.figma.com/mcp",
+        "providers": [
+          "claude",
+          "codex"
+        ]
+      },
+      "icon": "figma.svg",
+      "website": "https://figma.com",
+      "featured": true,
+      "popular": true,
+      "prompts": [
+        "Setz diesen Figma-Rahmen als Komponente um — mit den Variablen aus der Datei.",
+        "Vergleiche unsere Buttons im Code mit denen in Figma und nenne die Abweichungen.",
+        "Erzeuge ein FigJam-Ablaufdiagramm für unseren Bestellprozess."
+      ],
+      "requires": {
+        "kind": "agent-oauth",
+        "hint": "Figma lässt nur Programme von seiner eigenen Liste an diesen Zugang. Cortex meldet deshalb Claude Code und Codex selbst an — der Browser öffnet sich je Programm einmal, das Token halten die beiden. Grok nutzt stattdessen den Figma-Konnektor deines Grok-Kontos.",
+        "url": "https://figma.com"
+      },
+      "skills": [
+        "figma-code-connect",
+        "figma-create-new-file",
+        "figma-design-to-code",
+        "figma-generate-design",
+        "figma-generate-diagram",
+        "figma-generate-library",
+        "figma-generative-plugins",
+        "figma-implement-motion",
+        "figma-shaders",
+        "figma-swiftui",
+        "figma-use",
+        "figma-use-figjam",
+        "figma-use-motion",
+        "figma-use-slides"
+      ],
+      "version": "2.2.107"
+    },
+    {
+      "id": "canva",
+      "name": "Canva",
+      "tagline": "Entwürfe erstellen, prüfen, ändern",
+      "description": "Öffnet die eigenen Canva-Entwürfe: Vorlagen finden, Texte und Bilder ersetzen, Varianten anlegen.",
+      "category": "kreativitaet",
+      "developer": "Canva",
+      "server": "canva",
+      "definition": {
+        "url": "https://mcp.canva.com/mcp"
+      },
+      "website": "https://canva.com",
+      "popular": true,
+      "prompts": [
+        "Erstelle aus diesem Text drei Beitragsentwürfe im Format 1080×1350.",
+        "Ersetze in dieser Vorlage alle Überschriften durch die neue Kampagnensprache.",
+        "Zeig mir, welche Entwürfe seit letzter Woche geändert wurden."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://canva.com"
+      },
+      "icon": "canva.svg"
+    },
+    {
+      "id": "webflow",
+      "name": "Webflow",
+      "tagline": "Webflow-Seiten verwalten",
+      "description": "Liest und ändert Sammlungen, Seiten und Inhalte einer Webflow-Site.",
+      "category": "kreativitaet",
+      "developer": "Webflow",
+      "server": "webflow",
+      "definition": {
+        "url": "https://mcp.webflow.com/mcp"
+      },
+      "icon": "webflow.svg",
+      "website": "https://webflow.com",
+      "prompts": [
+        "Liste alle Blogeinträge, denen ein Vorschaubild fehlt.",
+        "Lege einen neuen Sammlungseintrag aus diesem Text an.",
+        "Welche Seiten haben keine Meta-Beschreibung?"
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://webflow.com"
+      }
+    },
+    {
+      "id": "wix",
+      "name": "Wix",
+      "tagline": "Eigene Website bauen und pflegen",
+      "description": "Zugriff auf Seiten, Sammlungen und Shop-Daten einer Wix-Site.",
+      "category": "kreativitaet",
+      "developer": "Wix",
+      "server": "wix",
+      "definition": {
+        "url": "https://mcp.wix.com/mcp"
+      },
+      "icon": "wix.svg",
+      "website": "https://wix.com",
+      "prompts": [
+        "Lege eine Landingpage für die neue Kampagne an.",
+        "Welche Produkte haben keinen Beschreibungstext?",
+        "Aktualisiere die Öffnungszeiten auf allen Seiten."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://wix.com"
+      }
+    },
+    {
+      "id": "sanity",
+      "name": "Sanity",
+      "tagline": "Strukturierte Inhalte in Sanity",
+      "description": "Liest und schreibt Dokumente im Sanity-Content-Lake, samt Schema und Referenzen.",
+      "category": "kreativitaet",
+      "developer": "Sanity",
+      "server": "sanity",
+      "definition": {
+        "url": "https://mcp.sanity.io/mcp"
+      },
+      "icon": "sanity.svg",
+      "website": "https://sanity.io",
+      "prompts": [
+        "Zeig mir das Schema für Artikel.",
+        "Finde alle Dokumente ohne gesetzten Autor.",
+        "Lege einen Entwurf aus diesem Text an."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://sanity.io"
+      }
+    },
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "tagline": "Videos, Kanäle und Statistiken",
+      "description": "Fragt die YouTube-Data-API ab: Videos suchen, Kanaldaten und Statistiken lesen, Transkripte holen.",
+      "category": "kreativitaet",
+      "developer": "YouTube Data MCP Server",
+      "server": "youtube",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "youtube-data-mcp-server"
+        ],
+        "env": {
+          "YOUTUBE_API_KEY": ""
+        }
+      },
+      "icon": "youtube.svg",
+      "version": "1.0.16",
+      "fresh": true,
+      "prompts": [
+        "Fasse die letzten zehn Videos dieses Kanals zusammen.",
+        "Welche unserer Videos haben die höchste Abschlussrate?",
+        "Hol mir das Transkript zu diesem Video."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "YOUTUBE_API_KEY",
+        "fields": [
+          {
+            "env": "YOUTUBE_API_KEY",
+            "label": "API-Schlüssel"
+          }
+        ],
+        "hint": "Den Schlüssel bekommst du im Konto des Anbieters.",
+        "url": "https://console.cloud.google.com/apis/credentials"
+      },
+      "service": "youtube",
+      "variantLabel": "API-Schlüssel",
+      "variantHint": "Öffentliche Daten beliebiger Kanäle: Videos suchen, Statistiken und Transkripte — ohne Anmeldung bei Google."
+    },
+    {
+      "id": "youtube-kanal",
+      "name": "YouTube",
+      "tagline": "Videos, Kanäle und Statistiken",
+      "description": "Liest die Kennzahlen deines eigenen Kanals über die YouTube-Analytics-API: Aufrufe, Wiedergabezeit, Zielgruppe, Traffic-Quellen und Einnahmen — Dinge, die ein bloßer API-Schlüssel nicht zeigt. Nur lesend.",
+      "category": "kreativitaet",
+      "developer": "youtube-analytics-mcp",
+      "server": "youtube-kanal",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "youtube-analytics-mcp@1.0.6"
+        ]
+      },
+      "requires": {
+        "kind": "oauth-client",
+        "hint": "In der Google Cloud Console: „YouTube Data API v3“ und „YouTube Analytics API“ aktivieren, im OAuth-Zustimmungsbildschirm dich als Testnutzer eintragen, dann unter „Anmeldedaten“ eine OAuth-Client-ID vom Typ „Desktop-App“ anlegen und ihre JSON hier ablegen.",
+        "url": "https://console.cloud.google.com/apis/credentials",
+        "client": {
+          "provider": "google",
+          "scopes": [
+            "https://www.googleapis.com/auth/youtube.readonly",
+            "https://www.googleapis.com/auth/yt-analytics.readonly",
+            "https://www.googleapis.com/auth/yt-analytics-monetary.readonly"
+          ],
+          "clientFile": "YOUTUBE_CREDENTIALS_PATH",
+          "tokenFile": "YOUTUBE_TOKEN_PATH"
+        }
+      },
+      "icon": "youtube.svg",
+      "version": "1.0.6",
+      "website": "https://www.npmjs.com/package/youtube-analytics-mcp",
+      "fresh": true,
+      "prompts": [
+        "Wie haben sich Aufrufe und Wiedergabezeit meines Kanals in den letzten 28 Tagen entwickelt?",
+        "Welche meiner Videos halten die Zuschauer am längsten?",
+        "Woher kommen meine Zuschauer — Suche, Vorschläge oder extern?"
+      ],
+      "service": "youtube",
+      "variantLabel": "Google-Konto",
+      "variantHint": "Dein eigener Kanal: Analysen, Zielgruppe und Einnahmen, die ein API-Schlüssel nicht zeigt. Braucht deinen OAuth-Client."
+    },
+    {
+      "id": "omnigrab",
+      "name": "OmniGrab",
+      "tagline": "Videos von YouTube, Instagram, TikTok laden",
+      "description": "Nutzt die OmniGrab-Engine auf diesem Mac (Port 58921) und startet sie bei Bedarf. Schick einen Link — der Agent lädt Video oder Audio darüber herunter. Die Chrome-Erweiterung bleibt unangetastet.",
+      "category": "kreativitaet",
+      "developer": "lokal",
+      "server": "omnigrab",
+      "definition": {
+        "command": "/usr/bin/python3",
+        "args": [
+          "/path/to/omnigrab/engine/omnigrab-mcp.py"
+        ],
+        "providers": [
+          "grok",
+          "claude",
+          "codex"
+        ]
+      },
+      "icon": "omnigrab.svg",
+      "version": "1.0.0",
+      "fresh": true,
+      "prompts": [
+        "Lad dieses YouTube-Video über OmniGrab herunter.",
+        "Hol das Instagram-Reel als Datei.",
+        "Nur den Ton von diesem Link als MP3."
+      ]
+    },
+    {
+      "id": "antv-chart",
+      "name": "AntV Diagramme",
+      "tagline": "Diagramme aus Daten erzeugen",
+      "description": "Erzeugt fertige Diagramme — Linie, Balken, Fläche, Netz, Sankey und mehr — aus übergebenen Datenreihen.",
+      "category": "kreativitaet",
+      "developer": "AntV",
+      "server": "antv-chart",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@antv/mcp-server-chart"
+        ]
+      },
+      "icon": "antv-chart.svg",
+      "version": "0.9.10",
+      "website": "https://github.com/antvis/mcp-server-chart",
+      "prompts": [
+        "Zeichne aus dieser Tabelle ein Balkendiagramm nach Monat.",
+        "Stell die Umsätze der letzten vier Quartale als Linie dar.",
+        "Erzeuge ein Sankey-Diagramm für diesen Nutzerfluss."
+      ]
+    },
+    {
+      "id": "playwright",
+      "name": "Playwright",
+      "tagline": "Browser steuern und Oberflächen prüfen",
+      "description": "Steuert einen echten Browser über den Barrierefreiheitsbaum statt über Pixel: Seiten öffnen, Formulare ausfüllen, Zustände prüfen.",
+      "category": "entwicklertools",
+      "developer": "Microsoft",
+      "server": "playwright",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@playwright/mcp@latest"
+        ]
+      },
+      "version": "0.0.80",
+      "website": "https://playwright.dev",
+      "featured": true,
+      "popular": true,
+      "prompts": [
+        "Öffne die lokale Vorschau und prüfe, ob das Anmeldeformular funktioniert.",
+        "Klick dich durch den Bestellvorgang und melde, wo es hakt.",
+        "Vergleiche die Seite in 1440 und 760 Pixel Breite."
+      ],
+      "icon": "playwright.svg"
+    },
+    {
+      "id": "chrome-devtools",
+      "name": "Chrome DevTools",
+      "tagline": "Laufzeit, Netzwerk und Leistung ansehen",
+      "description": "Öffnet die DevTools-Sicht auf eine laufende Seite: Konsolenmeldungen, Netzwerkverkehr, Leistungsprofile und DOM.",
+      "category": "entwicklertools",
+      "developer": "Chrome DevTools",
+      "server": "chrome-devtools",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "chrome-devtools-mcp@latest"
+        ]
+      },
+      "icon": "chrome-devtools.svg",
+      "version": "1.9.0",
+      "website": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+      "fresh": true,
+      "prompts": [
+        "Warum lädt diese Seite so langsam?",
+        "Zeig mir alle fehlgeschlagenen Netzwerkanfragen.",
+        "Welche Konsolenfehler treten beim Absenden des Formulars auf?"
+      ]
+    },
+    {
+      "id": "sentry",
+      "name": "Sentry",
+      "tagline": "Fehler und Spuren einordnen",
+      "description": "Holt Fehlergruppen, Häufigkeiten und Stapelspuren aus Sentry und verknüpft sie mit dem Code.",
+      "category": "entwicklertools",
+      "developer": "Sentry",
+      "server": "sentry",
+      "definition": {
+        "url": "https://mcp.sentry.dev/mcp"
+      },
+      "icon": "sentry.svg",
+      "website": "https://sentry.io",
+      "popular": true,
+      "prompts": [
+        "Welcher Fehler trifft seit dem letzten Deploy die meisten Nutzer?",
+        "Zeig mir die Stapelspur zu diesem Problem und den passenden Code.",
+        "Fasse die neuen Fehler der letzten 24 Stunden zusammen."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://sentry.io"
+      }
+    },
+    {
+      "id": "vercel",
+      "name": "Vercel",
+      "tagline": "Web-Apps bauen und ausliefern",
+      "description": "Zeigt Projekte, Deployments und Protokolle und stößt neue Auslieferungen an.",
+      "category": "entwicklertools",
+      "developer": "Vercel",
+      "server": "vercel",
+      "definition": {
+        "url": "https://mcp.vercel.com"
+      },
+      "icon": "vercel.svg",
+      "website": "https://vercel.com",
+      "popular": true,
+      "prompts": [
+        "Warum ist das letzte Deployment fehlgeschlagen?",
+        "Welche Umgebungsvariablen fehlen in der Produktion?",
+        "Zeig mir die Protokolle der letzten Stunde."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://vercel.com"
+      }
+    },
+    {
+      "id": "netlify",
+      "name": "Netlify",
+      "tagline": "Netlify-Sites verwalten",
+      "description": "Verwaltet Sites, Deployments, Umleitungen und Umgebungsvariablen bei Netlify.",
+      "category": "entwicklertools",
+      "developer": "Netlify",
+      "server": "netlify",
+      "definition": {
+        "url": "https://mcp.netlify.com/mcp"
+      },
+      "icon": "netlify.svg",
+      "website": "https://netlify.com",
+      "prompts": [
+        "Welche Sites haben seit einer Woche kein Deployment?",
+        "Lege eine Umleitung von /alt auf /neu an.",
+        "Zeig mir das Build-Protokoll des letzten Fehlversuchs."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://netlify.com"
+      }
+    },
+    {
+      "id": "gitlab",
+      "name": "GitLab",
+      "tagline": "Merge Requests und Pipelines",
+      "description": "Liest Projekte, Merge Requests, Issues und Pipeline-Zustände aus GitLab.",
+      "category": "entwicklertools",
+      "developer": "GitLab",
+      "server": "gitlab",
+      "definition": {
+        "url": "https://gitlab.com/api/v4/mcp"
+      },
+      "icon": "gitlab.svg",
+      "website": "https://gitlab.com",
+      "prompts": [
+        "Welche Merge Requests warten auf meine Prüfung?",
+        "Warum ist die Pipeline auf main rot?",
+        "Fasse die offenen Issues dieses Meilensteins zusammen."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://gitlab.com"
+      }
+    },
+    {
+      "id": "github",
+      "name": "GitHub",
+      "tagline": "Pull Requests, Issues und CI",
+      "description": "Liest und schreibt über die GitHub-API: Pull Requests prüfen, Issues anlegen, Dateien ändern, Zustände von Prüfläufen lesen.",
+      "category": "entwicklertools",
+      "developer": "Model Context Protocol",
+      "server": "github",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-github"
+        ],
+        "env": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": ""
+        }
+      },
+      "icon": "github.svg",
+      "version": "2025.4.8",
+      "website": "https://modelcontextprotocol.io",
+      "featured": true,
+      "popular": true,
+      "prompts": [
+        "Fasse die offenen Pull Requests zusammen und sag mir, welcher zuerst dran ist.",
+        "Lege ein Issue aus dieser Fehlerbeschreibung an.",
+        "Warum schlägt die Prüfung in diesem Pull Request fehl?"
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "fields": [
+          {
+            "env": "GITHUB_PERSONAL_ACCESS_TOKEN",
+            "label": "Persönliches Zugriffstoken",
+            "placeholder": "github_pat_…"
+          }
+        ],
+        "hint": "Ein feingranulares Token mit Zugriff auf die Repositories, mit denen der Agent arbeiten soll.",
+        "url": "https://github.com/settings/personal-access-tokens/new"
+      }
+    },
+    {
+      "id": "firebase",
+      "name": "Firebase",
+      "tagline": "Firebase-Projekte verwalten",
+      "description": "Spricht mit Firebase: Firestore, Authentifizierung, Regeln, Hosting und Funktionen eines Projekts.",
+      "category": "entwicklertools",
+      "developer": "Google",
+      "server": "firebase",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "firebase-tools@latest",
+          "mcp"
+        ]
+      },
+      "icon": "firebase.svg",
+      "version": "15.29.0",
+      "website": "https://github.com/firebase/firebase-tools",
+      "prompts": [
+        "Welche Firestore-Regeln erlauben gerade Schreibzugriff für alle?",
+        "Wie viele Nutzer haben sich diese Woche angemeldet?",
+        "Liste die bereitgestellten Funktionen und ihre Regionen."
+      ],
+      "requires": {
+        "kind": "app",
+        "check": "firebase",
+        "hint": "Braucht eine Firebase-Anmeldung: einmal im Terminal „npx firebase-tools login“ ausführen. Die meisten Werkzeuge brauchen außerdem ein aktives Projekt."
+      }
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare",
+      "tagline": "Netz, Workers und DNS",
+      "description": "Verwaltet Workers, KV, R2, D1 und Hyperdrive eines Cloudflare-Kontos.",
+      "category": "entwicklertools",
+      "developer": "Cloudflare",
+      "server": "cloudflare",
+      "definition": {
+        "url": "https://bindings.mcp.cloudflare.com/mcp"
+      },
+      "icon": "cloudflare.svg",
+      "website": "https://github.com/cloudflare/mcp-server-cloudflare",
+      "prompts": [
+        "Welche DNS-Einträge zeigen noch auf den alten Server?",
+        "Zeig mir die Fehlerrate der Workers der letzten Stunde.",
+        "Welche Regeln der Firewall greifen am häufigsten?"
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://dash.cloudflare.com"
+      }
+    },
+    {
+      "id": "heroku",
+      "name": "Heroku",
+      "tagline": "Apps und Dynos verwalten",
+      "description": "Verwaltet Heroku-Apps: Dynos, Konfiguration, Erweiterungen, Protokolle und Freigaben.",
+      "category": "entwicklertools",
+      "developer": "Heroku",
+      "server": "heroku",
+      "definition": {
+        "url": "https://mcp.heroku.com/mcp"
+      },
+      "website": "https://github.com/heroku/heroku-mcp-server",
+      "prompts": [
+        "Welche Apps laufen gerade auf teuren Dynos?",
+        "Zeig mir die Protokolle der letzten fehlgeschlagenen Freigabe.",
+        "Welche Konfigurationswerte unterscheiden sich zwischen Test und Produktion?"
+      ],
+      "icon": "heroku.svg",
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://heroku.com"
+      }
+    },
+    {
+      "id": "kubernetes",
+      "name": "Kubernetes",
+      "tagline": "Cluster über kubectl ansehen",
+      "description": "Fragt den Cluster über kubectl ab: Pods, Deployments, Dienste, Ereignisse und Protokolle.",
+      "category": "entwicklertools",
+      "developer": "Flux159",
+      "server": "kubernetes",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "mcp-server-kubernetes"
+        ]
+      },
+      "icon": "kubernetes.svg",
+      "version": "4.1.6",
+      "website": "https://github.com/Flux159/mcp-server-kubernetes",
+      "prompts": [
+        "Welche Pods starten immer wieder neu?",
+        "Zeig mir die Ereignisse im Namensraum produktion.",
+        "Warum ist dieses Deployment nicht bereit?"
+      ],
+      "requires": {
+        "kind": "app",
+        "check": "kubectl",
+        "hint": "Braucht „kubectl“ auf diesem Mac und einen eingerichteten Cluster-Kontext. Der Server ruft kubectl selbst auf."
+      }
+    },
+    {
+      "id": "terraform",
+      "name": "Terraform",
+      "tagline": "Module und Anbieter nachschlagen",
+      "description": "Durchsucht die Terraform-Registry nach Modulen und Anbietern und liest den Zustand einer Terraform-Cloud-Organisation.",
+      "category": "entwicklertools",
+      "developer": "HashiCorp",
+      "server": "terraform",
+      "definition": {
+        "command": "docker",
+        "args": [
+          "run",
+          "-i",
+          "--rm",
+          "-e",
+          "TFE_TOKEN",
+          "hashicorp/terraform-mcp-server:0.4.0"
+        ],
+        "env": {
+          "TFE_TOKEN": ""
+        }
+      },
+      "icon": "terraform.svg",
+      "version": "0.4.0",
+      "website": "https://developer.hashicorp.com/terraform",
+      "prompts": [
+        "Welches Modul passt für einen S3-Bucket mit Verschlüsselung?",
+        "Zeig mir die Argumente dieser Ressource.",
+        "Was steht im letzten Plan dieser Arbeitsumgebung?"
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "TFE_TOKEN",
+        "fields": [
+          {
+            "env": "TFE_TOKEN",
+            "label": "Terraform-Cloud-Token",
+            "optional": true
+          }
+        ],
+        "hint": "Ohne Token liest der Server nur die öffentliche Registry.",
+        "url": "https://app.terraform.io/app/settings/tokens"
+      }
+    },
+    {
+      "id": "xcode",
+      "name": "Xcode",
+      "tagline": "Apps bauen, testen und Fehler lesen — in deinem Xcode",
+      "description": "Verbindet die Agenten mit dem Xcode auf diesem Mac, über die Schnittstelle, die Xcode selbst mitbringt (xcrun mcpbridge). Sie können das offene Projekt bauen, Tests ausführen, Build-Fehler und Warnungen lesen, SwiftUI-Vorschauen rendern und in der Apple-Dokumentation suchen. Gearbeitet wird im laufenden Xcode, nicht in einer Kopie.",
+      "category": "entwicklertools",
+      "developer": "Apple",
+      "server": "xcode",
+      "definition": {
+        "command": "xcrun",
+        "args": [
+          "mcpbridge"
+        ]
+      },
+      "icon": "xcode.svg",
+      "website": "https://developer.apple.com/xcode/",
+      "featured": true,
+      "fresh": true,
+      "prompts": [
+        "Bau das offene Xcode-Projekt und behebe die Build-Fehler.",
+        "Führe die Tests im Xcode-Projekt aus und fasse zusammen, was fehlschlägt.",
+        "Rendere die SwiftUI-Vorschau dieser Ansicht und prüfe das Layout."
+      ],
+      "requires": {
+        "kind": "app",
+        "check": "xcode",
+        "hint": "Außerdem muss Xcode laufen und in seinen Einstellungen unter „Intelligence“ externen Agenten den Zugriff auf die Xcode-Tools erlauben; beim ersten Zugriff fragt Xcode einmal nach."
+      }
+    },
+    {
+      "id": "jetbrains",
+      "name": "JetBrains",
+      "tagline": "Mit einer laufenden IDE sprechen",
+      "description": "Leitet Anfragen an eine geöffnete JetBrains-IDE weiter: Dateien, Suche, Refactorings und Ausführungskonfigurationen.",
+      "category": "entwicklertools",
+      "developer": "JetBrains",
+      "server": "jetbrains",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@jetbrains/mcp-proxy"
+        ]
+      },
+      "icon": "jetbrains.svg",
+      "version": "1.8.0",
+      "website": "https://github.com/JetBrains/mcp-jetbrains",
+      "prompts": [
+        "Öffne die Datei mit dem fehlgeschlagenen Test.",
+        "Führe die Konfiguration „Alle Tests“ aus.",
+        "Benenne dieses Symbol projektweit um."
+      ],
+      "requires": {
+        "kind": "app",
+        "check": "jetbrains",
+        "hint": "Braucht eine geöffnete JetBrains-IDE mit eingeschaltetem MCP-Server (Einstellungen › Tools › MCP Server). Ohne laufende IDE antwortet der Server nicht."
+      }
+    },
+    {
+      "id": "context7",
+      "name": "Context7",
+      "tagline": "Aktuelle Bibliotheksdokumentation",
+      "description": "Liefert die Dokumentation zur tatsächlich verwendeten Version einer Bibliothek, statt zu einer aus dem Gedächtnis. Ohne Anmeldung nutzbar.",
+      "category": "entwicklertools",
+      "developer": "Upstash",
+      "server": "context7",
+      "definition": {
+        "url": "https://mcp.context7.com/mcp"
+      },
+      "website": "https://context7.com",
+      "featured": true,
+      "popular": true,
+      "prompts": [
+        "Wie heißt die aktuelle API dieser Bibliothek?",
+        "Zeig mir ein Beispiel für diese Funktion in Version 3.",
+        "Was hat sich zwischen den letzten beiden Hauptversionen geändert?"
+      ],
+      "icon": "context7.svg"
+    },
+    {
+      "id": "supabase",
+      "name": "Supabase",
+      "tagline": "Datenbanken verwalten und abfragen",
+      "description": "Zugriff auf ein Supabase-Projekt: Tabellen und Schemata lesen, SQL ausführen, Migrationen anlegen, Edge Functions ausrollen.",
+      "category": "daten",
+      "developer": "Supabase",
+      "server": "supabase",
+      "definition": {
+        "url": "https://mcp.supabase.com/mcp"
+      },
+      "icon": "supabase.svg",
+      "website": "https://supabase.com",
+      "featured": true,
+      "popular": true,
+      "prompts": [
+        "Zeig mir das Schema dieser Datenbank.",
+        "Welche Tabellen haben keine Zeilensicherheit?",
+        "Schreib eine Migration für dieses neue Feld."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://supabase.com"
+      }
+    },
+    {
+      "id": "neon",
+      "name": "Neon",
+      "tagline": "Postgres mit Zweigen",
+      "description": "Verwaltet Neon-Projekte: Zweige anlegen, Abfragen ausführen, Migrationen prüfen.",
+      "category": "daten",
+      "developer": "Neon",
+      "server": "neon",
+      "definition": {
+        "url": "https://mcp.neon.tech/mcp"
+      },
+      "icon": "neon.svg",
+      "website": "https://neon.tech",
+      "prompts": [
+        "Leg einen Zweig für diese Migration an.",
+        "Welche Abfragen laufen am längsten?",
+        "Vergleiche das Schema von Zweig und Hauptzweig."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://neon.tech"
+      }
+    },
+    {
+      "id": "postgres",
+      "name": "PostgreSQL",
+      "tagline": "Nur lesender Zugriff auf Postgres",
+      "description": "Liest Schemata und führt lesende Abfragen auf einer PostgreSQL-Datenbank aus.",
+      "category": "daten",
+      "developer": "Model Context Protocol",
+      "server": "postgres",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-postgres",
+          "${POSTGRES_URL}"
+        ],
+        "env": {
+          "POSTGRES_URL": ""
+        }
+      },
+      "icon": "postgres.svg",
+      "version": "0.6.2",
+      "website": "https://modelcontextprotocol.io",
+      "prompts": [
+        "Wie hängen diese beiden Tabellen zusammen?",
+        "Welche Spalten haben keinen Index, werden aber gefiltert?",
+        "Zähl die Bestellungen je Monat."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "POSTGRES_URL",
+        "fields": [
+          {
+            "env": "POSTGRES_URL",
+            "label": "Verbindungszeichenkette",
+            "placeholder": "postgresql://benutzer:passwort@host:5432/datenbank"
+          }
+        ],
+        "hint": "Der Server liest nur — er öffnet jede Abfrage in einer Nur-Lese-Transaktion."
+      }
+    },
+    {
+      "id": "mongodb",
+      "name": "MongoDB",
+      "tagline": "Sammlungen ansehen und abfragen",
+      "description": "Zugriff auf MongoDB und Atlas: Sammlungen auflisten, Dokumente abfragen, Indizes prüfen.",
+      "category": "daten",
+      "developer": "MongoDB",
+      "server": "mongodb",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "mongodb-mcp-server"
+        ],
+        "env": {
+          "MDB_MCP_CONNECTION_STRING": ""
+        }
+      },
+      "icon": "mongodb.svg",
+      "version": "2.1.1",
+      "website": "https://github.com/mongodb-js/mongodb-mcp-server",
+      "prompts": [
+        "Wie sehen die Dokumente in dieser Sammlung aus?",
+        "Welche Abfragen laufen ohne Index?",
+        "Zähl die Dokumente je Status."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "MDB_MCP_CONNECTION_STRING",
+        "fields": [
+          {
+            "env": "MDB_MCP_CONNECTION_STRING",
+            "label": "Verbindungszeichenkette",
+            "placeholder": "mongodb+srv://…"
+          }
+        ],
+        "hint": "Die Verbindungszeichenkette deines Clusters, samt Benutzer und Passwort.",
+        "url": "https://cloud.mongodb.com"
+      }
+    },
+    {
+      "id": "redis",
+      "name": "Redis",
+      "tagline": "Schlüssel und Werte ansehen",
+      "description": "Liest und schreibt Schlüssel in einer Redis-Instanz.",
+      "category": "daten",
+      "developer": "Model Context Protocol",
+      "server": "redis",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-redis",
+          "${REDIS_URL}"
+        ],
+        "env": {
+          "REDIS_URL": ""
+        }
+      },
+      "icon": "redis.svg",
+      "version": "2025.4.25",
+      "website": "https://modelcontextprotocol.io",
+      "prompts": [
+        "Welche Schlüssel laufen in der nächsten Stunde ab?",
+        "Wie groß ist der größte Wert?",
+        "Zeig mir alle Schlüssel mit diesem Präfix."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "REDIS_URL",
+        "fields": [
+          {
+            "env": "REDIS_URL",
+            "label": "Adresse",
+            "secret": false,
+            "placeholder": "redis://localhost:6379"
+          }
+        ],
+        "hint": "Die Adresse deiner Redis-Instanz, gegebenenfalls mit Passwort."
+      }
+    },
+    {
+      "id": "elasticsearch",
+      "name": "Elasticsearch",
+      "tagline": "Indizes durchsuchen",
+      "description": "Durchsucht Elasticsearch-Indizes und liest deren Zuordnungen.",
+      "category": "daten",
+      "developer": "Elastic",
+      "server": "elasticsearch",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@elastic/mcp-server-elasticsearch"
+        ],
+        "env": {
+          "ES_URL": "",
+          "ES_API_KEY": ""
+        }
+      },
+      "icon": "elasticsearch.svg",
+      "version": "0.3.1",
+      "website": "https://github.com/elastic/mcp-server-elasticsearch",
+      "prompts": [
+        "Wie ist dieser Index aufgebaut?",
+        "Such nach Einträgen mit diesem Fehlercode.",
+        "Welche Felder sind nicht durchsuchbar?"
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "ES_URL",
+        "fields": [
+          {
+            "env": "ES_URL",
+            "label": "Adresse",
+            "secret": false,
+            "placeholder": "https://…:9200"
+          },
+          {
+            "env": "ES_API_KEY",
+            "label": "API-Schlüssel"
+          }
+        ],
+        "hint": "Adresse und API-Schlüssel deines Clusters."
+      }
+    },
+    {
+      "id": "airtable",
+      "name": "Airtable",
+      "tagline": "Tabellen lesen und schreiben",
+      "description": "Liest Schemata und Datensätze aus Airtable-Basen und schreibt sie zurück.",
+      "category": "daten",
+      "developer": "domdomegg",
+      "server": "airtable",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "airtable-mcp-server"
+        ],
+        "env": {
+          "AIRTABLE_API_KEY": ""
+        }
+      },
+      "icon": "airtable.svg",
+      "version": "1.14.0",
+      "website": "https://github.com/domdomegg/airtable-mcp-server",
+      "prompts": [
+        "Welche Datensätze haben kein Fälligkeitsdatum?",
+        "Trag diese Zeilen in die Basis ein.",
+        "Zeig mir das Schema dieser Tabelle."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "AIRTABLE_API_KEY",
+        "fields": [
+          {
+            "env": "AIRTABLE_API_KEY",
+            "label": "Persönliches Zugriffstoken"
+          }
+        ],
+        "hint": "Den Schlüssel bekommst du im Konto des Anbieters.",
+        "url": "https://airtable.com/create/tokens"
+      }
+    },
+    {
+      "id": "grafana",
+      "name": "Grafana",
+      "tagline": "Dashboards und Warnungen",
+      "description": "Liest Dashboards, Datenquellen, Warnungsregeln und Abfrageergebnisse aus Grafana.",
+      "category": "daten",
+      "developer": "Grafana Labs",
+      "server": "grafana",
+      "definition": {
+        "url": "https://mcp.grafana.com/mcp"
+      },
+      "icon": "grafana.svg",
+      "website": "https://grafana.com",
+      "prompts": [
+        "Welche Warnungen sind gerade aktiv?",
+        "Zeig mir die Panels dieses Dashboards.",
+        "Wie hat sich die Latenz über die Woche entwickelt?"
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://grafana.com"
+      }
+    },
+    {
+      "id": "huggingface",
+      "name": "Hugging Face",
+      "tagline": "Modelle und Datensätze finden",
+      "description": "Durchsucht Modelle, Datensätze und Spaces auf Hugging Face. Ohne Anmeldung nutzbar; ein Token schaltet private Ablagen frei.",
+      "category": "daten",
+      "developer": "Hugging Face",
+      "server": "huggingface",
+      "definition": {
+        "url": "https://huggingface.co/mcp"
+      },
+      "icon": "huggingface.svg",
+      "website": "https://huggingface.co",
+      "fresh": true,
+      "prompts": [
+        "Welches Modell passt für Spracherkennung auf Deutsch?",
+        "Zeig mir Datensätze zu diesem Thema mit freier Lizenz.",
+        "Wie groß ist dieses Modell und unter welcher Lizenz steht es?"
+      ]
+    },
+    {
+      "id": "exa",
+      "name": "Exa",
+      "tagline": "Websuche für Agenten",
+      "description": "Sucht im Web mit auf Agenten zugeschnittenen Ergebnissen und holt Seiteninhalte gleich mit. Ohne Anmeldung nutzbar.",
+      "category": "daten",
+      "developer": "Exa",
+      "server": "exa",
+      "definition": {
+        "url": "https://mcp.exa.ai/mcp"
+      },
+      "website": "https://exa.ai",
+      "popular": true,
+      "fresh": true,
+      "prompts": [
+        "Finde aktuelle Quellen zu diesem Thema.",
+        "Was schreiben Fachmedien über diese Firma?",
+        "Hol mir den Volltext dieser drei Seiten."
+      ],
+      "icon": "exa.svg"
+    },
+    {
+      "id": "firecrawl",
+      "name": "Firecrawl",
+      "tagline": "Seiten auslesen und durchsuchen",
+      "description": "Liest ganze Websites aus und gibt sauberes Markdown zurück — auch für Seiten, die erst im Browser entstehen.",
+      "category": "daten",
+      "developer": "Firecrawl",
+      "server": "firecrawl",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "firecrawl-mcp"
+        ],
+        "env": {
+          "FIRECRAWL_API_KEY": ""
+        }
+      },
+      "version": "3.24.0",
+      "website": "https://firecrawl.dev",
+      "prompts": [
+        "Lies diese Dokumentationsseite komplett aus.",
+        "Durchsuche diese Website nach Preisangaben.",
+        "Wandle diese Seite in Markdown um."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "FIRECRAWL_API_KEY",
+        "fields": [
+          {
+            "env": "FIRECRAWL_API_KEY",
+            "label": "API-Schlüssel"
+          }
+        ],
+        "hint": "Den Schlüssel bekommst du im Konto des Anbieters.",
+        "url": "https://www.firecrawl.dev/app/api-keys"
+      },
+      "icon": "firecrawl.svg"
+    },
+    {
+      "id": "brave-search",
+      "name": "Brave Search",
+      "tagline": "Web, Bilder und Videos suchen",
+      "description": "Sucht über die Brave-Search-API: Web, Bilder, Videos und Nachrichten.",
+      "category": "daten",
+      "developer": "Brave",
+      "server": "brave-search",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@brave/brave-search-mcp-server"
+        ],
+        "env": {
+          "BRAVE_API_KEY": ""
+        }
+      },
+      "icon": "brave-search.svg",
+      "version": "2.1.3",
+      "website": "https://brave.com/search/api",
+      "prompts": [
+        "Such nach aktuellen Meldungen zu diesem Thema.",
+        "Finde Bilder zu diesem Begriff mit freier Lizenz.",
+        "Was sind die meistgenannten Quellen dazu?"
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "BRAVE_API_KEY",
+        "fields": [
+          {
+            "env": "BRAVE_API_KEY",
+            "label": "API-Schlüssel"
+          }
+        ],
+        "hint": "Den Schlüssel bekommst du im Konto des Anbieters.",
+        "url": "https://api-dashboard.search.brave.com/app/keys"
+      }
+    },
+    {
+      "id": "tavily",
+      "name": "Tavily",
+      "tagline": "Recherche mit Belegstellen",
+      "description": "Sucht und fasst zusammen, mit Quellenangaben zu jedem Punkt.",
+      "category": "daten",
+      "developer": "Tavily",
+      "server": "tavily",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "tavily-mcp"
+        ],
+        "env": {
+          "TAVILY_API_KEY": ""
+        }
+      },
+      "version": "0.2.22",
+      "website": "https://tavily.com",
+      "prompts": [
+        "Recherchiere dieses Thema und nenne die Quellen.",
+        "Was ist der aktuelle Stand zu dieser Frage?",
+        "Vergleiche, was drei Quellen dazu sagen."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "TAVILY_API_KEY",
+        "fields": [
+          {
+            "env": "TAVILY_API_KEY",
+            "label": "API-Schlüssel"
+          }
+        ],
+        "hint": "Den Schlüssel bekommst du im Konto des Anbieters.",
+        "url": "https://app.tavily.com/home"
+      },
+      "icon": "tavily.svg"
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity",
+      "tagline": "Fragen mit Quellen beantworten",
+      "description": "Stellt eine Frage an Perplexity und gibt die Antwort samt Quellen zurück.",
+      "category": "daten",
+      "developer": "Perplexity",
+      "server": "perplexity",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@perplexity-ai/mcp-server"
+        ],
+        "env": {
+          "PERPLEXITY_API_KEY": ""
+        }
+      },
+      "icon": "perplexity.svg",
+      "version": "1.2.1",
+      "website": "https://github.com/perplexityai/modelcontextprotocol",
+      "prompts": [
+        "Was ist der aktuelle Stand zu dieser Frage?",
+        "Fasse die Diskussion zu diesem Thema zusammen.",
+        "Welche Zahlen kursieren dazu und woher stammen sie?"
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "PERPLEXITY_API_KEY",
+        "fields": [
+          {
+            "env": "PERPLEXITY_API_KEY",
+            "label": "API-Schlüssel",
+            "placeholder": "pplx-…"
+          }
+        ],
+        "hint": "Den Schlüssel bekommst du in den API-Einstellungen von Perplexity.",
+        "url": "https://www.perplexity.ai/account/api/keys"
+      }
+    },
+    {
+      "id": "aws-kb",
+      "name": "AWS Knowledge Base",
+      "tagline": "Bedrock-Wissensbasis abfragen",
+      "description": "Fragt eine Amazon-Bedrock-Wissensbasis ab und gibt die passenden Belegstellen zurück.",
+      "category": "daten",
+      "developer": "Model Context Protocol",
+      "server": "aws-kb",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-aws-kb-retrieval"
+        ],
+        "env": {
+          "AWS_ACCESS_KEY_ID": "",
+          "AWS_SECRET_ACCESS_KEY": "",
+          "AWS_REGION": ""
+        }
+      },
+      "version": "0.6.2",
+      "website": "https://modelcontextprotocol.io",
+      "prompts": [
+        "Was sagt unsere Wissensbasis zu dieser Frage?",
+        "Finde die Belegstellen zu dieser Aussage.",
+        "Welche Dokumente decken dieses Thema ab?"
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "AWS_ACCESS_KEY_ID",
+        "fields": [
+          {
+            "env": "AWS_ACCESS_KEY_ID",
+            "label": "Zugriffsschlüssel-ID"
+          },
+          {
+            "env": "AWS_SECRET_ACCESS_KEY",
+            "label": "Geheimer Zugriffsschlüssel"
+          },
+          {
+            "env": "AWS_REGION",
+            "label": "Region",
+            "secret": false,
+            "placeholder": "eu-central-1"
+          }
+        ],
+        "hint": "Ein IAM-Schlüssel mit Leserecht auf die Bedrock-Wissensbasis.",
+        "url": "https://console.aws.amazon.com/iam/home#/security_credentials"
+      },
+      "icon": "aws-kb.svg"
+    },
+    {
+      "id": "stripe",
+      "name": "Stripe",
+      "tagline": "Zahlungen, Kunden, Rechnungen",
+      "description": "Liest und ändert Stripe-Daten: Kunden, Abonnements, Rechnungen, Zahlungen und Ereignisse.",
+      "category": "business",
+      "developer": "Stripe",
+      "server": "stripe",
+      "definition": {
+        "url": "https://mcp.stripe.com"
+      },
+      "icon": "stripe.svg",
+      "website": "https://stripe.com",
+      "featured": true,
+      "popular": true,
+      "prompts": [
+        "Welche Abonnements laufen diesen Monat aus?",
+        "Warum ist diese Zahlung fehlgeschlagen?",
+        "Zeig mir die Rückerstattungen der letzten Woche."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://stripe.com"
+      }
+    },
+    {
+      "id": "paypal",
+      "name": "PayPal",
+      "tagline": "Zahlungen und Rechnungen",
+      "description": "Verwaltet PayPal-Rechnungen, Zahlungen, Abonnements und Streitfälle.",
+      "category": "business",
+      "developer": "PayPal",
+      "server": "paypal",
+      "definition": {
+        "url": "https://mcp.paypal.com/mcp"
+      },
+      "icon": "paypal.svg",
+      "website": "https://paypal.com",
+      "prompts": [
+        "Welche Rechnungen sind überfällig?",
+        "Zeig mir die offenen Streitfälle.",
+        "Erstelle eine Rechnung aus dieser Position."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://paypal.com"
+      }
+    },
+    {
+      "id": "intercom",
+      "name": "Intercom",
+      "tagline": "Gespräche und Hilfeartikel",
+      "description": "Durchsucht Intercom-Gespräche, Kontakte und Hilfeartikel.",
+      "category": "business",
+      "developer": "Intercom",
+      "server": "intercom",
+      "definition": {
+        "url": "https://mcp.intercom.com/mcp"
+      },
+      "icon": "intercom.svg",
+      "website": "https://intercom.com",
+      "prompts": [
+        "Worüber beschweren sich Kunden diese Woche am häufigsten?",
+        "Finde die Gespräche zu diesem Fehler.",
+        "Welcher Hilfeartikel fehlt offensichtlich?"
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://intercom.com"
+      }
+    },
+    {
+      "id": "zapier",
+      "name": "Zapier",
+      "tagline": "Eigene Zaps auslösen",
+      "description": "Führt die im eigenen Zapier-Konto freigegebenen Aktionen aus — die Verbindung zu allem, wofür es keinen eigenen Server gibt.",
+      "category": "business",
+      "developer": "Zapier",
+      "server": "zapier",
+      "definition": {
+        "url": "https://mcp.zapier.com/api/mcp/mcp"
+      },
+      "icon": "zapier.svg",
+      "website": "https://zapier.com",
+      "prompts": [
+        "Löse den Zap für neue Anfragen aus.",
+        "Welche Aktionen habe ich freigegeben?",
+        "Trag diesen Eintrag über Zapier ins Tabellenblatt ein."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://zapier.com"
+      }
+    },
+    {
+      "id": "shopify",
+      "name": "Shopify",
+      "tagline": "Shop bauen und verwalten",
+      "description": "Durchsucht die Shopify-Entwicklerdokumentation und prüft GraphQL-Abfragen gegen das Admin-Schema.",
+      "category": "business",
+      "developer": "Shopify",
+      "server": "shopify",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@shopify/dev-mcp@latest"
+        ]
+      },
+      "icon": "shopify.svg",
+      "version": "1.15.0",
+      "website": "https://shopify.dev",
+      "prompts": [
+        "Wie lese ich alle Bestellungen eines Kunden aus?",
+        "Prüf diese GraphQL-Abfrage gegen das aktuelle Schema.",
+        "Welche Felder hat das Produktobjekt?"
+      ]
+    },
+    {
+      "id": "monday",
+      "name": "monday.com",
+      "tagline": "Projekte, Aufgaben und CRM",
+      "description": "Liest und schreibt Boards, Elemente und Spalten in monday.com.",
+      "category": "business",
+      "developer": "monday.com",
+      "server": "monday",
+      "definition": {
+        "url": "https://mcp.monday.com/mcp"
+      },
+      "website": "https://monday.com",
+      "prompts": [
+        "Welche Aufgaben sind diese Woche fällig?",
+        "Lege ein Element aus dieser Beschreibung an.",
+        "Wer hat gerade die meisten offenen Aufgaben?"
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://monday.com"
+      },
+      "icon": "monday.svg"
+    },
+    {
+      "id": "notion",
+      "name": "Notion",
+      "tagline": "Seiten, Datenbanken und Abläufe",
+      "description": "Liest und schreibt Notion-Seiten und -Datenbanken: suchen, anlegen, ändern, Kommentare lesen.",
+      "category": "produktivitaet",
+      "developer": "Notion",
+      "server": "notion",
+      "definition": {
+        "url": "https://mcp.notion.com/mcp"
+      },
+      "icon": "notion.svg",
+      "website": "https://notion.so",
+      "featured": true,
+      "popular": true,
+      "prompts": [
+        "Fasse die Notizen des letzten Treffens zusammen.",
+        "Lege eine Seite aus diesem Entwurf an.",
+        "Welche Aufgaben in dieser Datenbank haben kein Datum?"
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://notion.so"
+      }
+    },
+    {
+      "id": "linear",
+      "name": "Linear",
+      "tagline": "Produkte planen und bauen",
+      "description": "Liest und schreibt Linear-Vorgänge, Projekte und Zyklen.",
+      "category": "produktivitaet",
+      "developer": "Linear",
+      "server": "linear",
+      "definition": {
+        "url": "https://mcp.linear.app/mcp"
+      },
+      "icon": "linear.svg",
+      "website": "https://linear.app",
+      "popular": true,
+      "prompts": [
+        "Was steht in diesem Zyklus noch offen?",
+        "Lege einen Vorgang aus dieser Fehlerbeschreibung an.",
+        "Welche Vorgänge liegen seit zwei Wochen still?"
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://linear.app"
+      }
+    },
+    {
+      "id": "asana",
+      "name": "Asana",
+      "tagline": "Aufgaben und Projekte",
+      "description": "Liest und schreibt Asana-Aufgaben, Projekte und Portfolios.",
+      "category": "produktivitaet",
+      "developer": "Asana",
+      "server": "asana",
+      "definition": {
+        "url": "https://mcp.asana.com/mcp"
+      },
+      "icon": "asana.svg",
+      "website": "https://asana.com",
+      "prompts": [
+        "Welche Aufgaben sind mir zugewiesen und überfällig?",
+        "Lege eine Aufgabe aus dieser Notiz an.",
+        "Wie steht dieses Projekt im Zeitplan?"
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://asana.com"
+      }
+    },
+    {
+      "id": "atlassian",
+      "name": "Atlassian",
+      "tagline": "Jira und Confluence",
+      "description": "Zugriff auf Jira-Vorgänge und Confluence-Seiten desselben Kontos.",
+      "category": "produktivitaet",
+      "developer": "Atlassian",
+      "server": "atlassian",
+      "definition": {
+        "url": "https://mcp.atlassian.com/v1/mcp"
+      },
+      "icon": "atlassian.svg",
+      "website": "https://atlassian.com",
+      "popular": true,
+      "prompts": [
+        "Welche Vorgänge blockieren diese Version?",
+        "Lege einen Jira-Vorgang aus diesem Fehler an.",
+        "Fasse diese Confluence-Seite zusammen."
+      ],
+      "requires": {
+        "kind": "oauth",
+        "hint": "Die Anmeldung öffnet sich in deinem Browser. Cortex hält den Token im Schlüsselbund und frischt ihn selbst auf.",
+        "url": "https://atlassian.com"
+      }
+    },
+    {
+      "id": "filesystem",
+      "name": "Dateien",
+      "tagline": "Einen Ordner freigeben",
+      "description": "Gibt genau die Ordner frei, die im Aufruf stehen — lesen, schreiben, suchen. Nichts darüber hinaus.",
+      "category": "produktivitaet",
+      "developer": "Model Context Protocol",
+      "server": "filesystem",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-filesystem",
+          "${FILESYSTEM_ROOT}"
+        ],
+        "env": {
+          "FILESYSTEM_ROOT": ""
+        }
+      },
+      "icon": "filesystem.svg",
+      "version": "2026.8.31",
+      "website": "https://modelcontextprotocol.io",
+      "prompts": [
+        "Was liegt in diesem Ordner?",
+        "Finde alle Dateien mit diesem Begriff.",
+        "Fasse den Inhalt dieser Datei zusammen."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "FILESYSTEM_ROOT",
+        "fields": [
+          {
+            "env": "FILESYSTEM_ROOT",
+            "label": "Freigegebener Ordner",
+            "secret": false,
+            "placeholder": "/Users/du/Documents"
+          }
+        ],
+        "hint": "Der vollständige Pfad des Ordners, den der Agent sehen darf — ohne „~“, das startet der Server nicht auf."
+      }
+    },
+    {
+      "id": "memory",
+      "name": "Gedächtnis",
+      "tagline": "Ein Wissensgraph über Sitzungen hinweg",
+      "description": "Merkt sich Personen, Dinge und Beziehungen in einem lokalen Wissensgraphen, der über einzelne Aufgaben hinaus bestehen bleibt.",
+      "category": "produktivitaet",
+      "developer": "Model Context Protocol",
+      "server": "memory",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-memory"
+        ]
+      },
+      "icon": "memory.svg",
+      "version": "2026.8.31",
+      "website": "https://modelcontextprotocol.io",
+      "prompts": [
+        "Merk dir, dass dieses Projekt auf Postgres läuft.",
+        "Was weißt du über dieses Projekt?",
+        "Verknüpfe diese Person mit diesem Team."
+      ]
+    },
+    {
+      "id": "sequential-thinking",
+      "name": "Schrittweises Denken",
+      "tagline": "Gedanken sichtbar ordnen",
+      "description": "Zerlegt eine Aufgabe in nachvollziehbare Schritte, die sich unterwegs korrigieren lassen.",
+      "category": "produktivitaet",
+      "developer": "Model Context Protocol",
+      "server": "sequential-thinking",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-sequential-thinking"
+        ]
+      },
+      "icon": "sequential-thinking.svg",
+      "version": "2026.8.31",
+      "website": "https://modelcontextprotocol.io",
+      "prompts": [
+        "Denk diese Entscheidung Schritt für Schritt durch.",
+        "Zerleg dieses Problem in Teilprobleme.",
+        "Prüfe deine eigene Schlusskette auf Lücken."
+      ]
+    },
+    {
+      "id": "obsidian",
+      "name": "Obsidian",
+      "tagline": "Den eigenen Notizspeicher lesen",
+      "description": "Durchsucht und liest Notizen eines Obsidian-Speichers.",
+      "category": "produktivitaet",
+      "developer": "Obsidian MCP",
+      "server": "obsidian",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "mcp-obsidian",
+          "${OBSIDIAN_VAULT}"
+        ],
+        "env": {
+          "OBSIDIAN_VAULT": ""
+        }
+      },
+      "icon": "obsidian.svg",
+      "version": "1.0.0",
+      "prompts": [
+        "Was habe ich zu diesem Thema notiert?",
+        "Finde alle Notizen mit diesem Schlagwort.",
+        "Fasse meine Notizen der letzten Woche zusammen."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "OBSIDIAN_VAULT",
+        "fields": [
+          {
+            "env": "OBSIDIAN_VAULT",
+            "label": "Speicherort des Vaults",
+            "secret": false,
+            "placeholder": "/Users/du/Obsidian/Notizen"
+          }
+        ],
+        "hint": "Der vollständige Pfad deines Obsidian-Speichers."
+      }
+    },
+    {
+      "id": "google-maps",
+      "name": "Google Maps",
+      "tagline": "Orte, Wege und Entfernungen",
+      "description": "Sucht Orte, berechnet Wege und liest Details über die Google-Maps-API.",
+      "category": "produktivitaet",
+      "developer": "Model Context Protocol",
+      "server": "google-maps",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-google-maps"
+        ],
+        "env": {
+          "GOOGLE_MAPS_API_KEY": ""
+        }
+      },
+      "icon": "google-maps.svg",
+      "version": "0.6.2",
+      "website": "https://modelcontextprotocol.io",
+      "prompts": [
+        "Wie lange dauert die Fahrt zwischen diesen beiden Adressen?",
+        "Welche Cafés liegen in Laufnähe?",
+        "Prüf die Öffnungszeiten dieses Ortes."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "GOOGLE_MAPS_API_KEY",
+        "fields": [
+          {
+            "env": "GOOGLE_MAPS_API_KEY",
+            "label": "API-Schlüssel"
+          }
+        ],
+        "hint": "Den Schlüssel bekommst du im Konto des Anbieters.",
+        "url": "https://console.cloud.google.com/google/maps-apis/credentials"
+      }
+    },
+    {
+      "id": "slack",
+      "name": "Slack",
+      "tagline": "Kanäle lesen und schreiben",
+      "description": "Liest Kanäle und Verläufe und schreibt Nachrichten über ein Slack-Bot-Token.",
+      "category": "produktivitaet",
+      "developer": "Model Context Protocol",
+      "server": "slack",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-slack"
+        ],
+        "env": {
+          "SLACK_BOT_TOKEN": "",
+          "SLACK_TEAM_ID": ""
+        }
+      },
+      "version": "2025.4.25",
+      "website": "https://modelcontextprotocol.io",
+      "prompts": [
+        "Fasse zusammen, was heute in diesem Kanal besprochen wurde.",
+        "Wer hat zuletzt zu diesem Thema geschrieben?",
+        "Schreib eine Zusammenfassung in den Kanal."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "SLACK_BOT_TOKEN",
+        "fields": [
+          {
+            "env": "SLACK_BOT_TOKEN",
+            "label": "Bot-Token",
+            "placeholder": "xoxb-…"
+          },
+          {
+            "env": "SLACK_TEAM_ID",
+            "label": "Team-ID",
+            "secret": false,
+            "placeholder": "T01234567"
+          }
+        ],
+        "hint": "Token und Team-ID einer Slack-App, die in deinem Workspace installiert ist.",
+        "url": "https://api.slack.com/apps"
+      },
+      "icon": "slack.svg"
+    },
+    {
+      "id": "google-calendar",
+      "name": "Google Kalender",
+      "tagline": "Termine lesen, anlegen und abstimmen",
+      "description": "Liest und schreibt Termine in deinen Google-Kalendern: freie Zeiten finden, Einladungen anlegen, Termine verschieben, mehrere Kalender zugleich durchsuchen.",
+      "category": "produktivitaet",
+      "developer": "nspady",
+      "server": "google-calendar",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@cocal/google-calendar-mcp@2.6.3"
+        ]
+      },
+      "requires": {
+        "kind": "oauth-client",
+        "hint": "In der Google Cloud Console: die „Google Calendar API“ aktivieren, im OAuth-Zustimmungsbildschirm dich als Testnutzer eintragen, dann unter „Anmeldedaten“ eine OAuth-Client-ID vom Typ „Desktop-App“ anlegen und ihre JSON hier ablegen.",
+        "url": "https://console.cloud.google.com/apis/credentials",
+        "client": {
+          "provider": "google",
+          "scopes": [
+            "https://www.googleapis.com/auth/calendar"
+          ],
+          "clientFile": "GOOGLE_OAUTH_CREDENTIALS",
+          "tokenFile": "GOOGLE_CALENDAR_MCP_TOKEN_PATH"
+        }
+      },
+      "version": "2.6.3",
+      "website": "https://github.com/nspady/google-calendar-mcp",
+      "fresh": true,
+      "prompts": [
+        "Was steht diese Woche in meinem Kalender?",
+        "Finde nächste Woche eine freie Stunde für ein Gespräch am Nachmittag.",
+        "Verschiebe meinen Termin morgen um 10 Uhr auf 14 Uhr."
+      ],
+      "icon": "google-calendar.svg"
+    },
+    {
+      "id": "gmail",
+      "name": "Gmail",
+      "tagline": "E-Mails suchen, lesen und entwerfen",
+      "description": "Durchsucht und liest dein Gmail-Postfach, legt Entwürfe an, verschickt Nachrichten und ordnet sie mit Labels.",
+      "category": "kommunikation",
+      "developer": "GongRzhe",
+      "server": "gmail",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@gongrzhe/server-gmail-autoauth-mcp@1.1.11"
+        ]
+      },
+      "requires": {
+        "kind": "oauth-client",
+        "hint": "In der Google Cloud Console: die „Gmail API“ aktivieren, im OAuth-Zustimmungsbildschirm dich als Testnutzer eintragen, dann unter „Anmeldedaten“ eine OAuth-Client-ID vom Typ „Desktop-App“ anlegen und ihre JSON hier ablegen.",
+        "url": "https://console.cloud.google.com/apis/credentials",
+        "client": {
+          "provider": "google",
+          "scopes": [
+            "https://www.googleapis.com/auth/gmail.modify",
+            "https://www.googleapis.com/auth/gmail.settings.basic"
+          ],
+          "clientFile": "GMAIL_OAUTH_PATH",
+          "tokenFile": "GMAIL_CREDENTIALS_PATH"
+        }
+      },
+      "version": "1.1.11",
+      "website": "https://github.com/GongRzhe/Gmail-MCP-Server",
+      "fresh": true,
+      "prompts": [
+        "Welche ungelesenen Mails von heute sind wichtig?",
+        "Fasse den Verlauf mit dem Betreff „Angebot“ zusammen.",
+        "Entwirf eine höfliche Absage auf die letzte Einladung."
+      ],
+      "icon": "gmail.svg"
+    },
+    {
+      "id": "google-drive",
+      "name": "Google Drive",
+      "tagline": "Dateien, Docs, Sheets und Slides",
+      "description": "Sucht und liest Dateien in deinem Google Drive und bearbeitet Google Docs, Tabellen und Präsentationen — Inhalte lesen, Zellen schreiben, Dokumente anlegen.",
+      "category": "produktivitaet",
+      "developer": "piotr-agier",
+      "server": "google-drive",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@piotr-agier/google-drive-mcp@2.9.0"
+        ],
+        "env": {
+          "GOOGLE_DRIVE_MCP_SCOPES": "drive,documents,spreadsheets,presentations"
+        }
+      },
+      "requires": {
+        "kind": "oauth-client",
+        "hint": "In der Google Cloud Console: „Google Drive API“, „Google Docs API“, „Google Sheets API“ und „Google Slides API“ aktivieren, im OAuth-Zustimmungsbildschirm dich als Testnutzer eintragen, dann unter „Anmeldedaten“ eine OAuth-Client-ID vom Typ „Desktop-App“ anlegen und ihre JSON hier ablegen.",
+        "url": "https://console.cloud.google.com/apis/credentials",
+        "client": {
+          "provider": "google",
+          "scopes": [
+            "https://www.googleapis.com/auth/drive",
+            "https://www.googleapis.com/auth/documents",
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/presentations"
+          ],
+          "clientIdEnv": "GOOGLE_DRIVE_MCP_CLIENT_ID",
+          "clientSecretEnv": "GOOGLE_DRIVE_MCP_CLIENT_SECRET",
+          "accessTokenEnv": "GOOGLE_DRIVE_MCP_ACCESS_TOKEN",
+          "refreshTokenEnv": "GOOGLE_DRIVE_MCP_REFRESH_TOKEN"
+        }
+      },
+      "version": "2.9.0",
+      "website": "https://github.com/piotr-agier/google-drive-mcp",
+      "fresh": true,
+      "prompts": [
+        "Finde die neueste Version meines Projektplans in Drive.",
+        "Fasse das Google-Doc „Protokoll“ in fünf Punkten zusammen.",
+        "Trage die Zahlen aus dieser Tabelle in mein Sheet „Budget“ ein."
+      ],
+      "icon": "google-drive.svg"
+    },
+    {
+      "id": "hubspot",
+      "name": "HubSpot",
+      "tagline": "Kontakte, Firmen und Deals",
+      "description": "Liest und schreibt Kontakte, Firmen, Geschäfte und Vorgänge in HubSpot.",
+      "category": "business",
+      "developer": "HubSpot",
+      "server": "hubspot",
+      "definition": {
+        "url": "https://mcp.hubspot.com"
+      },
+      "requires": {
+        "kind": "oauth-client",
+        "hint": "Lege in HubSpot unter „Entwicklung“ eine MCP-Auth-App an und trage dort die Rückrufadresse unten ein. Client-ID und Secret stehen danach in der App.",
+        "url": "https://developers.hubspot.com/mcp",
+        "client": {
+          "redirectHost": "localhost"
+        }
+      },
+      "icon": "hubspot.svg",
+      "website": "https://developers.hubspot.com/mcp",
+      "popular": true,
+      "prompts": [
+        "Welche Deals stehen kurz vor dem Abschluss?",
+        "Lege einen Kontakt für die Person aus dieser Signatur an.",
+        "Welche Firmen haben seit einem Monat keinen Kontakt mehr gehabt?"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "nameShort": "Cortex",
+  "nameLong": "Cortex",
+  "applicationName": "cortex",
+  "dataFolderName": ".cortex",
+  "darwinBundleIdentifier": "dev.oskarschiermeister.cortex",
+  "urlProtocol": "cortex",
+  "win32MutexName": "cortex",
+  "licenseName": "MIT",
+  "reportIssueUrl": "https://github.com/VSCodium/vscodium/issues",
+  "documentationUrl": "https://github.com/VSCodium/vscodium",
+  "requestFeatureUrl": "https://github.com/VSCodium/vscodium/issues"
+}

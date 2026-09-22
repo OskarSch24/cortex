@@ -1,0 +1,4083 @@
+* {
+  box-sizing: border-box;
+}
+
+/*
+ * One design system for every surface.
+ *
+ * Calm neutrals borrowed from the editor theme, hairlines instead of frames,
+ * and exactly two raised planes. Nothing here draws a card around content that
+ * is already grouped by position — the layout does the grouping, the ink only
+ * separates. Colour is reserved for state and for the four provider brands.
+ */
+:root {
+  --accent: #e4572e; /* reentry heat — Cursor density, SpaceX carbon */
+  --control-h: 22px;
+  --mono: var(--vscode-editor-font-family, 'SF Mono', Menlo, Consolas, monospace);
+
+  /* Ground, and the one plane that sits above it. */
+  --surface: var(--vscode-editor-background);
+  --raised: color-mix(in srgb, var(--vscode-foreground) 4%, var(--surface));
+  --sunken: color-mix(in srgb, var(--vscode-foreground) 7%, var(--surface));
+
+  /* Hairlines, not frames: visible at rest, never the loudest thing on screen. */
+  --hairline: color-mix(in srgb, var(--vscode-foreground) 13%, transparent);
+  --border: var(--hairline);
+
+  --muted: var(--vscode-descriptionForeground);
+  --ok: var(--vscode-charts-green, #4ec9b0);
+  --warn: var(--vscode-charts-yellow, #d0a54e);
+  --danger: var(--vscode-errorForeground, #d05e5e);
+  --review: var(--vscode-charts-purple, #b18cd9);
+
+  /*
+   * Four radii, and nothing in between. Small for anything set into a line of
+   * text, the default for controls and rows, large for a surface that floats,
+   * and fully round for badges and bars — a pill is never "slightly rounded".
+   */
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+
+  /* Depth by shadow, not by border — a lift you notice only if you look. */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.14);
+
+  /* Glass, only where a surface genuinely floats over moving content. */
+  --glass: color-mix(in srgb, var(--surface) 78%, transparent);
+  --glass-blur: saturate(150%) blur(16px);
+  /* A menu has words under it that must not be read through it. Same family,
+     no transparency — legibility outranks the effect. */
+  --popover: var(--raised);
+
+  /* Short enough to read as response, not as animation. */
+  --fast: 110ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  --slow: 200ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+/* Dark themes need deeper shadow and thinner glass to read the same way. */
+body.vscode-dark,
+body.vscode-high-contrast {
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 10px 34px rgba(0, 0, 0, 0.5);
+  --glass: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background: var(--vscode-sideBar-background);
+  -webkit-font-smoothing: antialiased;
+}
+
+.agent-shell {
+  display: flex;
+  height: 100%;
+  min-height: 100vh;
+  background: var(--surface);
+}
+
+.agent-rail {
+  width: 232px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--surface) 92%, #000);
+}
+
+.agent-brand {
+  font-family: var(--mono);
+  font-size: 0.72em;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 16px 16px 8px;
+  color: var(--accent);
+}
+
+.agent-rail .history {
+  flex: 1;
+  overflow: auto;
+}
+
+.agent-rail .history-new {
+  margin: 0 10px 8px;
+}
+
+.agent-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.agent-top-title {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.history-row.active {
+  background: var(--sunken);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* The panel is meant to be driven from the keyboard, so the focus ring is part
+   of the design rather than whatever the platform happened to leave behind. */
+:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/*
+ * Detail on demand.
+ *
+ * The numbers beside a line — which model, how long, how many tokens, which
+ * files — are worth having and not worth reading every time. They hold their
+ * space and fade in when you look at the row they belong to, so the resting
+ * state is one column of text instead of two. They stay in the DOM throughout:
+ * a screen reader still reads them, and a keyboard user still reaches them.
+ */
+.assistant-mark,
+.assistant-meta,
+.permission-by,
+.agent-fanout-total,
+.agent-meta,
+.agent-track,
+.history-time {
+  opacity: 0;
+  transition: opacity var(--fast);
+}
+
+.tl:hover .assistant-mark,
+.tl:hover .assistant-meta,
+.tl:hover .permission-by,
+.tl:hover .agent-fanout-total,
+.tl:hover .agent-meta,
+.tl:hover .agent-track,
+.tl:focus-within .assistant-mark,
+.tl:focus-within .assistant-meta,
+.tl:focus-within .permission-by,
+.tl:focus-within .agent-fanout-total,
+.tl:focus-within .agent-meta,
+.tl:focus-within .agent-track,
+.history-row:hover .history-time,
+.history-row:focus-within .history-time {
+  opacity: 0.75;
+}
+
+/* Nothing hovers on a touch screen, so there everything simply shows. */
+@media (hover: none) {
+  .assistant-mark,
+  .assistant-meta,
+  .permission-by,
+  .agent-fanout-total,
+  .agent-meta,
+  .agent-track,
+  .history-time {
+    opacity: 0.75;
+  }
+}
+
+/* A key you are meant to press, written the way it looks on the keyboard. */
+kbd,
+.kbd {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: var(--sunken);
+  color: var(--muted);
+}
+
+/* ── shared controls ────────────────────────────────────── */
+
+/* Says in words what a colour or a glyph says visually. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * Copy is the most common thing anyone does with an answer. It sits quiet
+ * until the block is hovered, and confirms in place rather than as a toast.
+ */
+.copy-btn {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--vscode-sideBar-background);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.72em;
+  line-height: 1.6;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.copy-btn:hover {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder);
+}
+
+/* Never hide it from the keyboard, and never hide the confirmation. */
+.copy-btn:focus-visible,
+.copy-btn.done,
+.copy-btn.failed {
+  opacity: 1;
+}
+
+.copy-btn.done {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+
+.md-code:hover .copy-btn,
+.tl-assistant:hover .copy-btn {
+  opacity: 1;
+}
+
+.code-copy {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  z-index: 1;
+}
+
+/* In a footer the word "Copy" would be the loudest thing on the line, so the
+   glyph stands alone — and stays visible, since a footer is not a hover
+   target the way a code block is. */
+.copy-btn.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  opacity: 1;
+}
+
+.copy-btn.icon:hover {
+  color: var(--vscode-foreground);
+  background: var(--raised);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.icon-btn.open {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.agent-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.agent-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 10px 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-family: var(--mono);
+  font-size: 0.75em;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.agent-profile-btn:hover,
+.agent-profile-btn.open {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--hairline));
+  color: var(--accent);
+}
+
+.settings-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 560px;
+}
+
+.settings-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--vscode-foreground);
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-choice.on {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--hairline));
+}
+
+.settings-choice-name {
+  font-family: var(--mono);
+  font-size: 0.85em;
+}
+
+.settings-choice-hint {
+  font-size: 0.75em;
+  color: var(--muted);
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82em;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+}
+
+/* ── history ────────────────────────────────────────────── */
+
+.history {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 6px 6px;
+}
+
+.history-new {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 9px;
+  margin-bottom: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.85em;
+  cursor: pointer;
+  transition:
+    background var(--fast),
+    color var(--fast),
+    border-color var(--fast);
+}
+
+.history-new:hover {
+  background: var(--raised);
+  color: var(--vscode-foreground);
+  border-color: color-mix(in srgb, var(--vscode-foreground) 24%, transparent);
+}
+
+.history-empty {
+  color: var(--muted);
+  font-size: 0.85em;
+  padding: 12px 4px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.history-group {
+  margin-bottom: 4px;
+}
+
+.history-group-label {
+  font-family: var(--mono);
+  font-size: 0.68em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  opacity: 0.8;
+  padding: 8px 8px 3px;
+  user-select: none;
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--fast);
+}
+
+.history-row:hover {
+  background: var(--raised);
+}
+
+.history-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9em;
+}
+
+.history-time {
+  font-family: var(--mono);
+  font-size: 0.75em;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.history-del {
+  opacity: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.history-row:hover .history-del {
+  opacity: 0.7;
+}
+
+.history-del:hover {
+  opacity: 1 !important;
+  color: var(--vscode-errorForeground);
+}
+
+/* ── sidebar footer ─────────────────────────────────────── */
+
+.sidebar-footer {
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px 8px;
+  border-top: 1px solid var(--hairline);
+  flex-shrink: 0;
+}
+
+/* Three destinations, one row, no chrome: they are navigation, not commands. */
+.footer-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82em;
+  cursor: pointer;
+  transition:
+    background var(--fast),
+    color var(--fast);
+}
+
+.footer-btn:hover {
+  background: var(--raised);
+  color: var(--vscode-foreground);
+}
+
+/* ── transcript ─────────────────────────────────────────── */
+
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/*
+ * A conversation drawn the way one reads: what you said as a bubble on your
+ * side, what came back as plain prose across the whole column. Side and shape
+ * say who is speaking, so nothing needs an avatar, a name plate, or a rail
+ * down the gutter with a dot per event.
+ */
+.transcript {
+  display: flex;
+  flex-direction: column;
+  padding: 22px 0 8px;
+}
+
+.transcript.empty {
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.tl {
+  position: relative;
+  padding: 0 0 22px;
+}
+
+/* Your message is the one thing that gets a container: it is short, it is
+   yours, and it is what every answer under it refers back to. */
+.tl-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-bottom: 8px;
+}
+
+/* What you attached belongs above what you asked, on your side of the column. */
+.user-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: min(80%, 560px);
+  margin-bottom: 7px;
+}
+
+.user-attachment {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--muted);
+  padding: 4px 9px;
+  font-size: 0.78em;
+  cursor: pointer;
+}
+
+.user-attachment:hover {
+  color: var(--vscode-foreground);
+  border-color: var(--border);
+}
+
+.user-bubble {
+  max-width: min(80%, 560px);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  padding: 12px 18px;
+  border-radius: 22px;
+  background: var(--sunken);
+  color: var(--vscode-foreground);
+}
+
+/* The clock and the copy button belong under the bubble rather than inside it:
+   they are about the message, not part of what you said. */
+.user-foot {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 6px 0;
+  color: var(--muted);
+  font-size: 0.78em;
+}
+
+.user-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-box {
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.empty-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--vscode-foreground);
+  font-family: var(--mono);
+  font-size: 1.25em;
+  letter-spacing: -0.01em;
+}
+
+.empty-line {
+  color: var(--muted);
+  font-size: 0.92em;
+  line-height: 1.6;
+}
+
+.empty-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82em;
+  color: var(--muted);
+  border-top: 1px solid var(--hairline);
+  padding-top: 13px;
+}
+
+.empty-hints code,
+/*
+ * Tabellen. Der umgebende Text steht in `pre-wrap`, damit Zeilenumbrüche der
+ * Antwort erhalten bleiben — eine Tabelle darin muss das ausdrücklich abwählen,
+ * sonst erbt jede Zelle die Umbrüche der Quelle. Breite Tabellen scrollen nie
+ * seitlich: sie nehmen die volle Breite und ihre Zellen brechen um.
+ */
+.md-table {
+  display: table;
+  white-space: normal;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 0.94em;
+  max-width: 100%;
+}
+
+.md-table th,
+.md-table td {
+  border: 1px solid var(--hairline);
+  padding: 5px 10px;
+  vertical-align: top;
+}
+
+/* Zuerst zwischen Wörtern umbrechen; eine Adresse oder Kennung, die nicht
+   mehr in ihre Spalte passt, notfalls mittendrin — nie seitlich scrollen. */
+.md-table th,
+.md-table td {
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+.md-table .md-nowrap {
+  white-space: normal;
+}
+
+.md-table th {
+  font-weight: 550;
+  background: var(--raised);
+}
+
+.md-table tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--vscode-foreground) 2.5%, transparent);
+}
+
+/* Ein Dateiname mitten im Satz braucht kein Leuchten, nur einen anderen
+   Schnitt: dieselbe Farbe wie der Text drumherum, aber die Schreibmaschine
+   und ein Hauch Fläche. So bleibt er beim Überfliegen auffindbar, ohne die
+   Zeile zu zerreißen. */
+.md-inline {
+  /* Codeschrift wie Codex: Systemstandard (SF Mono), per Einstellung wählbar. */
+  font-family: var(--cx-code-font, 'SF Mono', 'SFMono-Regular', Menlo, monospace);
+  font-size: 0.86em;
+  /* Nicht `inherit`: die Workbench-Regel für <code> ist spezifischer als
+     Vererbung und färbte den Dateinamen sonst goldbeige. */
+  color: var(--cx-text, var(--vscode-foreground));
+  background: rgba(255, 255, 255, 0.055);
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+}
+
+/* A note about the run, not an event in it: a quiet chip of its own. */
+.tl-notice {
+  padding-bottom: 16px;
+}
+
+.tl-notice span {
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--sunken);
+  font-family: var(--mono);
+  font-size: 0.7em;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* The answer gets the whole column: nothing tints or boxes it. */
+.tl-assistant {
+  line-height: 1.7;
+}
+
+/*
+ * Where the turn begins. A hairline is the whole boundary between what you
+ * asked and what came back — a header with a mark, a name and a model string
+ * said the same thing three times before you had read a word of the answer.
+ */
+.turn-rule {
+  height: 1px;
+  margin: 6px 0 16px;
+  background: var(--hairline);
+}
+
+/*
+ * The head of the turn: one line that says how long, and opens onto everything
+ * the model did. Closed it is a timestamp; open it is the whole work log.
+ */
+.turn {
+  margin-bottom: 6px;
+}
+
+.turn-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  color: var(--muted);
+  font-size: 0.88em;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.turn-head::-webkit-details-marker {
+  display: none;
+}
+
+.turn-head.inert {
+  cursor: default;
+}
+
+.turn-head:not(.inert):hover {
+  color: var(--vscode-foreground);
+}
+
+.turn-chevron {
+  flex-shrink: 0;
+  opacity: 0.8;
+  transition: transform var(--fast);
+}
+
+.turn[open] .turn-chevron {
+  transform: rotate(90deg);
+}
+
+/* Live, the head names the file it is on right now. */
+.turn-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 0.94em;
+  color: var(--vscode-foreground);
+}
+
+.turn-body {
+  padding: 6px 0 2px;
+}
+
+.run-state {
+  color: var(--muted);
+}
+
+.run-state.blocked {
+  color: var(--warn);
+}
+
+.turn-duration {
+  font-variant-numeric: tabular-nums;
+}
+
+.run-clock {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * What you can do with the answer, and when it arrived. These stay put: a
+ * control you have to hunt for by hovering is a control nobody presses.
+ * Which account answered is the detail behind them, on demand.
+ */
+.assistant-foot {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.78em;
+}
+
+.answer-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.answer-action:hover {
+  color: var(--vscode-foreground);
+  background: var(--raised);
+}
+
+/* Pressed means the router now scores that run as unclean — say so in colour. */
+.answer-action.on {
+  color: var(--warn);
+}
+
+.answer-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.assistant-mark {
+  display: inline-flex;
+}
+
+.assistant-meta + .assistant-meta::before {
+  content: '·';
+  margin-right: 7px;
+}
+
+/* ── tool timeline (expandable) ─────────────────────────── */
+
+
+
+
+
+
+
+
+
+
+
+/* ── activity: one line, opened only if you ask ─────────── */
+
+/*
+ * Everything the model did, folded into a single dim line under the answer.
+ * At rest the transcript is your message, the answer, and the things that
+ * need a decision — nothing else competes for the eye.
+ */
+.activity {
+  margin: 10px 0 2px;
+  font-size: 0.85em;
+}
+
+.activity-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 0;
+  cursor: pointer;
+  list-style: none;
+  color: var(--muted);
+  opacity: 0.75;
+  user-select: none;
+  transition: opacity var(--fast);
+}
+
+.activity-summary::-webkit-details-marker {
+  display: none;
+}
+
+.activity-glyph {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.activity-summary:hover {
+  opacity: 1;
+}
+
+/* Live, the line stops summarising and names the file it is on right now. */
+.activity-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 0.94em;
+  color: var(--vscode-foreground);
+}
+
+.activity[open] .activity-summary {
+  opacity: 1;
+}
+
+.activity-body {
+  padding: 4px 0 2px;
+}
+
+.tool-steps {
+  padding: 2px 0 2px 14px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+/* One grid keeps every glyph, name and path in the same column. */
+.tool-step:not(.expandable),
+.tool-step-summary {
+  display: grid;
+  grid-template-columns: 14px 58px minmax(0, 1fr) 10px;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+/* An expandable row is the container for its own summary + preview. */
+.tool-step.expandable {
+  display: block;
+}
+
+.tool-step-summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.tool-step-summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-step.expandable > .tool-step-summary:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+/* Only expandable rows get a disclosure arrow, in the reserved last column. */
+.tool-step-summary::after {
+  content: '▸';
+  font-size: 0.85em;
+  color: var(--muted);
+  opacity: 0.55;
+  transition: transform 0.15s ease;
+}
+
+.tool-step[open] > .tool-step-summary::after {
+  transform: rotate(90deg);
+}
+
+.tool-step-action {
+  text-align: center;
+  opacity: 0.9;
+}
+
+.tool-step-action.read {
+  color: #6fa8dc;
+}
+.tool-step-action.edit {
+  color: #d7ba7d;
+}
+.tool-step-action.write {
+  color: var(--ok);
+}
+.tool-step-action.search {
+  color: var(--review);
+}
+.tool-step-action.run {
+  color: var(--accent);
+}
+.tool-step-action.fetch,
+.tool-step-action.task {
+  color: var(--muted);
+}
+
+.tool-step-name {
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-step-detail {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.tool-step-preview {
+  /* 6px padding + 14 glyph + 8 gap + 58 name + 8 gap — the detail column. */
+  margin: 3px 6px 7px 94px;
+  padding: 6px 9px;
+  background: var(--sunken);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 0.92em;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  max-height: 260px;
+}
+
+/* Diffs read as diffs. */
+.tool-step-preview.edit {
+  color: var(--vscode-foreground);
+  padding: 4px 0;
+}
+
+.diff-line {
+  padding: 0 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diff-line.del {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: color-mix(in srgb, var(--danger) 75%, var(--vscode-foreground));
+}
+
+.diff-line.add {
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  color: color-mix(in srgb, var(--ok) 75%, var(--vscode-foreground));
+}
+
+.assistant-body {
+  position: relative;
+}
+
+.type-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  animation: blink 1s steps(2) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.live-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  margin-left: 2px;
+}
+
+.live-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: bounce 1.2s infinite;
+}
+
+.live-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.live-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+
+
+
+/* A routing event, said in one line — it needs the colour, not a banner. */
+.failover-banner {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  line-height: 1.5;
+  color: var(--warn);
+}
+
+/* ── subagents: concurrent lanes ────────────────────────── */
+
+/*
+ * A stack of collapsed rows reads as a sequence. Parallel work has to look
+ * parallel: one trunk, a branch per agent, every lane showing its own live
+ * state at the same time, and duration bars that survive the run as a picture
+ * of who took how long.
+ */
+.agent-fanout {
+  align-self: stretch;
+  margin: 10px 0;
+  font-family: var(--mono);
+  font-size: 0.82em;
+  overflow: hidden;
+}
+
+.agent-fanout-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  color: var(--muted);
+}
+
+.agent-fanout-count {
+  color: var(--vscode-foreground);
+  flex-shrink: 0;
+}
+
+.agent-fanout-mode {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  font-size: 0.9em;
+  color: var(--muted);
+  background: var(--sunken);
+}
+
+.agent-fanout-state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-fanout-total {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.agent-lanes {
+  position: relative;
+  padding: 5px 0 5px 14px;
+}
+
+.agent-lane {
+  position: relative;
+}
+
+.agent-lane-head {
+  display: block;
+  padding: 4px 10px 3px 4px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  color: var(--muted);
+}
+
+.agent-lane-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.agent-lane-head::-webkit-details-marker {
+  display: none;
+}
+
+.agent-lane-head:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.agent-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--muted);
+}
+
+.agent-lane.running .agent-dot {
+  background: var(--accent);
+  animation: agent-pulse 1.5s ease-out infinite;
+}
+
+.agent-lane.completed .agent-dot {
+  background: var(--ok);
+}
+
+.agent-lane.failed .agent-dot {
+  background: var(--danger);
+}
+
+@keyframes agent-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+.agent-kind {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  font-size: 0.88em;
+  color: var(--muted);
+  background: var(--sunken);
+}
+
+.agent-label {
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.agent-bg {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  font-size: 0.85em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+/* Everything about the lane's state, right-aligned and free to shrink. */
+.agent-right {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.agent-now {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vscode-foreground);
+  opacity: 0.85;
+}
+
+/* The first line of what it reported back — the answer, without opening it. */
+.agent-said {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+.agent-verdict {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.agent-verdict.completed {
+  color: var(--ok);
+}
+
+.agent-verdict.failed {
+  color: var(--danger);
+}
+
+.agent-meta {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* How long this lane took, against the slowest one in the fan-out. */
+.agent-track {
+  height: 2px;
+  /* Short enough to read as a measurement — a full-width bar reads as a rule
+     drawn under the row. */
+  max-width: 180px;
+  margin: 4px 0 0 13px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+  overflow: hidden;
+}
+
+.agent-track-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+  transition: width var(--slow);
+}
+
+/* The bar is a length, not a verdict — the ✓ or ✕ on the row says how it went,
+   so the fill stays neutral and only the failed one is tinted. */
+.agent-track-fill.failed {
+  background: color-mix(in srgb, var(--danger) 55%, transparent);
+}
+
+/* Still running: no honest length to draw, so it sweeps instead. */
+.agent-track-fill.running {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 65%, transparent),
+    transparent
+  );
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: agent-sweep 1.6s linear infinite;
+}
+
+@keyframes agent-sweep {
+  0% {
+    background-position: -45% 0;
+  }
+  100% {
+    background-position: 145% 0;
+  }
+}
+
+.agent-lane-body {
+  margin: 0 10px 6px 0;
+  padding-left: 14px;
+}
+
+.agent-prompt {
+  font-size: 0.95em;
+}
+
+.agent-prompt-head {
+  padding: 2px 0;
+  cursor: pointer;
+  list-style: none;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.agent-prompt-head::-webkit-details-marker {
+  display: none;
+}
+
+.agent-prompt-head::before {
+  content: '▸ ';
+  font-size: 0.85em;
+}
+
+.agent-prompt[open] .agent-prompt-head::before {
+  content: '▾ ';
+}
+
+.agent-prompt-text {
+  margin: 2px 0 6px;
+  padding: 6px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.08));
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.agent-steps {
+  padding: 2px 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.agent-report {
+  margin-top: 6px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  font-family: var(--vscode-font-family);
+  font-size: 1.08em;
+  line-height: 1.55;
+}
+
+.agent-report-label {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+/*
+ * Narrow panel: the label and the lane's state stop competing for one line and
+ * take one each. Squeezing them both is how badges end up on top of text.
+ */
+@media (max-width: 640px) {
+  .agent-fanout-head {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .agent-fanout-total {
+    margin-left: 0;
+  }
+
+  .agent-lane-row {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .agent-label {
+    flex: 1 1 auto;
+  }
+
+  .agent-right {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    padding-left: 13px;
+  }
+}
+
+.agent-fanout-foot {
+  padding: 4px 0 2px 14px;
+  color: var(--muted);
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* ── the model's own task list ──────────────────────────── */
+
+.task-block {
+  align-self: stretch;
+  font-size: 0.85em;
+}
+
+.task-summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 3px 6px 3px 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  color: var(--muted);
+  transition: color var(--fast);
+}
+
+.task-summary:hover {
+  color: var(--vscode-foreground);
+}
+
+.task-summary::-webkit-details-marker {
+  display: none;
+}
+
+.task-summary::before {
+  content: '▸';
+  font-size: 0.85em;
+  transition: transform 0.15s ease;
+}
+
+.task-block[open] .task-summary::before {
+  transform: rotate(90deg);
+}
+
+.task-label {
+  font-family: var(--mono);
+  font-size: 0.85em;
+}
+
+.task-count {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--vscode-foreground);
+}
+
+.task-bar {
+  width: 60px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--sunken);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.task-fill {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+  transition: width var(--slow);
+}
+
+.task-current {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vscode-foreground);
+}
+
+/* Once the list is open, the summary would just repeat the row you can see. */
+.task-block[open] .task-current {
+  display: none;
+}
+
+.task-items {
+  margin: 4px 0 0;
+  padding: 2px 0 2px 14px;
+  list-style: none;
+}
+
+.task-item {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+  line-height: 1.5;
+}
+
+.task-mark {
+  width: 12px;
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+.task-item.done .task-mark {
+  color: var(--ok);
+}
+
+.task-item.done .task-text {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 50%, transparent);
+}
+
+/* The mark carries "this one is running"; colouring the sentence too turns a
+   checklist into a warning. */
+.task-item.active .task-mark {
+  color: var(--accent);
+}
+
+.task-item.active .task-text {
+  color: var(--vscode-foreground);
+}
+
+/* ── permission: the run is blocked until this is answered ── */
+
+/* The run is stopped here, and the pulsing dot on the rail says so. What is
+   left to draw is the question and its answers — no frame required. */
+.permission-block {
+  align-self: stretch;
+  font-size: 0.9em;
+}
+
+.permission-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.permission-kind {
+  width: 12px;
+  text-align: center;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.permission-title {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+  font-family: var(--mono);
+  font-size: 0.92em;
+}
+
+.permission-by {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  flex-shrink: 0;
+}
+
+.permission-detail {
+  margin: 6px 0 9px 20px;
+  padding: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.88em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.permission-actions {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 0 20px;
+}
+
+.perm-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: 0.9em;
+  cursor: pointer;
+  transition:
+    background var(--fast),
+    border-color var(--fast),
+    color var(--fast);
+}
+
+.perm-btn:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.perm-btn.allow {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--vscode-button-foreground, #fff);
+}
+
+.perm-btn.allow:hover {
+  opacity: 0.9;
+  background: var(--accent);
+}
+
+.perm-btn.deny:hover {
+  border-color: var(--vscode-errorForeground);
+  color: var(--vscode-errorForeground);
+}
+
+.permission-block.answered {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.permission-mark {
+  width: 12px;
+  text-align: center;
+}
+
+.permission-block.answered.allowed .permission-mark {
+  color: var(--ok);
+}
+
+.permission-block.answered.denied .permission-mark {
+  color: var(--danger);
+}
+
+.permission-block.answered .permission-title {
+  font-size: 0.95em;
+}
+
+.permission-verdict {
+  font-family: var(--mono);
+  font-size: 0.85em;
+}
+
+/* A second provider's critique — collapsed by default, it is not the answer. */
+.review-block {
+  align-self: stretch;
+  font-size: 0.9em;
+}
+
+.review-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px 3px 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: color var(--fast);
+}
+
+.review-summary::-webkit-details-marker {
+  display: none;
+}
+
+.review-summary::before {
+  content: '▸';
+  font-size: 0.85em;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.review-block[open] .review-summary::before {
+  transform: rotate(90deg);
+}
+
+.review-badge {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  color: var(--review);
+}
+
+.review-by {
+  font-family: var(--mono);
+  font-size: 0.85em;
+}
+
+.review-hint {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.review-body {
+  margin: 4px 0 0;
+  padding: 2px 0 2px 14px;
+  line-height: 1.65;
+}
+
+.msg-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  align-self: stretch;
+  font-family: var(--mono);
+  font-size: 0.85em;
+  line-height: 1.55;
+  color: var(--danger);
+}
+
+.msg-error-text {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* A failure with no way forward makes retyping the prompt the only option. */
+.retry-btn {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-family: var(--mono);
+  font-size: 0.95em;
+  cursor: pointer;
+}
+
+.retry-btn:hover {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-list-hoverBackground);
+}
+
+/* The run ended without an answer — said plainly, instead of a cursor that
+   blinks for ever because nothing ever marked the turn finished. */
+.assistant-stopped {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 0.76em;
+  color: var(--muted);
+}
+
+/*
+ * Scrolling up to read stops the transcript following the stream — which is
+ * right, but it also strands you. This is the way back, and it says whether
+ * anything actually happened while you were away.
+ */
+.jump-latest {
+  display: block;
+  margin: 0 auto 6px;
+  padding: 3px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.74em;
+  cursor: pointer;
+  box-shadow: var(--shadow-2);
+  transition:
+    color var(--fast),
+    border-color var(--fast);
+}
+
+.jump-latest:hover {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder);
+}
+
+.jump-latest.missed {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+/* markdown */
+
+.md {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.md a {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.28);
+  text-underline-offset: 3px;
+}
+
+.md a:hover {
+  text-decoration-color: currentColor;
+}
+
+.md-h {
+  font-weight: 600;
+}
+
+/* Die Webview bekommt von der Workbench ein eigenes Stylesheet mit
+   `code { color: var(--vscode-textPreformat-foreground) }` — im Dunkeln ein
+   Goldbeige (#D7BA7D). Eine Farbe am <pre> hilft dagegen nicht: geerbte Farbe
+   verliert gegen eine Regel, die direkt am <code> steht. Deshalb wird das
+   <code> hier ausdrücklich adressiert. */
+.md-code,
+.md-code code {
+  color: var(--cx-text, var(--vscode-foreground));
+}
+
+.md-code {
+  display: block;
+  position: relative;
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: var(--vscode-editor-font-size, 12px);
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.md-code-lang {
+  position: absolute;
+  top: 3px;
+  right: 8px;
+  font-size: 0.72em;
+  color: var(--muted);
+  user-select: none;
+}
+
+
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.cost {
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 0.72em;
+  color: var(--muted);
+}
+
+
+
+
+
+
+
+/* ── composer ───────────────────────────────────────────── */
+
+.composer {
+  position: relative;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s ease;
+}
+
+/* ── composer controls ──────────────────────────────────── */
+
+
+
+
+/* ── composer controls: a word, a plus, and Send ─────────── */
+
+.attach-btn {
+  width: var(--control-h);
+  height: var(--control-h);
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+
+.attach-btn:hover {
+  color: var(--vscode-foreground);
+}
+
+.bar-gap {
+  flex: 1;
+}
+
+.mode-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* No border and no chevron: it reads as a word until you need it to be a
+   control, which is the only time it has to look like one. */
+.mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-h);
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.75em;
+  cursor: pointer;
+  transition:
+    background var(--fast),
+    color var(--fast);
+}
+
+.mode-btn:hover,
+.mode-btn.open {
+  background: var(--sunken);
+  color: var(--vscode-foreground);
+}
+
+.mode-extra {
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--sunken);
+  color: var(--muted);
+}
+
+.model-btn {
+  max-width: 280px;
+  gap: 5px;
+  color: var(--vscode-foreground);
+}
+
+.model-brand {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.model-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-popup {
+  min-width: 300px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.model-group {
+  padding-top: 2px;
+}
+
+.model-group-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.model-quota {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.menu-row.dim {
+  opacity: 0.55;
+}
+
+.menu-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 12;
+  min-width: 260px;
+  padding: 5px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-2);
+}
+
+.menu-label {
+  padding: 5px 9px 3px;
+  font-family: var(--mono);
+  font-size: 0.68em;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.menu-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 5px 9px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--fast);
+}
+
+.menu-row:hover {
+  background: var(--raised);
+}
+
+.menu-row.on {
+  background: var(--sunken);
+}
+
+.menu-name {
+  font-family: var(--mono);
+  font-size: 0.8em;
+}
+
+/* The one row that is a toggle, not a choice among the rows above it. */
+.menu-row.toggle .menu-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menu-check {
+  display: inline-block;
+  width: 9px;
+  color: var(--accent);
+}
+
+
+/* The sentence that says what choosing this actually does. */
+.menu-hint {
+  font-size: 0.75em;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* One row per file, above the prompt, in the order they were attached. */
+.attachment-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 9px 9px 2px;
+  list-style: none;
+}
+
+.attachment-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 5px;
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 0.74em;
+  transition: background var(--fast);
+}
+
+.attachment-row:hover {
+  background: var(--sunken);
+}
+
+.attachment-name {
+  flex-shrink: 0;
+}
+
+/* Where it came from, in case two files share a name. */
+.attachment-dir {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.attachment-x {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.2em;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--fast);
+}
+
+.attachment-row:hover .attachment-x,
+.attachment-x:focus-visible {
+  opacity: 1;
+}
+
+.attachment-x:hover {
+  color: var(--danger);
+}
+
+/* ── suggestion popup (@ / # / /) ───────────────────────── */
+
+/* Floats over the transcript, so it is the one place glass is literal. */
+.suggest-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--popover);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  z-index: 10;
+  padding: 4px;
+}
+
+.suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.suggest-row.active {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
+.suggest-brand {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.suggest-label {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  flex-shrink: 0;
+}
+
+.suggest-detail {
+  font-size: 0.78em;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggest-row.active .suggest-detail {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.suggest-hint {
+  font-family: var(--mono);
+  font-size: 0.68em;
+  color: var(--muted);
+  padding: 4px 9px 2px;
+  border-top: 1px solid var(--border);
+  margin-top: 3px;
+}
+
+.chat-tab .composer:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--hairline));
+  box-shadow: var(--shadow-2);
+}
+
+.chat-tab .composer.running {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--hairline));
+}
+
+.composer textarea {
+  width: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--vscode-input-foreground);
+  padding: 11px 13px 5px;
+  font-family: var(--mono);
+  font-size: 0.92em;
+  line-height: 1.6;
+  max-height: 180px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.composer textarea::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+.composer textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.composer-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px 9px;
+}
+
+
+
+
+
+
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  justify-self: end;
+}
+
+.dot.ok {
+  background: var(--ok);
+}
+
+.dot.off {
+  background: var(--warn);
+}
+
+.dot.pulse {
+  animation: pulse 1.2s infinite;
+}
+
+/* ── chat tab (centered column) ─────────────────────────── */
+
+.chat-tab {
+  background: var(--vscode-editor-background);
+}
+
+/* A reading measure, not the width of the window: a line of prose that runs
+   the full width of a wide editor is a line nobody finishes. */
+.chat-column {
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Fills the scroller so an empty conversation centres in the window rather
+   than clinging to the top of a column that is only as tall as its content. */
+.scroll-area .chat-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding-bottom: 14px;
+}
+
+.scroll-area .transcript.empty {
+  flex: 1;
+}
+
+/* The transcript dissolves into the composer instead of hitting an edge. */
+.composer-holder {
+  position: relative;
+  padding-bottom: 12px;
+}
+
+.composer-holder::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 28px;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--surface), transparent);
+}
+
+.empty-cta {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.chat-tab .composer {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-1);
+  transition:
+    border-color var(--fast),
+    box-shadow var(--fast);
+}
+
+/* ── accounts page ──────────────────────────────────────── */
+
+.accounts-page {
+  max-width: 680px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex: 1;
+  overflow-y: auto;
+  background: var(--surface);
+}
+
+.app:has(.accounts-page) {
+  background: var(--vscode-editor-background);
+}
+
+.accounts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.accounts-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--mono);
+  font-size: 1.15em;
+  letter-spacing: -0.01em;
+}
+
+.accounts-count {
+  font-size: 0.75em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 0 7px;
+}
+
+.hangar {
+  gap: 22px;
+  padding-top: 28px;
+}
+
+.hangar-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hangar-kicker {
+  font-family: var(--mono);
+  font-size: 0.68em;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.hangar-title {
+  font-family: var(--mono);
+  font-size: 1.15em;
+  letter-spacing: -0.02em;
+  color: var(--vscode-foreground);
+}
+
+.hangar-line {
+  max-width: 520px;
+  font-size: 0.82em;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.link-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 14px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--raised);
+}
+
+.link-card-top {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: center;
+}
+
+.link-card-name {
+  font-family: var(--mono);
+  font-size: 0.88em;
+}
+
+.link-card-hint {
+  grid-column: 2;
+  font-size: 0.72em;
+  color: var(--muted);
+}
+
+.link-btn {
+  align-self: flex-start;
+  height: 24px;
+  padding: 0 12px;
+  font-size: 0.75em;
+}
+
+.link-bound {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-family: var(--mono);
+  font-size: 0.72em;
+  cursor: pointer;
+}
+
+.link-chip.off {
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--hairline));
+}
+
+.link-chip-state {
+  color: var(--muted);
+}
+
+.ghost-btn.tiny {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 0.72em;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hangar-detail {
+  min-height: 240px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 8px;
+}
+
+/* Nothing here yet is not an error state — it gets air, not a dashed box. */
+.accounts-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 72px 16px;
+  color: var(--muted);
+}
+
+.accounts-empty-title {
+  font-family: var(--mono);
+  font-size: 1.1em;
+  letter-spacing: -0.01em;
+  color: var(--vscode-foreground);
+}
+
+.accounts-empty-line {
+  font-size: 0.88em;
+  line-height: 1.6;
+  max-width: 380px;
+}
+
+/* A list of accounts, separated by hairlines. Boxing each row would make five
+   accounts look like five unrelated things. */
+.account-cards {
+  display: flex;
+  flex-direction: column;
+}
+
+.account-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.account-card:last-child {
+  border-bottom: none;
+}
+
+.account-card.limited {
+  opacity: 0.75;
+}
+
+.provider-glyph {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.95em;
+  flex-shrink: 0;
+  color: var(--vscode-editor-background);
+}
+
+.p-claude {
+  background: var(--vscode-charts-orange, #d08a4e);
+}
+
+.p-codex {
+  background: var(--ok);
+}
+
+.p-copilot {
+  background: var(--vscode-charts-purple, #a86cc9);
+}
+
+.account-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.account-id {
+  font-family: var(--mono);
+  font-size: 0.95em;
+}
+
+.account-auth {
+  font-size: 0.72em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 0 7px;
+}
+
+.account-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 0.78em;
+  color: var(--muted);
+}
+
+.usage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.usage-bar {
+  flex: 0 0 120px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
+  overflow: hidden;
+}
+
+.usage-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+}
+
+.usage-fill.low {
+  background: var(--ok);
+}
+
+.usage-fill.mid {
+  background: var(--warn);
+}
+
+.usage-fill.high {
+  background: var(--danger);
+}
+
+.usage-label {
+  font-family: var(--mono);
+  font-size: 0.72em;
+  color: var(--muted);
+}
+
+
+/* ── accounts: master-detail split ──────────────────────── */
+
+/* ── the shell every workbench screen shares ────────────── */
+
+/*
+ * A quiet list on the left, one focused surface on the right. Accounts and
+ * rules are the same kind of screen, so they get the same shell rather than
+ * two dialects of it.
+ */
+.accounts-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  background: var(--surface);
+}
+
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.accounts-list {
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--vscode-foreground) 2%, var(--surface));
+  padding: 0 8px 8px;
+}
+
+/* Stays put while the list scrolls under it — hence the glass. */
+.accounts-list-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 4px 10px;
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+}
+
+.accounts-list-title {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  letter-spacing: -0.01em;
+}
+
+.header-gap {
+  flex: 1;
+}
+
+.accounts-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--fast);
+}
+
+.accounts-row:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+/* Selection is a resting state: the row lifts and its text comes forward,
+   rather than being marked with a stripe or a slab of theme blue. */
+.accounts-row.active {
+  background: var(--sunken);
+  color: var(--vscode-foreground);
+}
+
+.accounts-row-name {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 0.85em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accounts-row-state {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.row-pct {
+  font-family: var(--mono);
+  font-size: 0.75em;
+}
+
+.row-pct.low {
+  color: var(--ok);
+}
+
+.row-pct.mid {
+  color: var(--warn);
+}
+
+.row-pct.high {
+  color: var(--danger);
+}
+
+.splitter {
+  width: 4px;
+  cursor: col-resize;
+  flex-shrink: 0;
+  background: transparent;
+  transition: background var(--fast);
+}
+
+.splitter:hover {
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.account-detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 34px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.provider-glyph.small {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78em;
+}
+
+.provider-glyph.big {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
+  font-size: 1.25em;
+}
+
+.detail-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-name {
+  font-family: var(--mono);
+  font-size: 1.3em;
+  letter-spacing: -0.015em;
+}
+
+.detail-sub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.detail-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 0.78em;
+  color: var(--muted);
+}
+
+.detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+}
+
+.detail-section-title {
+  font-family: var(--mono);
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 7px;
+}
+
+.usage-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.usage-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.usage-block-label {
+  font-family: var(--mono);
+  font-size: 0.85em;
+}
+
+.usage-block-pct {
+  font-family: var(--mono);
+  font-size: 0.95em;
+  font-weight: 600;
+}
+
+.usage-block-pct.low {
+  color: var(--ok);
+}
+
+.usage-block-pct.mid {
+  color: var(--warn);
+}
+
+.usage-block-pct.high {
+  color: var(--danger);
+}
+
+.usage-bar.big {
+  flex: none;
+  width: 100%;
+  height: 7px;
+  border-radius: var(--radius-pill);
+}
+
+/* ── brand badges + usage cards ─────────────────────────── */
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.brand-badge.small {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+}
+
+.brand-badge.big {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+}
+
+.detail-provider {
+  font-size: 0.82em;
+  font-weight: 600;
+}
+
+.detail-section.wide {
+  max-width: 640px;
+}
+
+.usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 26px 32px;
+}
+
+/* A number and its label, on the page. Space separates these, not rules. */
+.usage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.usage-card-label {
+  font-family: var(--mono);
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.usage-card-pct {
+  font-family: var(--mono);
+  font-size: 2.1em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-card-pct .pct-sign {
+  font-size: 0.5em;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
+.usage-card-pct.low {
+  color: var(--ok);
+}
+
+.usage-card-pct.mid {
+  color: var(--warn);
+}
+
+.usage-card-pct.high {
+  color: var(--danger);
+}
+
+.usage-card-reset {
+  font-family: var(--mono);
+  font-size: 0.74em;
+  color: var(--muted);
+}
+
+.rename-btn {
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  opacity: 0.5;
+  vertical-align: middle;
+}
+
+.rename-btn:hover {
+  opacity: 1;
+}
+
+.info-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.info-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.info-key {
+  font-family: var(--mono);
+  font-size: 0.74em;
+  color: var(--muted);
+  width: 90px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.info-val {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.info-val code {
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.12));
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+}
+
+.usage-block-reset {
+  font-family: var(--mono);
+  font-size: 0.72em;
+  color: var(--muted);
+}
+
+.usage-hint {
+  font-size: 0.85em;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 420px;
+}
+
+.detail-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.detail-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: auto;
+}
+
+.account-del {
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.account-del:hover {
+  opacity: 1;
+  color: var(--vscode-errorForeground);
+}
+
+.accounts-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  flex-wrap: wrap;
+}
+
+.ghost-btn {
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  color: var(--vscode-foreground);
+  padding: 4px 11px;
+  font-size: 0.82em;
+  cursor: pointer;
+  transition:
+    background var(--fast),
+    border-color var(--fast),
+    color var(--fast);
+}
+
+.ghost-btn:hover {
+  background: var(--raised);
+  border-color: color-mix(in srgb, var(--vscode-foreground) 24%, transparent);
+}
+
+.accounts-hint,
+.field-hint {
+  font-size: 0.78em;
+  color: var(--muted);
+}
+
+.field-hint {
+  margin-top: 4px;
+}
+
+.accounts-hint code {
+  font-family: var(--mono);
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.12));
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── sidebar setup banner ───────────────────────────────── */
+
+.setup-banner {
+  margin: 8px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: var(--raised);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.setup-banner-text {
+  font-size: 0.85em;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── rules screen ───────────────────────────────────────── */
+
+/*
+ * The rules tab borrows the accounts shell — an ordered list on the left, the
+ * thing that row stands for on the right — because it is the same kind of
+ * screen. What is different is that the order of the list is itself an edit:
+ * the router tries rules top to bottom and stops at the first match, so the
+ * rows are numbered and can be moved.
+ */
+
+.rules-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.list-note {
+  padding: 0 8px 6px;
+  font-family: var(--mono);
+  font-size: 0.68em;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.list-note.spaced {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.rules-row {
+  align-items: center;
+}
+
+.rules-order {
+  width: 15px;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 0.72em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rules-order.fallback {
+  color: var(--accent);
+}
+
+.rules-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rules-row-id {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rules-row-sub {
+  font-size: 0.72em;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accounts-row.active .rules-row-sub {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.row-marks {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+/* An exclusion-only rule says where work may not go: the marks are struck out
+ * rather than merely dimmed, so they cannot be read as "goes here". */
+.row-marks.barred {
+  position: relative;
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+
+.row-marks.barred::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: 50%;
+  height: 1px;
+  background: var(--vscode-errorForeground);
+  opacity: 0.75;
+  transform: rotate(-15deg);
+}
+
+/* Reordering is one hover away, and stays reachable from the keyboard. */
+.rules-row-move {
+  display: flex;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.rules-row:hover .rules-row-move,
+.rules-row:focus-within .rules-row-move {
+  opacity: 1;
+}
+
+.rules-row:hover .row-marks,
+.rules-row:focus-within .row-marks {
+  display: none;
+}
+
+.rules-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.rules-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 2px;
+}
+
+.rules-path {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 0.7em;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rules-missing {
+  padding: 0 6px;
+  font-size: 0.7em;
+  line-height: 1.45;
+  color: var(--warn);
+}
+
+.rules-detail-holder {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.rules-error {
+  margin: 16px 28px 0;
+}
+
+.rules-empty {
+  margin: 32px 28px;
+}
+
+.empty-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.rule-detail {
+  flex: 1;
+  min-height: 0;
+  padding: 34px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* The id and the description are the rule's name — edited where they are read. */
+.title-input,
+.sub-input {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--vscode-foreground);
+  padding: 1px 5px;
+  margin-left: -5px;
+}
+
+.title-input {
+  font-family: var(--mono);
+  font-size: 1.3em;
+  letter-spacing: -0.015em;
+}
+
+.sub-input {
+  font-family: var(--vscode-font-family);
+  font-size: 0.82em;
+  color: var(--muted);
+}
+
+.title-input:hover,
+.sub-input:hover {
+  border-color: var(--border);
+}
+
+.title-input:focus,
+.sub-input:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-input-background);
+}
+
+.detail-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* Says what the section does with what is in it, without shouting it. */
+.section-note {
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+
+/* ── match conditions ───────────────────────────────────── */
+
+.match-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.match-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.field-label {
+  font-family: var(--mono);
+  font-size: 0.78em;
+}
+
+.field-note {
+  font-size: 0.72em;
+  color: var(--muted);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--vscode-input-background);
+}
+
+.chip-row:focus-within {
+  border-color: var(--vscode-focusBorder);
+}
+
+.edit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 3px 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.12));
+  font-size: 0.78em;
+}
+
+.edit-chip.mono {
+  font-family: var(--mono);
+  font-size: 0.74em;
+}
+
+.chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chip-x:hover {
+  color: var(--vscode-errorForeground);
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+}
+
+.chip-input {
+  flex: 1;
+  min-width: 90px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: 0.8em;
+}
+
+.chip-input.mono {
+  font-family: var(--mono);
+  font-size: 0.76em;
+}
+
+.field-input,
+.field-select {
+  height: var(--control-h);
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground, var(--vscode-foreground));
+  font-family: var(--mono);
+  font-size: 0.78em;
+}
+
+.field-select {
+  cursor: pointer;
+}
+
+.field-input.narrow {
+  width: 140px;
+}
+
+.field-input:focus,
+.field-select:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+
+/* ── failover chains ────────────────────────────────────── */
+
+.chain-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chain-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chain-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: var(--radius);
+  background: var(--raised);
+  transition: background var(--fast);
+}
+
+.chain-item:hover {
+  background: var(--sunken);
+}
+
+.chain-order {
+  width: 12px;
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 0.72em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chain-target {
+  font-family: var(--mono);
+  font-size: 0.82em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chain-model {
+  color: var(--muted);
+}
+
+.chain-warn {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: 0.68em;
+  color: var(--warn);
+}
+
+.chain-btn {
+  width: 18px;
+  height: 18px;
+  opacity: 0.55;
+}
+
+.chain-btn:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.chain-btn:disabled {
+  opacity: 0.18;
+  cursor: default;
+  background: transparent;
+}
+
+.chain-btn.remove:hover {
+  color: var(--vscode-errorForeground);
+}
+
+.chain-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.add-target-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--control-h);
+}
+
+.ghost-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ghost-btn:disabled:hover {
+  background: transparent;
+}
+
+.ghost-btn.danger:hover {
+  border-color: var(--vscode-errorForeground);
+  color: var(--vscode-errorForeground);
+  background: transparent;
+}
+
+.chain-empty {
+  padding: 9px 11px;
+  border-radius: var(--radius);
+  background: var(--sunken);
+  font-size: 0.8em;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.chain-pill {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+}
+
+.rule-problem {
+  font-size: 0.78em;
+  color: var(--vscode-errorForeground);
+}
+
+.run-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: none;
+  border-radius: var(--radius);
+  height: var(--control-h);
+  padding: 0 12px;
+  font-size: 0.82em;
+  font-family: var(--vscode-font-family);
+  cursor: pointer;
+  flex-shrink: 0;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.run-btn.send:hover {
+  background: #c40913;
+}
+
+.run-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.run-btn.stop {
+  background: transparent;
+  border: 1px solid var(--vscode-errorForeground);
+  color: var(--vscode-errorForeground);
+}
+
+.run-btn.stop:hover {
+  background: var(--vscode-inputValidation-errorBackground, rgba(200, 60, 60, 0.15));
+}
+
+/* scrollbars stay VS Code native */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+/* ── analytics ─────────────────────────────────────────── */
+
+/*
+ * The record every routing decision is calibrated on. Same vocabulary as the
+ * accounts screen — cards for the headline numbers, bars for rates, mono for
+ * anything you might compare against another row.
+ */
+
+.analytics-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--vscode-editor-background);
+}
+
+.analytics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  z-index: 2;
+}
+
+.analytics-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Three ranges, all visible: a dropdown would hide two thirds of the choice. */
+.range-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--sunken);
+}
+
+.seg-btn {
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.74em;
+  padding: 4px 11px;
+  cursor: pointer;
+  transition:
+    background var(--fast),
+    color var(--fast);
+}
+
+.seg-btn:hover {
+  color: var(--vscode-foreground);
+}
+
+/* The selected range lifts out of the track instead of being painted on it. */
+.seg-btn.active {
+  background: var(--surface);
+  color: var(--vscode-foreground);
+  box-shadow: var(--shadow-1);
+}
+
+.analytics-body {
+  flex: 1;
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  overflow-y: auto;
+  padding: 28px 24px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+}
+
+.analytics-body .detail-section.wide {
+  max-width: none;
+}
+
+.stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+/* Green reads "good" here, as it does on the quota bars. */
+.usage-card-pct.good,
+.learn-pct.good {
+  color: var(--ok);
+}
+
+.usage-card-pct.ok,
+.learn-pct.ok {
+  color: var(--warn);
+}
+
+.usage-card-pct.bad,
+.learn-pct.bad {
+  color: var(--danger);
+}
+
+.usage-fill.good,
+.learn-fill.good {
+  background: var(--ok);
+}
+
+.usage-fill.ok,
+.learn-fill.ok {
+  background: var(--warn);
+}
+
+.usage-fill.bad,
+.learn-fill.bad {
+  background: var(--danger);
+}
+
+.analytics-empty {
+  padding: 40px 16px;
+}
+
+/* Rows separated by hairlines, not a table with a frame around it. */
+.learn-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.learn-row {
+  display: grid;
+  grid-template-columns: 18px minmax(120px, 1fr) 70px minmax(80px, 140px) 90px 80px 150px;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 8px;
+  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.85em;
+  transition: background var(--fast);
+}
+
+.learn-row:hover {
+  background: var(--raised);
+}
+
+.learn-row:last-child {
+  border-bottom: none;
+}
+
+.learn-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.learn-name {
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.learn-runs,
+.learn-sub {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.learn-bar {
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
+  overflow: hidden;
+}
+
+.learn-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+}
+
+.learn-pct {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.analytics-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8em;
+  line-height: 1.6;
+}
+
+.provider-group {
+  margin-bottom: 22px;
+}
+
+/* Sticks while its own runs scroll past, so you never lose which provider you
+   are reading. */
+.group-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 0.88em;
+  letter-spacing: -0.01em;
+  min-width: 0;
+}
+
+.group-gone {
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font-size: 0.8em;
+}
+
+.group-stats {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 0.76em;
+  color: var(--muted);
+}
+
+.metric-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-row {
+  display: grid;
+  grid-template-columns: 84px minmax(90px, 1fr) 118px 90px 62px 58px 48px minmax(90px, 210px);
+  gap: 10px;
+  padding: 7px 10px;
+  align-items: center;
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--mono);
+  font-size: 0.78em;
+  transition: background var(--fast);
+}
+
+.metric-row:hover {
+  background: var(--raised);
+}
+
+.metric-row:last-child {
+  border-bottom: none;
+}
+
+/* A run that failed or moved says so in its own flag chip on the right, so the
+   row needs no coloured edge to repeat it — only the dimming. */
+.metric-row.status-error {
+  opacity: 0.7;
+}
+
+.metric-time {
+  color: var(--muted);
+}
+
+.metric-model,
+.metric-kind,
+.metric-tokens,
+.metric-duration,
+.metric-burn {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-kind,
+.metric-tokens,
+.metric-duration,
+.metric-burn {
+  color: var(--muted);
+}
+
+.metric-cost {
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-duration,
+.metric-burn {
+  text-align: right;
+}
+
+.metric-flags {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.metric-flag {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.12));
+  color: var(--muted);
+  font-size: 0.88em;
+}
+
+.metric-flag.warn {
+  color: var(--warn);
+}
+
+.metric-flag.verify-passed {
+  color: var(--ok);
+}
+
+.metric-flag.verify-failed {
+  color: var(--danger);
+}
+
+/*
+ * Half a screen wide — the analytics tab beside a chat — is a normal place to
+ * read this from. The columns that are context rather than measurement give way
+ * first, so what is left still lines up instead of wrapping into mush.
+ */
+@media (max-width: 900px) {
+  .metric-row {
+    grid-template-columns: 84px minmax(80px, 1fr) 84px 58px 54px minmax(70px, 150px);
+  }
+
+  .metric-kind,
+  .metric-burn {
+    display: none;
+  }
+
+  .learn-row {
+    grid-template-columns: 18px minmax(100px, 1fr) 62px minmax(60px, 110px) 84px;
+  }
+
+  .learn-row .learn-sub {
+    display: none;
+  }
+
+  .group-stats span:nth-child(3) {
+    display: none;
+  }
+}
+
+/* ── motion ─────────────────────────────────────────────── */
+
+/*
+ * The live indicators are decoration on top of text that already says what is
+ * happening, so they are safe to drop entirely.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .live-dots i,
+  .type-cursor,
+  .agent-dot,
+  .tl-permission.pending::after,
+  .agent-track-fill.running {
+    animation: none;
+  }
+
+  /* The rail dot still has to say "this is the blocked one" without moving. */
+  .tl-permission.pending::after {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+
+  .agent-track-fill.running {
+    background: color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+}
+

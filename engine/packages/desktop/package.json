@@ -1,0 +1,24 @@
+{
+  "name": "@cortex/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eigenständige Cortex-App für macOS",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "package": "node package.mjs"
+  },
+  "dependencies": {
+    "@electron/packager": "20.3.0",
+    "@types/node": "^24.13.5",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "electron": "44.4.3",
+    "esbuild": "^0.24.2",
+    "monaco-editor": "^0.56.0",
+    "typescript": "5.9.3",
+    "vitest": "2.1.9"
+  }
+}

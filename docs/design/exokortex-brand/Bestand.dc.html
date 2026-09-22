@@ -1,0 +1,202 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #101113; }
+  a { color: #8f9ccf; } a:hover { color: #b3bde6; }
+  .app { display: flex; width: 1440px; min-height: 100%; background: #101113; color: #ededee;
+         font: 13px/1.5 'SF Pro Text', -apple-system, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+  .num { font-variant-numeric: tabular-nums; }
+  /* Leiste — cortex.css */
+  .rail { display: flex; flex-direction: column; width: 250px; min-width: 250px; box-sizing: border-box; padding: 0 8px 0 10px; background: #1b1c1f; border-right: 1px solid #ffffff0e; }
+  .brand { display: flex; align-items: center; gap: 9px; height: 42px; margin-top: 8px; padding: 0 4px 0 5px; color: #f2f2f3; }
+  .brand span { font-size: 17px; font-weight: 640; letter-spacing: -.4px; margin-right: auto; }
+  .ico { display: inline-flex; justify-content: center; align-items: center; width: 26px; height: 26px; border-radius: 5px; color: #707277; }
+  .nav { display: flex; align-items: center; gap: 10px; color: #c3c4c7; padding: 0 8px; min-height: 30px; border-radius: 8px; font-size: 12.5px; }
+  .nav svg { color: #999a9d; }
+  .nav.on { color: #ededee; background: #ffffff12; }
+  .nav.on svg { color: #ededee; }
+  .count { font: 10px 'SF Mono', Menlo, monospace; color: #999a9d; background: #ffffff10; border-radius: 4px; padding: 1px 5px; margin-left: auto; }
+  .heading { margin: 16px 0 3px 8px; color: #707277; font-size: 11px; font-weight: 480; }
+  .tree { display: flex; align-items: center; gap: 9px; height: 30px; padding-left: 8px; color: #c3c4c7; font-size: 12.5px; }
+  .tree svg { color: #707277; }
+  /* Seite — settings.css */
+  .main { position: relative; flex: 1; min-width: 0; }
+  .history { position: absolute; top: 12px; left: 14px; display: flex; gap: 2px; color: #999a9d; }
+  .titletools { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; color: #999a9d; }
+  .page { width: 768px; margin: 0 auto; padding: 64.5px 0 96px; }
+  .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 43px; }
+  .page-head h1 { margin: 0; font-size: 24px; font-weight: 440; line-height: 28px; letter-spacing: -.2px; }
+  .page-head p { display: flex; align-items: center; gap: 8px; margin: 3px 0 0; color: #999a9d; font-size: 14px; line-height: 20px; }
+  .actions { display: flex; align-items: center; gap: 8px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 8px; background: #ffffff0f; color: #ededee; font-size: 13px; white-space: nowrap; }
+  .btn.primary { background: #f1f1f1; color: #131416; font-weight: 500; }
+  .btn.ghost { background: transparent; color: #999a9d; }
+  .tabbar { display: flex; align-items: center; justify-content: space-between; margin: -8px 0 24px; }
+  .tabs { display: inline-flex; align-items: center; gap: 2px; }
+  .tab { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px; border-radius: 8px; color: #999a9d; font-size: 13px; }
+  .tab span { color: #707277; }
+  .tab.on { background: #ffffff12; color: #ededee; }
+  .stand { color: #707277; font-size: 12px; }
+  .section { margin-top: 49.5px; }
+  .section.first { margin-top: 0; }
+  .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 13.5px; min-height: 20px; }
+  .section-head h2 { margin: 0; font-size: 14px; font-weight: 460; line-height: 20px; }
+  .section-head p { margin: 2px 0 0; color: #999a9d; font-size: 13px; line-height: 18px; }
+  .card { position: relative; border: 1px solid #ffffff18; border-radius: 12px; background: #18191b; }
+  .card + .card { margin-top: 8px; }
+  .row { position: relative; display: flex; align-items: center; gap: 16px; min-height: 60.5px; padding: 9.5px 16px 13px; box-sizing: border-box; }
+  .row + .row::before, .row + .sub::before, .sub + .sub::before, .sub + .row::before { content: ''; position: absolute; top: 0; left: 16px; right: 16px; border-top: .5px solid #ffffff0e; }
+  .row.compact { min-height: 44px; padding: 6px 16px 8px; }
+  .text { flex: 1; min-width: 0; }
+  .title { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 500; line-height: 22px; }
+  .subline { font-size: 12px; line-height: 16px; color: #999a9d; }
+  .control { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .value { min-width: 56px; text-align: right; font-size: 13px; color: #ededee; }
+  .muted { color: #999a9d; }
+  .dim { color: #707277; }
+  .status { display: inline-flex; align-items: center; gap: 6px; color: #999a9d; font-size: 12px; white-space: nowrap; }
+  .status i { width: 6px; height: 6px; border-radius: 50%; background: #88b99b; }
+  .status.warn i { background: #d8b36a; }
+  .status.off i { background: #707277; }
+  .status.bad { color: #f08a8a; }
+  .status.bad i { background: #e36a6a; }
+  .meter { position: relative; width: 220px; height: 4px; border-radius: 2px; background: #ffffff1a; overflow: hidden; }
+  .meter i { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 2px; background: #ededee; }
+  .meter i.soft { background: #707277; }
+  .footnote { margin: 8px 16px 0; color: #999a9d; font-size: 12px; line-height: 20px; text-wrap: pretty; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .stats > div { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 84px; padding: 12px 16px; box-sizing: border-box; }
+  .stats > div + div { border-left: .5px solid #ffffff0e; }
+  .stats strong { font-size: 20px; font-weight: 440; line-height: 26px; letter-spacing: -.2px; }
+  .tile { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; border: 1px solid #ffffff10; box-sizing: border-box; color: #d6d7d7; font-size: 11px; font-weight: 560; flex-shrink: 0; }
+  .sub { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 16px 6px 16px; box-sizing: border-box; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 2px 16px 14px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; color: #999a9d; font-size: 12px; }
+  .chip i { width: 6px; height: 6px; border-radius: 50%; background: #88b99b; }
+  .search { display: flex; align-items: center; gap: 9px; height: 36px; padding: 0 6px 0 12px; border: 1px solid #ffffff14; border-radius: 18px; background: #ffffff09; color: #707277; }
+  .search span { flex: 1; font-size: 14px; color: #707277; }
+  .log { margin: 0 16px 14px; padding: 10px 12px; border-radius: 8px; background: #101113; color: #999a9d; font: 11.5px/1.6 'SF Mono', Menlo, monospace; white-space: pre; overflow: hidden; }
+</style>
+</helmet>
+<div class="app">
+
+<aside class="rail">
+  <div class="brand"><img src="cortex-icon.png" width="22" height="22" alt="" style="border-radius: 5px"></img><span>Cortex</span>
+    <span class="ico" style="margin-right: 0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 4 4"></path></svg></span><span class="ico" style="margin-right: 0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M15 4v16"></path></svg></span></div>
+  <div style="display: flex; flex-direction: column; gap: 0; margin-top: 4px"><div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M17 3.5 20.5 7 11 16.5l-4.4.9.9-4.4Z"></path><path d="M4 21h16"></path></svg><span>Neuer Chat</span></div><div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m13 2-8 12h6l-1 8 9-13h-7Z"></path></svg><span>Aktive Agenten</span><span class="count">2</span></div><div class="nav on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="6" cy="5" r="2"></circle><circle cx="18" cy="5" r="2"></circle><circle cx="6" cy="19" r="2"></circle><path d="M6 7v10m0-3c8 0 12-2 12-7"></path></svg><span>Exokortex</span></div><div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M9 2.5v5.5M15 2.5v5.5"></path><path d="M6 8h12v2.6a6 6 0 0 1-12 0Z"></path><path d="M12 16.6V21.5"></path></svg><span>Plugins</span></div><div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="5" cy="12" r="1.15" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"></circle><circle cx="19" cy="12" r="1.15" fill="currentColor" stroke="none"></circle></svg><span>Einstellungen</span></div></div>
+  <div class="heading">Angeheftet</div>
+  <div class="tree"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M3 19V6.4a1 1 0 0 1 1-1h4.5l2 2H20a1 1 0 0 1 1 1V19Z"></path></svg><span>Haushaltsbuch</span></div>
+  <div class="heading">Projekte</div>
+  <div class="tree"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M3 19V6.4a1 1 0 0 1 1-1h4.5l2 2H20a1 1 0 0 1 1 1V19Z"></path></svg><span>Nordwind Studio</span></div>
+  <div class="tree" style="color: #707277"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M17 3.5 20.5 7 11 16.5l-4.4.9.9-4.4Z"></path><path d="M4 21h16"></path></svg><span>Projekt hinzufügen</span></div>
+  <div class="heading" style="display: flex; align-items: center; gap: 4px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m6 9 6 6 6-6"></path></svg>Zuletzt verwendet</div>
+  <div class="tree" style="padding-left: 22px">Neue Aufgabe</div>
+  <div style="flex: 1"></div>
+  <div class="tree" style="color: #999a9d"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><rect x="3" y="4" width="18" height="4.5" rx="1"></rect><path d="M5 8.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5M10 12.5h4"></path></svg><span>Archivierte Projekte</span><span class="count" style="margin-right: 8px">1</span></div>
+  <div style="display: flex; align-items: center; gap: 10px; margin: 8px 0 14px; padding: 10px 8px 0; border-top: 1px solid #ffffff0e">
+    <span style="display: flex; gap: 3px"><i style="width: 16px; height: 16px; border-radius: 4px; background: #d99d7833"></i><i style="width: 16px; height: 16px; border-radius: 4px; background: #ffffff14"></i><i style="width: 16px; height: 16px; border-radius: 4px; background: #ffffff14"></i></span>
+    <span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 11.5px; color: #ededee">4 Konten</span><span style="font-size: 10.5px; color: #707277; white-space: nowrap">4 verfügbar · Limits &amp; Konten</span></span>
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m9 5 7 7-7 7"></path></svg></div>
+</aside>
+<main class="main">
+  <div class="history"><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M20 12H4m6-6-6 6 6 6"></path></svg></span><span class="ico" style="opacity: .3"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M4 12h16m-6-6 6 6-6 6"></path></svg></span></div>
+  <div class="titletools"><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="9"></circle><ellipse cx="12" cy="12" rx="4" ry="9"></ellipse><path d="M3 12h18"></path></svg></span><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M3 19V6.4a1 1 0 0 1 1-1h4.5l2 2H20a1 1 0 0 1 1 1V19Z"></path></svg></span><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m4 5 6 6-6 6m9 1h7"></path></svg></span><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="5" cy="12" r="1.15" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"></circle><circle cx="19" cy="12" r="1.15" fill="currentColor" stroke="none"></circle></svg></span></div>
+  <div class="page">
+
+  <div class="page-head">
+    <div>
+      <h1>Exokortex</h1>
+      <p><span class="status warn"><i></i></span>Bereit · die Vault-Projektion ist älter als der Graph</p>
+    </div>
+    <div class="actions">
+      <div class="btn">Nachmessen</div>
+      <div class="btn">Chats einspeisen</div>
+      <div class="btn primary">Prüfen</div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tabs"><div class="tab">Überblick<span>1</span></div><div class="tab on">Bestand<span>30.758</span></div><div class="tab">Galaxie</div><div class="tab">Datenwege<span>2/8</span></div><div class="tab">Läufe<span>10</span></div><div class="tab">Suchen</div></div>
+    <span class="stand num">Stand 13.09., 01:18</span>
+  </div>
+
+  <div class="section first">
+    <div class="section-head"><div><h2>Knoten nach Art</h2><p>14 Arten · 30.758 Knoten</p></div></div>
+    
+    <div class="card"><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">Begriff</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 98.04%"></i></div>
+        <span class="value num">12.888</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">41,9 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">Kapitel</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 67.47%"></i></div>
+        <span class="value num">8.870</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">28,8 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">Dokument</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 23.03%"></i></div>
+        <span class="value num">3.027</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">9,8 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">Medium</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 22.25%"></i></div>
+        <span class="value num">2.925</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">9,5 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">Quelltext</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 14.83%"></i></div>
+        <span class="value num">1.949</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">6,3 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">Bereich</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 7.03%"></i></div>
+        <span class="value num">924</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">3,0 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">Werkzeug</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 1.12%"></i></div>
+        <span class="value num">147</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">0,5 %</span></div></div></div>
+    <p class="footnote">28 weitere in 7 Arten: Projekt, Organisation, Bildungseinrichtung, Quelle, System, Person, Ort</p>
+  </div>
+  <div class="section">
+    <div class="section-head"><div><h2>Kanten nach Art</h2><p>18 Arten · 128.731 Kanten</p></div></div>
+    
+    <div class="card"><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">NENNT</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 98.04%"></i></div>
+        <span class="value num">84.479</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">65,6 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">ENTHÄLT</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 10.29%"></i></div>
+        <span class="value num">8.870</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">6,9 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">LIEGT_IN</div></div>
+        <div class="control"><div class="meter"><i class="soft" style="width: 10.24%"></i></div>
+        <span class="value num">8.825</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">6,9 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">GEHÖRT_ZU</div></div>
+        <div class="control"><div class="meter"><i class="soft" style="width: 10.24%"></i></div>
+        <span class="value num">8.825</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">6,9 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">HANDELT_VON</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 9.07%"></i></div>
+        <span class="value num">7.818</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">6,1 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">FOLGT_AUF</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 7.61%"></i></div>
+        <span class="value num">6.560</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">5,1 %</span></div></div><div class="row compact"><div class="text"><div class="title" style="font-weight: 450">VERWEIST_AUF</div></div>
+        <div class="control"><div class="meter"><i class="" style="width: 2.21%"></i></div>
+        <span class="value num">1.902</span><span class="dim num" style="min-width: 44px; text-align: right; font-size: 12px">1,5 %</span></div></div></div>
+    <p class="footnote">1.452 weitere in 11 Arten. Grau sind Strukturkanten, die nur den Ordnerbaum nachzeichnen — ihr Anteil ist das Maß, an dem die Abnahme den Rückfall in einen Ordnerbaum misst; über 60 % reißt sie.</p>
+  </div>
+  <div class="section">
+    <div class="section-head"><div><h2>Projekte</h2><p>12 Projekte · 3.027 Dokumente</p></div></div>
+    <div class="card"><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(0 58% 58%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">Provinzen</div></div>
+      <div class="control"><div class="meter"><i style="width: 100.00%"></i></div><span class="value num">1.339</span></div></div><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(30 58% 45%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">Dummy Economics</div></div>
+      <div class="control"><div class="meter"><i style="width: 40.25%"></i></div><span class="value num">539</span></div></div><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(60 58% 58%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">Nordwind Studio</div></div>
+      <div class="control"><div class="meter"><i style="width: 36.37%"></i></div><span class="value num">487</span></div></div><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(90 58% 45%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">Anatomy Academy</div></div>
+      <div class="control"><div class="meter"><i style="width: 28.53%"></i></div><span class="value num">382</span></div></div><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(120 58% 58%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">Levels of Monaco</div></div>
+      <div class="control"><div class="meter"><i style="width: 7.09%"></i></div><span class="value num">95</span></div></div><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(150 58% 45%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">New German Architecture</div></div>
+      <div class="control"><div class="meter"><i style="width: 5.90%"></i></div><span class="value num">79</span></div></div><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(180 58% 58%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">God's Eye View</div></div>
+      <div class="control"><div class="meter"><i style="width: 2.32%"></i></div><span class="value num">31</span></div></div><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(210 58% 45%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">EduCore</div></div>
+      <div class="control"><div class="meter"><i style="width: 2.17%"></i></div><span class="value num">29</span></div></div><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(240 58% 58%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">Project Super Suit</div></div>
+      <div class="control"><div class="meter"><i style="width: 1.12%"></i></div><span class="value num">15</span></div></div><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(270 58% 45%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">Theologische Lehre</div></div>
+      <div class="control"><div class="meter"><i style="width: 1.00%"></i></div><span class="value num">12</span></div></div><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(300 58% 58%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">Mobil &amp; Klar</div></div>
+      <div class="control"><div class="meter"><i style="width: 1.00%"></i></div><span class="value num">10</span></div></div><div class="row compact"><i style="width: 8px; height: 8px; border-radius: 50%; background: hsl(330 58% 45%); flex-shrink: 0"></i>
+      <div class="text"><div class="title" style="font-weight: 450">Cortex-Chats</div></div>
+      <div class="control"><div class="meter"><i style="width: 1.00%"></i></div><span class="value num">9</span></div></div></div>
+  </div>
+  </div>
+</main>
+</div>
+</x-dc>
+</body>
+</html>

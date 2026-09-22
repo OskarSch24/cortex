@@ -1,0 +1,206 @@
+/*
+ * Composer measured against the supplied Codex screenshots (19 September 2026).
+ * The reference is a 2x Retina image: 1472 x 196 pixels = 736 x 98 CSS pixels.
+ * Keep this sheet after cortex.css so earlier compact-composer rules cannot
+ * change the reference geometry. Color tokens also have light/custom variants.
+ */
+:root {
+  --cx-composer-text: #fff;
+  --cx-composer-radius: 28px;
+  --cx-composer-corner-shape: round;
+  --cx-composer-shelf-radius: 16px;
+}
+/* Codex's desktop surface uses a continuous superellipse, not a circular arc.
+ * Its 1.25 radius scale preserves the same perceived radius. Keep this fixed
+ * as the input grows, and derive the nested image curve from its 12px inset. */
+@supports (corner-shape: superellipse(1.5)) {
+  :root {
+    --cx-composer-radius: 35px;
+    --cx-composer-corner-shape: superellipse(1.5);
+    --cx-composer-shelf-radius: 20px;
+  }
+}
+.cx-shell .cx-compose-area { container: cx-composer / inline-size; }
+
+.cx-shell .composer {
+  box-sizing: border-box;
+  min-height: 98px;
+  padding: 14px 8px 8px;
+  border: 0;
+  border-radius: var(--cx-composer-radius);
+  corner-shape: var(--cx-composer-corner-shape);
+  background: var(--cx-composer, #353535);
+  box-shadow: inset 0 0 0 .5px var(--cx-composer-border, #414141), inset 0 0 0 1px #ffffff02;
+  color: var(--cx-composer-text);
+}
+.cx-shell .composer:focus-within {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 .5px var(--cx-composer-border, #414141), inset 0 0 0 1px #ffffff02;
+}
+.cx-shell .composer > textarea {
+  box-sizing: border-box;
+  display: block;
+  flex: none;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cx-composer-text);
+  font: 400 14px/20px var(--cx-body-font);
+  letter-spacing: normal;
+}
+.cx-shell .composer > textarea::placeholder {
+  color: var(--cx-composer-placeholder, #686868);
+  font: inherit;
+  opacity: 1;
+}
+.cx-shell .composer-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-height: 28px;
+  margin-top: 4px;
+  padding: 0;
+}
+.cx-shell .composer .mode-btn {
+  min-height: 28px;
+  height: 28px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cx-composer-text);
+  font: 400 13px/20px var(--cx-body-font);
+  letter-spacing: normal;
+}
+.cx-shell .composer .mode-btn:hover,
+.cx-shell .composer .mode-btn.open { background: #ffffff0b; }
+.cx-shell .composer .permission-picker { flex: 0 1 auto; min-width: 0; }
+.cx-shell .composer .permission-btn { gap: 5px; max-width: 100%; }
+.cx-shell .composer .permission-btn.is-full { color: #ff8649; }
+.cx-shell .composer .permission-btn > svg { width: 16px; height: 16px; }
+.cx-shell .composer .model-picker { flex: 0 1 auto; min-width: 0; }
+.cx-shell .composer .model-btn { gap: 5px; max-width: 100%; white-space: nowrap; }
+.cx-shell .composer .model-brand { color: var(--cx-composer-text); }
+.cx-shell .composer .model-effort { flex: none; color: #999; }
+.cx-shell .composer .model-effort.ultra { color: #b37aff; }
+.cx-shell .composer .model-btn > svg { margin-left: 3px; color: #999; }
+.cx-shell .composer .bar-gap { min-width: 0; }
+.cx-shell .composer .icon-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cx-composer-text);
+}
+.cx-shell .composer .icon-btn:hover { background: #ffffff0b; }
+.cx-shell .composer .attach-btn > svg { stroke-width: 1.6; }
+.cx-shell .composer .dictation-btn > svg { stroke-width: 1.8; }
+.cx-shell .composer .run-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #080808;
+}
+.cx-shell .composer .run-btn.voice:hover,
+.cx-shell .composer .run-btn.send:hover { background: #f1f1f1; }
+.cx-shell .composer .run-btn.send > svg { stroke-width: 1.15; }
+.cx-shell .composer .run-btn.voice > svg { stroke-width: 2; }
+.cx-shell .composer .run-btn.send:disabled { opacity: .4; }
+.cx-shell .composer .run-btn.stop { background: #fff; color: #080808; }
+
+/* The inset project shelf sits behind the rounded composer, as in the reference. */
+.cx-shell .is-empty .cx-compose-context {
+  margin: 0 12px -8px;
+  padding: 6px 8px 14px;
+  border-radius: var(--cx-composer-shelf-radius) var(--cx-composer-shelf-radius) 0 0;
+  corner-shape: var(--cx-composer-corner-shape);
+  background: var(--cx-context, #1f1f1f);
+}
+.cx-shell .is-empty .cx-project-chip {
+  gap: 6px;
+  padding: 5px 8px;
+  color: var(--cx-composer-text);
+  font: 400 14px/20px var(--cx-body-font);
+}
+
+/* Image attachments remain actual attachments, in a scrollable filmstrip. */
+.cx-shell .composer .attachment-strip:has(.has-preview) {
+  flex-wrap: nowrap;
+  gap: 12px;
+  max-height: 122px;
+  margin: -2px 4px 10px;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.cx-shell .composer .attachment-row.has-preview {
+  box-sizing: border-box;
+  width: 122px;
+  height: 122px;
+  border-radius: calc(var(--cx-composer-radius) - 12px);
+  corner-shape: var(--cx-composer-corner-shape);
+  border-color: color-mix(in srgb, var(--cx-composer, #353535), var(--cx-composer-text) 8.5%);
+}
+.cx-shell .composer .attachment-row.has-preview img { display: block; }
+.cx-shell .composer .attachment-strip:has(.has-preview) > .attachment-row:not(.has-preview) {
+  flex: 0 0 180px;
+  align-self: center;
+  min-width: 0;
+}
+.cx-shell .composer .attachment-row.has-preview .attachment-x {
+  top: 5px;
+  right: 5px;
+  width: 20px;
+  height: 20px;
+  font-size: 15px;
+  opacity: 0;
+}
+.cx-shell .composer .attachment-row.has-preview:hover .attachment-x,
+.cx-shell .composer .attachment-row.has-preview:focus-within .attachment-x {
+  opacity: 1;
+}
+@media (hover: none) {
+  .cx-shell .composer .attachment-row.has-preview .attachment-x { opacity: 1; }
+}
+
+/* At the reference width all controls fit on one line; narrow docked chats
+ * truncate labels before wrapping image controls onto a second line. */
+@container cx-composer (max-width: 610px) {
+  .cx-shell .composer .permission-btn { max-width: 175px; }
+  .cx-shell .composer .model-btn { max-width: 230px; }
+}
+@container cx-composer (max-width: 490px) {
+  .cx-shell .composer .permission-btn { max-width: 132px; }
+  .cx-shell .composer .model-btn { max-width: 172px; }
+  .cx-shell .composer-bar { gap: 4px; }
+  .cx-shell .composer.is-image .composer-bar { flex-wrap: wrap; }
+}
+@container cx-composer (max-width: 370px) {
+  .cx-shell .composer .permission-btn { max-width: 96px; }
+  .cx-shell .composer .model-effort { display: none; }
+  .cx-shell .composer .model-btn { max-width: 120px; }
+}
+@container cx-composer (max-width: 260px) {
+  .cx-shell .composer-bar { flex-wrap: wrap; }
+  .cx-shell .composer .permission-picker { flex: 1; }
+  .cx-shell .composer .bar-gap { flex: 0 0 100%; height: 0; }
+  .cx-shell .composer .model-picker { flex: 1; }
+}

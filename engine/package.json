@@ -1,0 +1,19 @@
+{
+  "name": "cortex-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Route AI coding tasks across all your subscriptions (Claude, Codex, Grok, Copilot) with user-defined rules and automatic quota failover.",
+  "license": "MIT",
+  "packageManager": "pnpm@11.3.0",
+  "scripts": {
+    "build": "pnpm -C packages/core build && pnpm -C packages/vscode build && pnpm -C packages/desktop build",
+    "watch": "pnpm -C packages/vscode watch",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "package": "bash ../scripts/assemble.sh --build-only",
+    "package:extension": "pnpm -C packages/vscode package"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

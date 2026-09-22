@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #101113; }
+  a { color: #6aa8ff; text-decoration: none; } a:hover { color: #9cc5ff; }
+  .page { width: 816px; box-sizing: border-box; padding: 40px 40px 48px; background: #101113; color: #ededee;
+          font: 15px/23px 'SF Pro Text', -apple-system, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+  .col { display: flex; flex-direction: column; gap: 14px; width: 736px; }
+  .user { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .bubble { max-width: 70%; padding: 10px 16px 11px; border-radius: 20px; background: #ffffff12; font-size: 15px; line-height: 23px; }
+  .line { display: flex; align-items: center; gap: 8px; min-height: 23px; color: #8f9094; font-size: 15px; line-height: 23px; }
+  .prose { margin: 0; text-wrap: pretty; }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: 'SF Mono', Menlo, monospace; }
+  .w { border: 1px solid #ffffff12; border-radius: 12px; background: #ffffff06; overflow: hidden; }
+  .wh { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; }
+  .mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 9px; background: #ffffff0c; color: #ededee; font-size: 11px; font-weight: 600; letter-spacing: -.2px; }
+  .wt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .wt strong { font-size: 15px; line-height: 21px; font-weight: 500; color: #ededee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wt small { display: flex; align-items: center; gap: 6px; font-size: 13.5px; line-height: 19px; color: #8f9094; }
+  .acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 10px; border: 1px solid #ffffff1c; border-radius: 8px; color: #ededee; font-size: 14px; line-height: 20px; white-space: nowrap; }
+  .btn.primary { background: #eeeef0; border-color: #f4f4f5; color: #131416; font-weight: 500; }
+  .btn.quiet { border-color: transparent; color: #999a9d; padding: 5px 8px; }
+  .sep { border-top: 1px solid #ffffff10; }
+  .pad { padding: 14px; }
+  .row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 14px; color: #8f9094; font-size: 14.5px; line-height: 20px; }
+  .rows .row + .row::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; border-top: 1px solid #ffffff0a; }
+  .v { color: #ededee; }
+  .dim { color: #707277; }
+  .muted { color: #999a9d; }
+  .grow { flex: 1; min-width: 0; }
+  .label { font-size: 12px; line-height: 16px; color: #707277; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 12px; line-height: 20px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pill.pos { background: #88b99b1f; color: #9fd0b2; }
+  .pill.neg { background: #e36a6a1f; color: #f08a8a; }
+  .pill.warn { background: #d8b36a1f; color: #e3c285; }
+  .pill.info { background: #6aa8ff1f; color: #8dbcff; }
+  .pill.violet { background: #9d8fd91f; color: #b5aae6; }
+  .pill.mute { background: #ffffff0d; color: #999a9d; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .meter { position: relative; height: 4px; border-radius: 2px; background: #ffffff1a; overflow: hidden; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: #ededee; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px 10px; border-top: 1px solid #ffffff10; color: #707277; font-size: 12.5px; line-height: 18px; }
+  .seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff08; flex: none; }
+  .seg span { padding: 2px 8px; border-radius: 6px; color: #8f9094; font-size: 12.5px; line-height: 20px; white-space: nowrap; }
+  .seg span.on { background: #ffffff14; color: #ededee; }
+  .box { border: 1px solid #ffffff14; border-radius: 10px; background: #ffffff05; }
+  .chk { display: grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #ffffff38; box-sizing: border-box; color: #131416; }
+  .chk.on { background: #ededee; border-color: #ededee; }
+  .tile { display: grid; place-items: center; flex: none; border-radius: 6px; font-size: 11px; font-weight: 600; color: #ededee; }
+  .code { margin: 0; padding: 10px 12px; border-radius: 8px; background: #ffffff08; color: #b9babd; font: 12px/1.55 'SF Mono', Menlo, monospace; white-space: pre; overflow: hidden; }
+  .stat { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; }
+  .stat b { font-size: 20px; line-height: 26px; font-weight: 440; letter-spacing: -.2px; color: #ededee; font-variant-numeric: tabular-nums; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cells > * + * { border-left: 1px solid #ffffff0a; }
+</style>
+</helmet>
+<div class="page"><div class="col">
+<div class="user"><div class="bubble">Stell einen Fokus-Timer auf 25 Minuten.</div></div>
+
+<div class="w">
+  <div style="display: flex; align-items: center; gap: 26px; padding: 18px 20px">
+    <div style="position: relative; width: 140px; height: 140px; flex: none"><svg width="140" height="140" viewBox="0 0 140 140" style="display: block">
+  <path d="M70.0 4.0L70.0 1.0" stroke="#ffffff26" stroke-width="1"></path><path d="M86.4 6.1L87.2 3.2" stroke="#ffffff26" stroke-width="1"></path><path d="M101.8 12.2L103.2 9.5" stroke="#ffffff26" stroke-width="1"></path><path d="M115.2 21.9L117.2 19.7" stroke="#ffffff26" stroke-width="1"></path><path d="M125.7 34.6L128.3 33.0" stroke="#ffffff26" stroke-width="1"></path><path d="M132.8 49.6L135.6 48.7" stroke="#ffffff26" stroke-width="1"></path><path d="M135.9 65.9L138.9 65.7" stroke="#ffffff26" stroke-width="1"></path><path d="M134.8 82.4L137.8 82.9" stroke="#ffffff26" stroke-width="1"></path><path d="M129.7 98.1L132.4 99.4" stroke="#ffffff26" stroke-width="1"></path><path d="M120.9 112.1L123.2 114.0" stroke="#ffffff26" stroke-width="1"></path><path d="M108.8 123.4L110.6 125.8" stroke="#ffffff26" stroke-width="1"></path><path d="M94.3 131.4L95.4 134.2" stroke="#ffffff26" stroke-width="1"></path><path d="M78.3 135.5L78.6 138.5" stroke="#ffffff26" stroke-width="1"></path><path d="M61.7 135.5L61.4 138.5" stroke="#ffffff26" stroke-width="1"></path><path d="M45.7 131.4L44.6 134.2" stroke="#ffffff26" stroke-width="1"></path><path d="M31.2 123.4L29.4 125.8" stroke="#ffffff26" stroke-width="1"></path><path d="M19.1 112.1L16.8 114.0" stroke="#ffffff26" stroke-width="1"></path><path d="M10.3 98.1L7.6 99.4" stroke="#ffffff26" stroke-width="1"></path><path d="M5.2 82.4L2.2 82.9" stroke="#ffffff26" stroke-width="1"></path><path d="M4.1 65.9L1.1 65.7" stroke="#ffffff26" stroke-width="1"></path><path d="M7.2 49.6L4.4 48.7" stroke="#ffffff26" stroke-width="1"></path><path d="M14.3 34.6L11.7 33.0" stroke="#ffffff26" stroke-width="1"></path><path d="M24.8 21.9L22.8 19.7" stroke="#ffffff26" stroke-width="1"></path><path d="M38.2 12.2L36.8 9.5" stroke="#ffffff26" stroke-width="1"></path><path d="M53.6 6.1L52.8 3.2" stroke="#ffffff26" stroke-width="1"></path>
+  <circle cx="70" cy="70" r="58" fill="none" stroke="#ffffff12" stroke-width="5"></circle>
+  <circle cx="70" cy="70" r="58" fill="none" stroke="#ededee" stroke-width="5" stroke-linecap="round" stroke-dasharray="272.6 364.4" transform="rotate(-90 70 70)"></circle>
+  <circle cx="12.0" cy="70.7" r="8" fill="#ededee" fill-opacity=".14"></circle>
+  <circle cx="12.0" cy="70.7" r="3.5" fill="#ededee"></circle>
+</svg>
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+        <span class="num" style="font-size: 30px; line-height: 34px; font-weight: 300; letter-spacing: -.5px">18:42</span>
+        <span class="label num">von 25:00</span>
+      </div>
+    </div>
+    <div class="grow" style="display: flex; flex-direction: column; gap: 4px">
+      <span class="pill mute" style="align-self: flex-start"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="13.5" r="7.5"></circle><path d="M12 13.5V9.5M9.5 2.5h5"></path></svg>Läuft</span>
+      <span style="font-size: 20px; line-height: 28px; font-weight: 440; margin-top: 6px">Fokus</span>
+      <span class="muted num" style="font-size: 13.5px; line-height: 19px">Endet um 15:07 · danach 5 Minuten Pause</span>
+      <div style="display: flex; gap: 6px; margin-top: 14px">
+        <span class="btn primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M9 5.5v13M15 5.5v13"></path></svg>Pause</span><span class="btn">+1 min</span><span class="btn quiet">Beenden</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div></div>
+</x-dc>
+</body>
+</html>

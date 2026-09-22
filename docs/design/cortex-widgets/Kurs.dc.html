@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #101113; }
+  a { color: #6aa8ff; text-decoration: none; } a:hover { color: #9cc5ff; }
+  .page { width: 816px; box-sizing: border-box; padding: 40px 40px 48px; background: #101113; color: #ededee;
+          font: 15px/23px 'SF Pro Text', -apple-system, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+  .col { display: flex; flex-direction: column; gap: 14px; width: 736px; }
+  .user { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .bubble { max-width: 70%; padding: 10px 16px 11px; border-radius: 20px; background: #ffffff12; font-size: 15px; line-height: 23px; }
+  .line { display: flex; align-items: center; gap: 8px; min-height: 23px; color: #8f9094; font-size: 15px; line-height: 23px; }
+  .prose { margin: 0; text-wrap: pretty; }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: 'SF Mono', Menlo, monospace; }
+  .w { border: 1px solid #ffffff12; border-radius: 12px; background: #ffffff06; overflow: hidden; }
+  .wh { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; }
+  .mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 9px; background: #ffffff0c; color: #ededee; font-size: 11px; font-weight: 600; letter-spacing: -.2px; }
+  .wt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .wt strong { font-size: 15px; line-height: 21px; font-weight: 500; color: #ededee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wt small { display: flex; align-items: center; gap: 6px; font-size: 13.5px; line-height: 19px; color: #8f9094; }
+  .acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 10px; border: 1px solid #ffffff1c; border-radius: 8px; color: #ededee; font-size: 14px; line-height: 20px; white-space: nowrap; }
+  .btn.primary { background: #eeeef0; border-color: #f4f4f5; color: #131416; font-weight: 500; }
+  .btn.quiet { border-color: transparent; color: #999a9d; padding: 5px 8px; }
+  .sep { border-top: 1px solid #ffffff10; }
+  .pad { padding: 14px; }
+  .row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 14px; color: #8f9094; font-size: 14.5px; line-height: 20px; }
+  .rows .row + .row::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; border-top: 1px solid #ffffff0a; }
+  .v { color: #ededee; }
+  .dim { color: #707277; }
+  .muted { color: #999a9d; }
+  .grow { flex: 1; min-width: 0; }
+  .label { font-size: 12px; line-height: 16px; color: #707277; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 12px; line-height: 20px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pill.pos { background: #88b99b1f; color: #9fd0b2; }
+  .pill.neg { background: #e36a6a1f; color: #f08a8a; }
+  .pill.warn { background: #d8b36a1f; color: #e3c285; }
+  .pill.info { background: #6aa8ff1f; color: #8dbcff; }
+  .pill.violet { background: #9d8fd91f; color: #b5aae6; }
+  .pill.mute { background: #ffffff0d; color: #999a9d; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .meter { position: relative; height: 4px; border-radius: 2px; background: #ffffff1a; overflow: hidden; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: #ededee; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px 10px; border-top: 1px solid #ffffff10; color: #707277; font-size: 12.5px; line-height: 18px; }
+  .seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff08; flex: none; }
+  .seg span { padding: 2px 8px; border-radius: 6px; color: #8f9094; font-size: 12.5px; line-height: 20px; white-space: nowrap; }
+  .seg span.on { background: #ffffff14; color: #ededee; }
+  .box { border: 1px solid #ffffff14; border-radius: 10px; background: #ffffff05; }
+  .chk { display: grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #ffffff38; box-sizing: border-box; color: #131416; }
+  .chk.on { background: #ededee; border-color: #ededee; }
+  .tile { display: grid; place-items: center; flex: none; border-radius: 6px; font-size: 11px; font-weight: 600; color: #ededee; }
+  .code { margin: 0; padding: 10px 12px; border-radius: 8px; background: #ffffff08; color: #b9babd; font: 12px/1.55 'SF Mono', Menlo, monospace; white-space: pre; overflow: hidden; }
+  .stat { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; }
+  .stat b { font-size: 20px; line-height: 26px; font-weight: 440; letter-spacing: -.2px; color: #ededee; font-variant-numeric: tabular-nums; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cells > * + * { border-left: 1px solid #ffffff0a; }
+</style>
+</helmet>
+<div class="page"><div class="col">
+<div class="user"><div class="bubble">Wie steht Bitcoin gerade?</div></div>
+
+<div class="w">
+  <div class="wh"><div class="mark" style="font-size: 10.5px">BTC</div>
+  <div class="wt"><strong>Bitcoin</strong><small>BTC · EUR</small></div><div class="acts"><div class="seg"><span class="on">1T</span><span class="">1W</span><span class="">1M</span><span class="">1J</span><span class="">Max</span></div></div></div>
+  <div style="padding: 4px 14px 0 14px">
+    <div style="display: flex; align-items: baseline; gap: 10px">
+      <span class="num" style="font-size: 34px; line-height: 40px; font-weight: 300; letter-spacing: -.8px">96.412<span class="muted" style="font-size: 22px">,18 €</span></span>
+      <span class="pill pos"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m3 16 5.5-5.5 4 4L21 6"></path><path d="M15 6h6v6"></path></svg>+2,41 %</span><span class="muted num" style="font-size: 13.5px">+2.268 € seit gestern</span>
+    </div>
+    <div style="position: relative; margin-top: 12px">
+      <svg width="706" height="132" viewBox="0 0 706 132" style="display: block; overflow: visible"><defs><linearGradient id="btc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#88b99b" stop-opacity=".22"></stop><stop offset="1" stop-color="#88b99b" stop-opacity="0"></stop></linearGradient></defs><path d="M6.0,132 L6.0,123.7 L15.8,115.9 L25.5,116.3 L35.3,117.6 L45.1,125.8 L54.9,126.0 L64.6,111.6 L74.4,104.8 L84.2,91.2 L94.0,86.3 L103.7,79.8 L113.5,75.6 L123.3,91.9 L133.1,80.3 L142.8,72.6 L152.6,65.0 L162.4,81.5 L172.2,98.6 L181.9,106.3 L191.7,109.3 L201.5,103.8 L211.3,102.2 L221.0,94.3 L230.8,99.3 L240.6,93.7 L250.4,87.2 L260.1,92.4 L269.9,71.3 L279.7,63.0 L289.5,47.7 L299.2,52.4 L309.0,58.4 L318.8,60.1 L328.6,59.1 L338.3,50.0 L348.1,45.1 L357.9,48.0 L367.7,56.4 L377.4,60.0 L387.2,44.4 L397.0,51.2 L406.8,46.3 L416.5,39.5 L426.3,53.8 L436.1,51.1 L445.9,34.6 L455.6,54.7 L465.4,56.1 L475.2,55.1 L485.0,62.0 L494.7,54.4 L504.5,53.0 L514.3,67.0 L524.1,55.7 L533.8,46.2 L543.6,33.6 L553.4,15.6 L563.2,9.5 L572.9,6.0 L582.7,18.2 L592.5,9.3 L602.3,13.9 L612.0,16.8 L621.8,28.6 L631.6,37.1 L641.4,40.9 L651.1,24.5 L660.9,44.8 L670.7,58.8 L680.5,54.0 L690.2,35.9 L700.0,27.4 L700.0,132 Z" fill="url(#btc)"></path><path d="M0 123.7H706" stroke="#ffffff40" stroke-width="1" stroke-dasharray="1 3"></path><polyline points="6.0,123.7 15.8,115.9 25.5,116.3 35.3,117.6 45.1,125.8 54.9,126.0 64.6,111.6 74.4,104.8 84.2,91.2 94.0,86.3 103.7,79.8 113.5,75.6 123.3,91.9 133.1,80.3 142.8,72.6 152.6,65.0 162.4,81.5 172.2,98.6 181.9,106.3 191.7,109.3 201.5,103.8 211.3,102.2 221.0,94.3 230.8,99.3 240.6,93.7 250.4,87.2 260.1,92.4 269.9,71.3 279.7,63.0 289.5,47.7 299.2,52.4 309.0,58.4 318.8,60.1 328.6,59.1 338.3,50.0 348.1,45.1 357.9,48.0 367.7,56.4 377.4,60.0 387.2,44.4 397.0,51.2 406.8,46.3 416.5,39.5 426.3,53.8 436.1,51.1 445.9,34.6 455.6,54.7 465.4,56.1 475.2,55.1 485.0,62.0 494.7,54.4 504.5,53.0 514.3,67.0 524.1,55.7 533.8,46.2 543.6,33.6 553.4,15.6 563.2,9.5 572.9,6.0 582.7,18.2 592.5,9.3 602.3,13.9 612.0,16.8 621.8,28.6 631.6,37.1 641.4,40.9 651.1,24.5 660.9,44.8 670.7,58.8 680.5,54.0 690.2,35.9 700.0,27.4" fill="none" stroke="#88b99b" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"></polyline><circle cx="700.0" cy="27.4" r="7" fill="#88b99b" fill-opacity=".18"></circle><circle cx="700.0" cy="27.4" r="3" fill="#88b99b"></circle></svg>
+    </div>
+    <div style="display: flex; justify-content: space-between; padding: 6px 2px 10px"><span class="label num">00:00</span><span class="label num">06:00</span><span class="label num">12:00</span><span class="label num">18:00</span><span class="label num">Jetzt</span></div>
+    <div class="label num" style="display: flex; align-items: center; gap: 8px; padding: 0 2px 12px"><svg width="18" height="2" style="display: block"><path d="M0 1H18" stroke="#ffffff66" stroke-dasharray="1 3"></path></svg>Schlusskurs gestern 94.144 €</div>
+  </div>
+  <div class="sep rows" style="padding: 2px 0"><div class="row" style="min-height: 52px">
+  <span class="tile" style="width: 28px; height: 28px; border-radius: 7px; background: #ffffff0c; font-size: 9.5px">ETH</span>
+  <span class="grow" style="display: flex; flex-direction: column"><span class="v" style="font-size: 14.5px">Ethereum</span><span class="label">ETH</span></span>
+  <svg width="120" height="28" viewBox="0 0 120 28" style="display: block; overflow: visible"><polyline points="6.0,11.2 9.7,9.7 13.4,11.1 17.2,9.9 20.9,10.4 24.6,10.9 28.3,8.5 32.1,8.4 35.8,8.6 39.5,7.8 43.2,6.5 47.0,6.6 50.7,6.0 54.4,7.4 58.1,8.0 61.9,8.7 65.6,10.6 69.3,12.7 73.0,14.9 76.8,15.3 80.5,15.7 84.2,16.3 87.9,16.3 91.7,18.2 95.4,18.4 99.1,18.2 102.8,17.4 106.6,18.6 110.3,19.2 114.0,22.0" fill="none" stroke="#e36a6a" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"></polyline></svg>
+  <span class="num v" style="width: 96px; text-align: right">2.312,40 €</span>
+  <span class="pill neg" style="width: 62px; justify-content: center">−1,12 %</span>
+</div><div class="row" style="min-height: 52px">
+  <span class="tile" style="width: 28px; height: 28px; border-radius: 7px; background: #ffffff0c; font-size: 9.5px">NVDA</span>
+  <span class="grow" style="display: flex; flex-direction: column"><span class="v" style="font-size: 14.5px">Nvidia</span><span class="label">NVDA</span></span>
+  <svg width="120" height="28" viewBox="0 0 120 28" style="display: block; overflow: visible"><polyline points="6.0,20.4 9.7,19.4 13.4,17.0 17.2,18.0 20.9,20.7 24.6,20.7 28.3,19.5 32.1,16.9 35.8,19.3 39.5,22.0 43.2,20.3 47.0,19.0 50.7,15.5 54.4,13.1 58.1,13.2 61.9,13.6 65.6,7.8 69.3,8.2 73.0,9.8 76.8,12.1 80.5,11.7 84.2,11.2 87.9,11.8 91.7,11.7 95.4,10.9 99.1,9.2 102.8,6.6 106.6,6.0 110.3,9.7 114.0,8.0" fill="none" stroke="#88b99b" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"></polyline></svg>
+  <span class="num v" style="width: 96px; text-align: right">158,40 €</span>
+  <span class="pill pos" style="width: 62px; justify-content: center">+0,86 %</span>
+</div></div>
+  <div class="foot"><span>CoinGecko · Aktien über Alpha Vantage</span><span>Verzögert bis 15 min</span></div>
+</div>
+
+</div></div>
+</x-dc>
+</body>
+</html>

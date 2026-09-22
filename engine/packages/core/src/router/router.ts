@@ -1,0 +1,181 @@
+import type { RulesFile } from '../rules/schema.js';
+import { builtinDefaultChain } from '../rules/defaults.js';
+import { matchesRule, parseMention } from './matcher.js';
+import { classifyTask, isContinuation, type Classification } from './classify.js';
+import { autoRoute, type ConversationContext } from './autoRoute.js';
+import type { TaskMetric } from '../quota/metricsSchema.js';
+import type { QuotaTracker } from '../quota/quotaTracker.js';
+import type { AccountProfile, RoutingDecision, Target, TaskRequest } from '../types.js';
+import { targetKey } from '../types.js';
+
+export interface RouteResult {
+  decision: RoutingDecision;
+  /** Prompt with any @mention stripped. */
+  cleanedPrompt: string;
+}
+
+export interface RouteOptions {
+  /** 'auto': classify the task and pick a model; 'manual': follow the default chain as written. */
+  mode?: 'auto' | 'manual';
+  /** Past runs, used to calibrate capability and estimate burn. */
+  metrics?: TaskMetric[];
+  /** Where this conversation has been running so far. */
+  conversation?: ConversationContext;
+  /** Plan heavy code-writing work before it edits. */
+  autoPlan?: boolean;
+}
+
+export function resolveTargetAccount(
+  target: Target,
+  accounts: AccountProfile[],
+): AccountProfile | undefined {
+  return accounts.find(
+    (a) => a.provider === target.provider && (a.label === target.account || a.id === target.account),
+  );
+}
+
+export function route(
+  task: TaskRequest,
+  rules: RulesFile,
+  accounts: AccountProfile[],
+  quota: QuotaTracker,
+  options: RouteOptions = {},
+): RouteResult {
+  const mode = options.mode ?? 'auto';
+  const { mention, cleaned } = parseMention(task.prompt);
+  const defaultChain =
+    rules.defaultChain.length > 0 ? rules.defaultChain : builtinDefaultChain(accounts);
+
+  let raw: Target[];
+  let ruleId: string | undefined;
+  let reason: string;
+  let classification: Classification | undefined;
+  let escalated: { from: string; to: string } | undefined;
+  let suggestPermission: RoutingDecision['suggestPermission'];
+  let estimatedBurnPct: number | undefined;
+  let tier: RoutingDecision['tier'];
+  let effort: RoutingDecision['effort'];
+  let moveTokens: number | undefined;
+
+  const matchTask = { ...task, prompt: cleaned };
+  const matched = rules.rules.filter((r) => matchesRule(r, matchTask));
+  // Every matching rule contributes its bans, not just the one that won the
+  // routing — a rule that only says "never copilot for security work" is a whole
+  // rule on its own and must not have to name a target to be heard.
+  const bans = matched.flatMap((r) => (r.exclude ?? []).map((e) => ({ ...e, ruleId: r.id })));
+  const bannedBy = (t: Target) =>
+    bans.find((b) => b.provider === t.provider && (!b.account || b.account === t.account));
+  // Typing @copilot is a deliberate override of your own rule, so what you named
+  // survives the ban. Everything the router appended behind it does not.
+  const mentioned = new Set<string>();
+
+  if (mention) {
+    const mentionTargets: Target[] = [];
+    if (mention.account) {
+      mentionTargets.push({
+        provider: mention.provider,
+        account: mention.account,
+        model: mention.model,
+      });
+    } else {
+      const order = task.accountOrder ?? [];
+      const rank = (label: string) => {
+        const i = order.indexOf(label);
+        return i === -1 ? order.length : i;
+      };
+      const candidates = accounts
+        .filter((a) => a.provider === mention.provider && !a.disabled)
+        .sort((a, b) => rank(a.label) - rank(b.label) || a.priority - b.priority);
+      for (const c of candidates) {
+        mentionTargets.push({ provider: c.provider, account: c.label, model: mention.model });
+      }
+    }
+    for (const t of mentionTargets) mentioned.add(targetKey(t));
+    raw = task.allowAccountFailover === false ? mentionTargets : [...mentionTargets, ...defaultChain];
+    reason = `@${mention.provider}${mention.account ? ':' + mention.account : ''} mention`;
+  } else {
+    // User rules stay primary — they always win over automatic choice. A rule
+    // with no target only bans, so it is not the one that decides where to go.
+    const rule = matched.find((r) => r.target.length > 0);
+    if (rule) {
+      raw = [...rule.target, ...defaultChain];
+      ruleId = rule.id;
+      reason = rule.description ?? `rule: ${rule.id}`;
+    } else if (mode === 'auto') {
+      classification = classifyTask(matchTask);
+      // A bare "yes, go ahead" carries the weight of the turn it is answering,
+      // not its own.
+      const previous = options.conversation?.recentComplexity?.[0];
+      if (isContinuation(cleaned) && previous) {
+        classification = { ...classification, complexity: previous };
+      }
+      const auto = autoRoute(classification, accounts, quota, {
+        metrics: options.metrics,
+        conversation: options.conversation,
+        autoPlan: options.autoPlan,
+        currentPermission: task.permissionMode,
+      });
+      raw = [...auto.chain, ...defaultChain];
+      reason = auto.reason;
+      escalated = auto.escalated;
+      suggestPermission = auto.suggestPermission;
+      estimatedBurnPct = auto.burn?.pct;
+      tier = auto.tier;
+      effort = auto.effort;
+      moveTokens = auto.moveTokens;
+    } else {
+      raw = defaultChain;
+      reason = rules.defaultChain.length > 0 ? 'default chain' : 'priority order';
+    }
+  }
+
+  const seen = new Set<string>();
+  const chain: Target[] = [];
+  const skipped: RoutingDecision['skipped'] = [];
+
+  for (const target of raw) {
+    const key = targetKey(target);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const ban = mentioned.has(key) ? undefined : bannedBy(target);
+    if (ban) {
+      skipped.push({ target, reason: `excluded by rule "${ban.ruleId}"` });
+      continue;
+    }
+
+    const account = resolveTargetAccount(target, accounts);
+    if (!account) {
+      skipped.push({ target, reason: `no account "${target.account}" for ${target.provider}` });
+      continue;
+    }
+    if (account.disabled) {
+      skipped.push({ target, reason: 'account disabled' });
+      continue;
+    }
+    const avail = quota.availability(account.id);
+    if (!avail.available) {
+      const until = avail.resetAt ? ` until ${new Date(avail.resetAt).toLocaleTimeString()}` : '';
+      skipped.push({ target, reason: `on cooldown${until}` });
+      continue;
+    }
+    chain.push(target);
+  }
+
+  return {
+    decision: {
+      chain,
+      ruleId,
+      reason,
+      skipped,
+      classification,
+      escalated,
+      suggestPermission,
+      estimatedBurnPct,
+      tier,
+      effort,
+      moveTokens,
+    },
+    cleanedPrompt: cleaned,
+  };
+}

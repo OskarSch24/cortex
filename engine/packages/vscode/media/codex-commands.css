@@ -1,0 +1,160 @@
+/* Slash command menu measured from the supplied Codex screenshot at 2x:
+ * 736 x 320 CSS px, 8 px above the composer, 28.5 px rows, 13 px system type.
+ * The host supplies --cx-suggest-space so attachments and short windows keep
+ * the list inside the available viewport. Load after cortex.css. */
+:root {
+  --cx-command-surface: var(--cx-template-panel, #2d2d2d);
+  --cx-command-border: #3e3e3e;
+  --cx-command-selected: #3d3d3d;
+  --cx-command-text: #cacaca;
+  --cx-command-detail: #7b7b7b;
+  --cx-command-selected-detail: #9e9e9e;
+  --cx-command-radius: 20px;
+  --cx-command-corner-shape: round;
+}
+@supports (corner-shape: superellipse(1.5)) {
+  :root {
+    --cx-command-radius: 25px;
+    --cx-command-corner-shape: superellipse(1.5);
+  }
+}
+:root[data-cx-theme="hell"] {
+  --cx-command-border: var(--cx-strong-line);
+  --cx-command-selected: #0000000b;
+  --cx-command-text: var(--cx-text);
+  --cx-command-detail: #747474;
+  --cx-command-selected-detail: #676767;
+}
+
+.cx-shell .composer .suggest-popup {
+  position: absolute;
+  z-index: 40;
+  inset: auto 0 calc(100% + 8px);
+  box-sizing: border-box;
+  min-width: 0;
+  max-height: min(320px, var(--cx-suggest-space, 320px));
+  padding: 4px;
+  overflow: hidden;
+  border: 1px solid var(--cx-command-border);
+  border-radius: var(--cx-command-radius);
+  corner-shape: var(--cx-command-corner-shape);
+  background: var(--cx-command-surface);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--cx-command-text);
+  font: 400 13px/20px var(--cx-body-font);
+  letter-spacing: normal;
+  text-align: left;
+}
+.cx-shell .suggest-options {
+  min-width: 0;
+  max-height: max(0px, calc(min(320px, var(--cx-suggest-space, 320px)) - 10px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+}
+.cx-shell .suggest-options::-webkit-scrollbar { width: 10px; }
+.cx-shell .suggest-options::-webkit-scrollbar-track { margin-block: 3px; background: transparent; }
+.cx-shell .suggest-options::-webkit-scrollbar-thumb {
+  min-height: 36px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--cx-command-border);
+  background-clip: padding-box;
+}
+.cx-shell .suggest-options::-webkit-scrollbar-thumb:hover { background-color: #535353; }
+
+.cx-shell .composer .suggest-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  box-sizing: border-box;
+  width: calc(100% - 1px);
+  min-width: 0;
+  min-height: 28.5px;
+  margin: 0;
+  padding: 4.25px 8px;
+  border: 0;
+  border-radius: 999px;
+  corner-shape: round;
+  background: transparent;
+  color: var(--cx-command-text);
+  font: inherit;
+  letter-spacing: normal;
+  text-align: left;
+  cursor: pointer;
+}
+.cx-shell .composer .suggest-row.active,
+.cx-shell .composer .suggest-row[aria-selected="true"] {
+  background: var(--cx-command-selected);
+  color: var(--cx-composer-text, #fff);
+}
+.cx-shell .composer .suggest-row:focus-visible {
+  outline: 1px solid var(--cx-command-detail);
+  outline-offset: -1px;
+}
+.cx-shell .composer .suggest-row[aria-disabled="true"] { opacity: .45; cursor: default; }
+.cx-shell .composer .suggest-icon,
+.cx-shell .composer .suggest-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 20px;
+  color: inherit;
+}
+.cx-shell .composer .suggest-icon > svg,
+.cx-shell .composer .suggest-brand > svg { width: 16px; height: 16px; }
+.cx-shell .composer .suggest-label {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 65%;
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  letter-spacing: normal;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cx-shell .composer .suggest-detail {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cx-command-detail);
+  font: inherit;
+  letter-spacing: normal;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cx-shell .composer .suggest-row.active .suggest-detail,
+.cx-shell .composer .suggest-row[aria-selected="true"] .suggest-detail {
+  color: var(--cx-command-selected-detail);
+  opacity: 1;
+}
+.cx-shell .composer .suggest-section {
+  box-sizing: border-box;
+  min-height: 28.5px;
+  margin: 0;
+  padding: 4.25px 8px;
+  color: var(--cx-command-text);
+  font: inherit;
+  letter-spacing: normal;
+}
+.cx-shell .composer .suggest-popup.is-commands .suggest-hint { display: none; }
+.cx-shell .composer .suggest-popup:not(.is-commands) .suggest-options {
+  max-height: max(0px, calc(min(320px, var(--cx-suggest-space, 320px)) - 36px));
+}
+.cx-shell .composer .suggest-hint {
+  margin: 3px 0 0;
+  padding: 4px 8px 2px;
+  border-color: var(--cx-command-border);
+  color: var(--cx-command-detail);
+  font: 400 11px/16px var(--cx-body-font);
+  letter-spacing: normal;
+}

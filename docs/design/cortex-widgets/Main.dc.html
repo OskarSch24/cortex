@@ -1,0 +1,202 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #101113; }
+  a { color: #6aa8ff; text-decoration: none; } a:hover { color: #9cc5ff; }
+  .page { width: 816px; box-sizing: border-box; padding: 40px 40px 48px; background: #101113; color: #ededee;
+          font: 15px/23px 'SF Pro Text', -apple-system, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+  .col { display: flex; flex-direction: column; gap: 14px; width: 736px; }
+  .user { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+  .bubble { max-width: 70%; padding: 10px 16px 11px; border-radius: 20px; background: #ffffff12; font-size: 15px; line-height: 23px; }
+  .line { display: flex; align-items: center; gap: 8px; min-height: 23px; color: #8f9094; font-size: 15px; line-height: 23px; }
+  .prose { margin: 0; text-wrap: pretty; }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: 'SF Mono', Menlo, monospace; }
+  .w { border: 1px solid #ffffff12; border-radius: 12px; background: #ffffff06; overflow: hidden; }
+  .wh { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; }
+  .mark { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 9px; background: #ffffff0c; color: #ededee; font-size: 11px; font-weight: 600; letter-spacing: -.2px; }
+  .wt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .wt strong { font-size: 15px; line-height: 21px; font-weight: 500; color: #ededee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wt small { display: flex; align-items: center; gap: 6px; font-size: 13.5px; line-height: 19px; color: #8f9094; }
+  .acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 10px; border: 1px solid #ffffff1c; border-radius: 8px; color: #ededee; font-size: 14px; line-height: 20px; white-space: nowrap; }
+  .btn.primary { background: #eeeef0; border-color: #f4f4f5; color: #131416; font-weight: 500; }
+  .btn.quiet { border-color: transparent; color: #999a9d; padding: 5px 8px; }
+  .sep { border-top: 1px solid #ffffff10; }
+  .pad { padding: 14px; }
+  .row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 14px; color: #8f9094; font-size: 14.5px; line-height: 20px; }
+  .rows .row + .row::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; border-top: 1px solid #ffffff0a; }
+  .v { color: #ededee; }
+  .dim { color: #707277; }
+  .muted { color: #999a9d; }
+  .grow { flex: 1; min-width: 0; }
+  .label { font-size: 12px; line-height: 16px; color: #707277; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 12px; line-height: 20px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pill.pos { background: #88b99b1f; color: #9fd0b2; }
+  .pill.neg { background: #e36a6a1f; color: #f08a8a; }
+  .pill.warn { background: #d8b36a1f; color: #e3c285; }
+  .pill.info { background: #6aa8ff1f; color: #8dbcff; }
+  .pill.violet { background: #9d8fd91f; color: #b5aae6; }
+  .pill.mute { background: #ffffff0d; color: #999a9d; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .meter { position: relative; height: 4px; border-radius: 2px; background: #ffffff1a; overflow: hidden; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: #ededee; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px 10px; border-top: 1px solid #ffffff10; color: #707277; font-size: 12.5px; line-height: 18px; }
+  .seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff08; flex: none; }
+  .seg span { padding: 2px 8px; border-radius: 6px; color: #8f9094; font-size: 12.5px; line-height: 20px; white-space: nowrap; }
+  .seg span.on { background: #ffffff14; color: #ededee; }
+  .box { border: 1px solid #ffffff14; border-radius: 10px; background: #ffffff05; }
+  .chk { display: grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #ffffff38; box-sizing: border-box; color: #131416; }
+  .chk.on { background: #ededee; border-color: #ededee; }
+  .tile { display: grid; place-items: center; flex: none; border-radius: 6px; font-size: 11px; font-weight: 600; color: #ededee; }
+  .code { margin: 0; padding: 10px 12px; border-radius: 8px; background: #ffffff08; color: #b9babd; font: 12px/1.55 'SF Mono', Menlo, monospace; white-space: pre; overflow: hidden; }
+  .stat { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; }
+  .stat b { font-size: 20px; line-height: 26px; font-weight: 440; letter-spacing: -.2px; color: #ededee; font-variant-numeric: tabular-nums; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cells > * + * { border-left: 1px solid #ffffff0a; }
+</style>
+
+<style>
+  .app { display: flex; width: 1440px; min-height: 1180px; background: #101113; color: #ededee;
+         font: 13px/1.5 'SF Pro Text', -apple-system, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+  .rail { display: flex; flex-direction: column; width: 250px; min-width: 250px; box-sizing: border-box; padding: 0 8px 0 10px; background: #1b1c1f; border-right: 1px solid #ffffff0e; }
+  .brand { display: flex; align-items: center; gap: 9px; height: 42px; margin-top: 30px; padding: 0 4px 0 5px; color: #f2f2f3; }
+  .brand span { font-size: 17px; font-weight: 640; letter-spacing: -.4px; margin-right: auto; }
+  .ico { display: inline-flex; justify-content: center; align-items: center; width: 26px; height: 26px; border-radius: 5px; color: #707277; }
+  .nav { display: flex; align-items: center; gap: 10px; color: #c3c4c7; padding: 0 8px; min-height: 30px; border-radius: 8px; font-size: 12.5px; }
+  .nav svg { color: #999a9d; }
+  .count { font: 10px 'SF Mono', Menlo, monospace; color: #999a9d; background: #ffffff10; border-radius: 4px; padding: 1px 5px; margin-left: auto; }
+  .heading { margin: 16px 0 3px 8px; color: #707277; font-size: 11px; font-weight: 480; }
+  .tree { display: flex; align-items: center; gap: 9px; height: 30px; padding-left: 8px; color: #c3c4c7; font-size: 12.5px; border-radius: 8px; }
+  .tree svg { color: #707277; }
+  .tree.on { background: #ffffff12; color: #ededee; }
+  .main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .titletools { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; color: #999a9d; }
+  .chat { flex: 1; width: 736px; margin: 0 auto; padding: 64px 0 24px; display: flex; flex-direction: column; gap: 14px; font-size: 15px; line-height: 23px; }
+  .composer { width: 736px; margin: 0 auto 22px; box-sizing: border-box; border: 1px solid #ffffff12; border-radius: 18px; background: #282828; padding: 10px 13px 6px; }
+  .composer-bar { display: flex; align-items: center; gap: 8px; padding-top: 5px; min-height: 28px; color: #999a9d; font-size: 13px; }
+  .send { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #eeeef0; color: #131416; }
+</style>
+</helmet>
+<div class="app"><aside class="rail">
+  <div class="brand"><img src="cortex-icon.png" width="22" height="22" alt="" style="border-radius: 5px"></img><span>Cortex</span>
+    <span class="ico" style="margin-right: 0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 4 4"></path></svg></span><span class="ico" style="margin-right: 0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M15 4v16"></path></svg></span></div>
+  <div style="display: flex; flex-direction: column; margin-top: 4px"><div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M17 3.5 20.5 7 11 16.5l-4.4.9.9-4.4Z"></path><path d="M4 21h16"></path></svg><span>Neuer Chat</span></div><div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m13 2-8 12h6l-1 8 9-13h-7Z"></path></svg><span>Aktive Agenten</span><span class="count">1</span></div><div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="6" cy="5" r="2"></circle><circle cx="18" cy="5" r="2"></circle><circle cx="6" cy="19" r="2"></circle><path d="M6 7v10m0-3c8 0 12-2 12-7"></path></svg><span>Exokortex</span></div><div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M9 2.5v5.5M15 2.5v5.5"></path><path d="M6 8h12v2.6a6 6 0 0 1-12 0Z"></path><path d="M12 16.6V21.5"></path></svg><span>Plugins</span></div><div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="5" cy="12" r="1.15" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"></circle><circle cx="19" cy="12" r="1.15" fill="currentColor" stroke="none"></circle></svg><span>Einstellungen</span></div></div>
+  <div class="heading">Projekte</div>
+  <div class="tree"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M3 19V6.4a1 1 0 0 1 1-1h4.5l2 2H20a1 1 0 0 1 1 1V19Z"></path></svg><span>Cortex</span></div>
+  <div class="tree on" style="padding-left: 32px">Widgets im Chat</div>
+  <div class="tree" style="padding-left: 32px">Einstellungen nach Codex</div>
+  <div class="tree"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M3 19V6.4a1 1 0 0 1 1-1h4.5l2 2H20a1 1 0 0 1 1 1V19Z"></path></svg><span>Exokortex</span></div>
+  <div class="tree"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M3 19V6.4a1 1 0 0 1 1-1h4.5l2 2H20a1 1 0 0 1 1 1V19Z"></path></svg><span>Nordwind</span></div>
+  <div style="flex: 1"></div>
+</aside><main class="main"><div class="titletools"><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="9"></circle><ellipse cx="12" cy="12" rx="4" ry="9"></ellipse><path d="M3 12h18"></path></svg></span><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M3 19V6.4a1 1 0 0 1 1-1h4.5l2 2H20a1 1 0 0 1 1 1V19Z"></path></svg></span><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m4 5 6 6-6 6m9 1h7"></path></svg></span></div><div class="chat">
+  <div class="user" style="margin-bottom: 12px"><div class="bubble">Wie wird das Wetter heute in Frankfurt?</div></div>
+  <div class="line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="9"></circle><ellipse cx="12" cy="12" rx="4" ry="9"></ellipse><path d="M3 12h18"></path></svg><span>Wetter für Frankfurt-Bornheim abgerufen</span></div>
+  <div class="w">
+  <div style="display: flex; align-items: center; gap: 20px; padding: 18px 18px 6px 20px">
+    <div class="grow">
+      <div class="label" style="display: flex; align-items: center; gap: 5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z"></path><circle cx="12" cy="10" r="2.3"></circle></svg>Frankfurt-Bornheim · Sonntag, 13. September</div>
+      <div style="display: flex; align-items: baseline; gap: 14px; margin-top: 6px">
+        <span class="num" style="font-size: 56px; line-height: 60px; font-weight: 250; letter-spacing: -2px">17°</span>
+        <span style="display: flex; flex-direction: column"><span style="font-size: 15px">Leicht bewölkt</span><span class="muted" style="font-size: 13.5px; line-height: 19px">Ab 16 Uhr Regen</span></span>
+      </div>
+    </div>
+    <svg width="76" height="76" viewBox="0 0 76 76" style="display: block">
+  <circle cx="46" cy="28" r="13" fill="#d8b36a" fill-opacity=".16"></circle>
+  <circle cx="46" cy="28" r="8.5" fill="#d8b36a"></circle>
+  <path d="M46 11v4M46 41v4M29 28h4M59 28h4M34 16l2.8 2.8M55.2 37.2 58 40M34 40l2.8-2.8M55.2 18.8 58 16" stroke="#d8b36a" stroke-width="2" stroke-linecap="round"></path>
+  <path d="M22 60h28a10 10 0 0 0 1.5-19.9A13.5 13.5 0 0 0 25.3 37 11.5 11.5 0 0 0 22 60Z" fill="#2a2b2e" stroke="#c9cacd" stroke-width="1.6" stroke-linejoin="round"></path>
+</svg>
+  </div>
+  <div style="display: flex; gap: 18px; padding: 6px 20px 14px" class="muted num">
+    <span style="font-size: 13px">Hoch <span class="v">19°</span></span><span style="font-size: 13px">Tief <span class="v">12°</span></span>
+    <span style="font-size: 13px">Wind <span class="v">14 km/h W</span></span><span style="font-size: 13px">Regen <span class="v">3,2 mm</span></span>
+  </div>
+  <div class="grid4" style="grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; padding: 0 10px 10px"><div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 12px; border-radius: 8px; background: #ffffff08">
+  <span class="label num" style="color: #ededee">Jetzt</span>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d8b36a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg>
+  <span class="num" style="font-size: 15px; line-height: 20px">17°</span>
+  <span style="display: flex; align-items: flex-end; height: 22px"><i style="display: block; width: 4px; height: 2px; border-radius: 2px; background: #6aa8ff; opacity: 0.41"></i></span>
+  <span class="num" style="font-size: 12px; line-height: 16px; color: #707277">10 %</span>
+</div><div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 12px; border-radius: 8px; ">
+  <span class="label num" style="">15 Uhr</span>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c9cacd" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M7 18.5h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 9.5a4.5 4.5 0 0 0 0 9Z"></path></svg>
+  <span class="num" style="font-size: 15px; line-height: 20px">16°</span>
+  <span style="display: flex; align-items: flex-end; height: 22px"><i style="display: block; width: 4px; height: 9px; border-radius: 2px; background: #6aa8ff; opacity: 0.60"></i></span>
+  <span class="num" style="font-size: 12px; line-height: 16px; color: #707277">40 %</span>
+</div><div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 12px; border-radius: 8px; ">
+  <span class="label num" style="">16 Uhr</span>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6aa8ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M7 15h10a3.6 3.6 0 0 0 .5-7.15A5 5 0 0 0 7.4 6.6 4.2 4.2 0 0 0 7 15Z"></path><path d="m8 18-1 2.5M12 18l-1 2.5M16 18l-1 2.5"></path></svg>
+  <span class="num" style="font-size: 15px; line-height: 20px">15°</span>
+  <span style="display: flex; align-items: flex-end; height: 22px"><i style="display: block; width: 4px; height: 15px; border-radius: 2px; background: #6aa8ff; opacity: 0.79"></i></span>
+  <span class="num" style="font-size: 12px; line-height: 16px; color: #8dbcff">70 %</span>
+</div><div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 12px; border-radius: 8px; ">
+  <span class="label num" style="">17 Uhr</span>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6aa8ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M7 15h10a3.6 3.6 0 0 0 .5-7.15A5 5 0 0 0 7.4 6.6 4.2 4.2 0 0 0 7 15Z"></path><path d="m8 18-1 2.5M12 18l-1 2.5M16 18l-1 2.5"></path></svg>
+  <span class="num" style="font-size: 15px; line-height: 20px">15°</span>
+  <span style="display: flex; align-items: flex-end; height: 22px"><i style="display: block; width: 4px; height: 18px; border-radius: 2px; background: #6aa8ff; opacity: 0.85"></i></span>
+  <span class="num" style="font-size: 12px; line-height: 16px; color: #8dbcff">80 %</span>
+</div><div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 12px; border-radius: 8px; ">
+  <span class="label num" style="">18 Uhr</span>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6aa8ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M7 15h10a3.6 3.6 0 0 0 .5-7.15A5 5 0 0 0 7.4 6.6 4.2 4.2 0 0 0 7 15Z"></path><path d="m8 18-1 2.5M12 18l-1 2.5M16 18l-1 2.5"></path></svg>
+  <span class="num" style="font-size: 15px; line-height: 20px">14°</span>
+  <span style="display: flex; align-items: flex-end; height: 22px"><i style="display: block; width: 4px; height: 13px; border-radius: 2px; background: #6aa8ff; opacity: 0.72"></i></span>
+  <span class="num" style="font-size: 12px; line-height: 16px; color: #8dbcff">60 %</span>
+</div><div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 12px; border-radius: 8px; ">
+  <span class="label num" style="">19 Uhr</span>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c9cacd" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M7 18.5h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 9.5a4.5 4.5 0 0 0 0 9Z"></path></svg>
+  <span class="num" style="font-size: 15px; line-height: 20px">14°</span>
+  <span style="display: flex; align-items: flex-end; height: 22px"><i style="display: block; width: 4px; height: 7px; border-radius: 2px; background: #6aa8ff; opacity: 0.54"></i></span>
+  <span class="num" style="font-size: 12px; line-height: 16px; color: #707277">30 %</span>
+</div><div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 12px; border-radius: 8px; ">
+  <span class="label num" style="">20 Uhr</span>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d8b36a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg>
+  <span class="num" style="font-size: 15px; line-height: 20px">13°</span>
+  <span style="display: flex; align-items: flex-end; height: 22px"><i style="display: block; width: 4px; height: 2px; border-radius: 2px; background: #6aa8ff; opacity: 0.41"></i></span>
+  <span class="num" style="font-size: 12px; line-height: 16px; color: #707277">10 %</span>
+</div><div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 12px; border-radius: 8px; ">
+  <span class="label num" style="">21 Uhr</span>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d8b36a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg>
+  <span class="num" style="font-size: 15px; line-height: 20px">13°</span>
+  <span style="display: flex; align-items: flex-end; height: 22px"><i style="display: block; width: 4px; height: 2px; border-radius: 2px; background: #ffffff1a; opacity: 0.35"></i></span>
+  <span class="num" style="font-size: 12px; line-height: 16px; color: #707277">0 %</span>
+</div></div>
+  <div class="foot"><span>Open-Meteo · aktualisiert 14:05</span><span style="display: flex; align-items: center; gap: 4px">7 Tage <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m9 5 7 7-7 7"></path></svg></span></div>
+</div>
+  <p class="prose">Bis 15 Uhr bleibt es trocken. Wenn du rausgehst, nimm für den Rückweg eine Jacke mit.</p>
+  <div class="user" style="margin: 26px 0 12px"><div class="bubble">Und lass danach die Engine-Tests laufen.</div></div>
+  <div class="line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m4 5 6 6-6 6m9 1h7"></path></svg><span>Befehl ausgeführt <span class="mono" style="font-size: 13.5px; color: #6f7074">pnpm -C engine test</span></span></div>
+  <div class="w">
+  <div class="wh"><div class="mark" style=""><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m4 5 6 6-6 6m9 1h7"></path></svg></div>
+  <div class="wt"><strong>Engine-Tests</strong><small><span class="mono" style="font-size: 12.5px">pnpm -C engine test</span></small></div><div class="acts"><span class="pill neg">1 fehlgeschlagen</span></div></div>
+  <div class="sep grid3 cells">
+    <div class="stat"><span class="label">Core</span><b>344 <span class="dim" style="font-size: 14px">/ 344</span></b></div>
+    <div class="stat"><span class="label">Host</span><b>113 <span class="dim" style="font-size: 14px">/ 114</span></b></div>
+    <div class="stat"><span class="label">Dauer</span><b>48,2 <span class="dim" style="font-size: 14px">s</span></b></div>
+  </div>
+  <div style="display: flex; gap: 2px; padding: 0 14px 14px"><i style="flex: 457; height: 4px; border-radius: 2px 0 0 2px; background: #88b99b"></i><i style="flex: 6; height: 4px; border-radius: 0 2px 2px 0; background: #e36a6a"></i></div>
+  <div class="sep" style="padding: 10px 0 14px">
+    <div class="row" style="min-height: 34px"><span style="display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #e36a6a29; flex: none"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#e36a6a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m6 6 12 12M6 18 18 6"></path></svg></span><span class="grow"><span class="v">faltet die Arbeit nach Abschluss</span> <span class="dim">· codexChat.test.ts</span></span></div>
+    <pre class="code" style="margin: 0 14px"><span class="dim">expect(screen.getByRole('button', { name: /gearbeitet/ }))</span>
+<span style="color: #ee7d77">- Erwartet  "11m 58s lang gearbeitet ›"</span>
+<span style="color: #7ccf8e">+ Erhalten  "11m 58s gearbeitet ›"</span>
+<span class="dim">    at test/unit/codexChat.test.ts:212:7</span></pre>
+  </div>
+  <div class="foot" style="padding: 10px 14px"><span class="acts"><span class="btn primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m13 2-8 12h6l-1 8 9-13h-7Z"></path></svg>Fehler beheben</span><span class="btn">Log öffnen</span></span><span class="btn quiet"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M20 10a8 8 0 1 0-1 7M20 4v6h-6"></path></svg>Erneut ausführen</span></div>
+</div>
+</div><div class="composer">
+  <div style="font-size: 15px; line-height: 23px; color: #87888b; padding: 2px 3px; min-height: 28px">Frag Cortex etwas</div>
+  <div class="composer-bar"><span class="ico" style="color: #999a9d"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M12 5v14M5 12h14"></path></svg></span><span>Änderungen automatisch akzeptieren</span><span style="flex: 1"></span><span>Opus 5</span><span class="send"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#131416" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M4 12h16m-6-6 6 6-6 6"></path></svg></span></div>
+</div></main></div>
+</x-dc>
+</body>
+</html>

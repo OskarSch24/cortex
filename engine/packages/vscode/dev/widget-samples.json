@@ -1,0 +1,1910 @@
+[
+  {
+    "question": "Wie wird das Wetter heute in Frankfurt?",
+    "after": "Bis 15 Uhr bleibt es trocken.",
+    "spec": {
+      "type": "weather",
+      "location": "Frankfurt-Bornheim",
+      "date": "Sonntag, 13. September",
+      "temp": 17,
+      "condition": "Leicht bewölkt",
+      "detail": "Ab 16 Uhr Regen",
+      "icon": "partly",
+      "high": 19,
+      "low": 12,
+      "wind": "14 km/h W",
+      "rain": "3,2 mm",
+      "hours": [
+        {
+          "time": "Jetzt",
+          "temp": 17,
+          "icon": "sun",
+          "rain": 10
+        },
+        {
+          "time": "15 Uhr",
+          "temp": 16,
+          "icon": "cloud",
+          "rain": 40
+        },
+        {
+          "time": "16 Uhr",
+          "temp": 15,
+          "icon": "rain",
+          "rain": 70
+        },
+        {
+          "time": "17 Uhr",
+          "temp": 15,
+          "icon": "rain",
+          "rain": 80
+        },
+        {
+          "time": "18 Uhr",
+          "temp": 14,
+          "icon": "rain",
+          "rain": 60
+        },
+        {
+          "time": "19 Uhr",
+          "temp": 14,
+          "icon": "cloud",
+          "rain": 30
+        },
+        {
+          "time": "20 Uhr",
+          "temp": 13,
+          "icon": "sun",
+          "rain": 10
+        },
+        {
+          "time": "21 Uhr",
+          "temp": 13,
+          "icon": "night",
+          "rain": 0
+        }
+      ],
+      "source": "Open-Meteo · aktualisiert 14:05"
+    }
+  },
+  {
+    "question": "Stell einen Fokus-Timer auf 25 Minuten.",
+    "after": "",
+    "spec": {
+      "type": "timer",
+      "label": "Fokus",
+      "durationSec": 1500,
+      "endsAt": "__IN_1122_SEC__",
+      "note": "danach 5 Minuten Pause"
+    }
+  },
+  {
+    "question": "Wann fährt die nächste S-Bahn ab Bornheim?",
+    "after": "Die S1 in 2 Minuten ist die nächste.",
+    "spec": {
+      "type": "departures",
+      "station": "Bornheim",
+      "subtitle": "Live · S-Bahn",
+      "rows": [
+        {
+          "line": "S1",
+          "color": "#2f9e5b",
+          "destination": "Poppenbüttel",
+          "platform": "Gleis 3",
+          "minutes": 2
+        },
+        {
+          "line": "S2",
+          "color": "#b0413e",
+          "destination": "Bergedorf",
+          "platform": "Gleis 4",
+          "minutes": 5,
+          "delay": 3
+        },
+        {
+          "line": "S1",
+          "color": "#2f9e5b",
+          "destination": "Wedel",
+          "platform": "Gleis 1",
+          "minutes": 7
+        },
+        {
+          "line": "S3",
+          "color": "#7a4d9c",
+          "destination": "Pinneberg",
+          "platform": "Gleis 2",
+          "minutes": 11
+        }
+      ],
+      "source": "HVV Geofox · 14:31"
+    }
+  },
+  {
+    "question": "Wie viel sind 250 Euro in Dänischen Kronen?",
+    "after": "",
+    "spec": {
+      "type": "converter",
+      "amount": 250,
+      "from": "EUR",
+      "to": "DKK",
+      "rate": 7.4605,
+      "fromSymbol": "€",
+      "toSymbol": "kr",
+      "rateNote": "EZB-Referenzkurs vom 11.09.",
+      "presets": [
+        50,
+        100,
+        250,
+        500,
+        1000
+      ]
+    }
+  },
+  {
+    "question": "Wo ist mein Paket gerade?",
+    "after": "",
+    "spec": {
+      "type": "parcel",
+      "carrier": "DHL Paket",
+      "tracking": "00340 4343 1874 2291 05",
+      "status": "In Zustellung",
+      "eta": "Heute zwischen 13 und 16 Uhr",
+      "sender": "Musikhaus Leipzig",
+      "steps": [
+        {
+          "label": "Abgeholt",
+          "time": "Mi, 17:05",
+          "place": "Leipzig",
+          "state": "done"
+        },
+        {
+          "label": "Im Paketzentrum",
+          "time": "Do, 22:40",
+          "place": "Frankfurt",
+          "state": "done"
+        },
+        {
+          "label": "In Zustellung",
+          "time": "Heute, 09:12",
+          "place": "Frankfurt-Bornheim",
+          "state": "now"
+        },
+        {
+          "label": "Zugestellt",
+          "time": "13–16 Uhr",
+          "place": "Voraussichtlich",
+          "state": "next"
+        }
+      ],
+      "source": "DHL Sendungsverfolgung"
+    }
+  },
+  {
+    "question": "Was steht heute noch an?",
+    "after": "",
+    "spec": {
+      "type": "todo",
+      "title": "Heute",
+      "items": [
+        {
+          "text": "HVV-Zugang für Geofox beantragen",
+          "tag": "Heute",
+          "tone": "warn"
+        },
+        {
+          "text": "LiveSync-Plugin in Obsidian einrichten",
+          "tag": "Exokortex"
+        },
+        {
+          "text": "Ortsgruppen aus dem Fotoimport benennen",
+          "tag": "Exokortex"
+        },
+        {
+          "text": "Widget-Liste für Cortex festlegen",
+          "done": true
+        },
+        {
+          "text": "Wirtschaftsfragen für die Prüfung wiederholen",
+          "done": true
+        }
+      ]
+    }
+  },
+  {
+    "question": "Wie weit ist es zu Fuß zur Paulskirche?",
+    "after": "",
+    "spec": {
+      "type": "route",
+      "destination": "Paulskirche",
+      "origin": "Bornheim",
+      "subtitle": "Innenstadt · 2,1 km am Mainufer entlang",
+      "modes": [
+        {
+          "label": "Zu Fuß",
+          "minutes": 26
+        },
+        {
+          "label": "Rad",
+          "minutes": 9
+        },
+        {
+          "label": "Bus",
+          "minutes": 14
+        }
+      ],
+      "arrival": "15:00",
+      "url": "https://www.openstreetmap.org/",
+      "source": "© OpenStreetMap-Mitwirkende"
+    }
+  },
+  {
+    "question": "Was steht nächste Woche an?",
+    "after": "",
+    "spec": {
+      "type": "calendar",
+      "title": "Woche 38",
+      "range": "14.–18. September 2026",
+      "days": [
+        "Mo 14",
+        "Di 15",
+        "Mi 16",
+        "Do 17",
+        "Fr 18"
+      ],
+      "startHour": 8,
+      "endHour": 20,
+      "events": [
+        {
+          "day": 0,
+          "start": "08:00",
+          "end": "13:00",
+          "title": "Berufsschule",
+          "tone": "violet"
+        },
+        {
+          "day": 0,
+          "start": "15:00",
+          "end": "16:30",
+          "title": "Sport",
+          "tone": "pos"
+        },
+        {
+          "day": 1,
+          "start": "09:00",
+          "end": "17:00",
+          "title": "Betrieb · Kampagnenplanung",
+          "tone": "info"
+        },
+        {
+          "day": 2,
+          "start": "08:00",
+          "end": "13:00",
+          "title": "Berufsschule",
+          "tone": "violet"
+        },
+        {
+          "day": 2,
+          "start": "14:00",
+          "end": "15:30",
+          "title": "Prüfung lernen",
+          "tone": "violet"
+        },
+        {
+          "day": 3,
+          "start": "09:00",
+          "end": "17:00",
+          "title": "Betrieb",
+          "tone": "info"
+        },
+        {
+          "day": 3,
+          "start": "10:30",
+          "end": "12:00",
+          "title": "Team PANTA"
+        },
+        {
+          "day": 4,
+          "start": "09:00",
+          "end": "12:00",
+          "title": "Cortex · Widgets bauen"
+        },
+        {
+          "day": 4,
+          "start": "18:00",
+          "end": "19:30",
+          "title": "Abendessen",
+          "tone": "pos"
+        }
+      ],
+      "legend": [
+        {
+          "label": "Schule",
+          "tone": "violet"
+        },
+        {
+          "label": "Betrieb",
+          "tone": "info"
+        },
+        {
+          "label": "Privat",
+          "tone": "pos"
+        }
+      ],
+      "source": "Google Kalender"
+    }
+  },
+  {
+    "question": "Wie steht Bitcoin gerade?",
+    "after": "",
+    "spec": {
+      "type": "ticker",
+      "name": "Bitcoin",
+      "symbol": "BTC",
+      "price": "96.412,18 €",
+      "change": "+2,41 %",
+      "changeNote": "+2.268 € seit gestern",
+      "series": [
+        94144.0,
+        94327.22,
+        94318.69,
+        94287.02,
+        94095.47,
+        94090.26,
+        94429.61,
+        94590.13,
+        94909.97,
+        95024.94,
+        95177.83,
+        95276.26,
+        94893.34,
+        95165.95,
+        95347.86,
+        95527.8,
+        95138.3,
+        94735.14,
+        94554.09,
+        94482.61,
+        94612.28,
+        94650.59,
+        94836.29,
+        94719.56,
+        94850.07,
+        95002.8,
+        94881.16,
+        95377.97,
+        95572.93,
+        95934.41,
+        95823.37,
+        95681.34,
+        95642.14,
+        95664.72,
+        95879.31,
+        95994.15,
+        95928.08,
+        95729.54,
+        95644.43,
+        96012.12,
+        95852.31,
+        95966.19,
+        96127.34,
+        95790.25,
+        95853.11,
+        96242.98,
+        95769.5,
+        95736.13,
+        95758.79,
+        95596.55,
+        95776.12,
+        95810.18,
+        95479.62,
+        95745.11,
+        95969.38,
+        96265.55,
+        96690.36,
+        96834.79,
+        96916.05,
+        96628.52,
+        96838.78,
+        96729.98,
+        96662.52,
+        96383.93,
+        96182.6,
+        96094.76,
+        96480.11,
+        96002.09,
+        95673.34,
+        95785.82,
+        96211.34,
+        96412.0
+      ],
+      "reference": 94144,
+      "referenceLabel": "Schlusskurs gestern 94.144 €",
+      "axis": [
+        "00:00",
+        "06:00",
+        "12:00",
+        "18:00",
+        "Jetzt"
+      ],
+      "others": [
+        {
+          "name": "Ethereum",
+          "symbol": "ETH",
+          "price": "2.312,40 €",
+          "change": "−1,12 %",
+          "series": [
+            2339.94,
+            2353.74,
+            2341.36,
+            2352.07,
+            2347.76,
+            2343.42,
+            2365.02,
+            2365.71,
+            2363.99,
+            2371.55,
+            2383.87,
+            2382.3,
+            2388.15,
+            2375.27,
+            2369.67,
+            2363.21,
+            2346.02,
+            2326.72,
+            2306.0,
+            2301.93,
+            2298.67,
+            2293.62,
+            2293.25,
+            2276.02,
+            2273.87,
+            2275.53,
+            2283.34,
+            2271.99,
+            2265.99,
+            2240.61
+          ]
+        },
+        {
+          "name": "Nvidia",
+          "symbol": "NVDA",
+          "price": "158,40 €",
+          "change": "+0,86 %",
+          "series": [
+            156.32,
+            156.59,
+            157.24,
+            156.98,
+            156.23,
+            156.24,
+            156.58,
+            157.29,
+            156.61,
+            155.88,
+            156.36,
+            156.69,
+            157.66,
+            158.3,
+            158.29,
+            158.18,
+            159.77,
+            159.65,
+            159.23,
+            158.59,
+            158.7,
+            158.84,
+            158.68,
+            158.69,
+            158.91,
+            159.37,
+            160.08,
+            160.26,
+            159.23,
+            159.7
+          ]
+        }
+      ],
+      "source": "CoinGecko · verzögert bis 15 min"
+    }
+  },
+  {
+    "question": "Wie spät ist es in New York, Bogotá, Tokio und Sydney?",
+    "after": "",
+    "spec": {
+      "type": "worldclock",
+      "cities": [
+        {
+          "name": "Frankfurt",
+          "timezone": "Europe/Berlin",
+          "home": true,
+          "sunrise": "06:54",
+          "sunset": "19:33"
+        },
+        {
+          "name": "New York",
+          "timezone": "America/New_York",
+          "sunrise": "06:40",
+          "sunset": "19:06"
+        },
+        {
+          "name": "Bogotá",
+          "timezone": "America/Bogota",
+          "sunrise": "05:45",
+          "sunset": "17:53"
+        },
+        {
+          "name": "Tokio",
+          "timezone": "Asia/Tokyo",
+          "sunrise": "05:24",
+          "sunset": "17:54"
+        },
+        {
+          "name": "Sydney",
+          "timezone": "Australia/Sydney",
+          "sunrise": "05:55",
+          "sunset": "17:42"
+        }
+      ]
+    }
+  },
+  {
+    "question": "Leg das Widget-System im Chat an.",
+    "after": "",
+    "spec": {
+      "type": "agent-run",
+      "title": "Widget-System in Cortex anlegen",
+      "account": "Claude · privat · Opus 5",
+      "elapsed": "4:12",
+      "steps": [
+        {
+          "text": "Chat-Rendering in chat.tsx gelesen",
+          "state": "done",
+          "duration": "0:38"
+        },
+        {
+          "text": "Widget-Schema entworfen",
+          "state": "done",
+          "duration": "1:05"
+        },
+        {
+          "text": "WidgetCard.tsx erstellt",
+          "state": "done",
+          "duration": "0:52",
+          "added": 142,
+          "removed": 0
+        },
+        {
+          "text": "Wetter-Widget an Open-Meteo anbinden",
+          "state": "now",
+          "duration": "1:37"
+        },
+        {
+          "text": "Tests schreiben",
+          "state": "next"
+        },
+        {
+          "text": "Build und Typprüfung",
+          "state": "next"
+        }
+      ],
+      "note": "38,4k Tokens · 3 Dateien"
+    }
+  },
+  {
+    "question": "/agent-swarm Prüfe die Widget-Ansicht gegen die Testliste in docs/tests und behebe die Fehler.",
+    "after": "",
+    "spec": {
+      "type": "agent-swarm",
+      "task": "Prüfe die Widget-Ansicht gegen die Testliste in docs/tests und behebe die Fehler.",
+      "count": 4,
+      "project": "Kortex",
+      "agents": [
+        {
+          "name": "Fehlerreproduktion",
+          "role": "Die offenen Punkte der Testliste nachstellen"
+        },
+        {
+          "name": "Code-Review",
+          "role": "Die betroffenen Widget-Bausteine prüfen"
+        },
+        {
+          "name": "Testlauf",
+          "role": "tests/cortex_widgets_ui.py ausführen und auswerten"
+        },
+        {
+          "name": "Zusammenführung",
+          "role": "Befunde zu einer Liste mit Empfehlung bündeln"
+        }
+      ]
+    }
+  },
+  {
+    "question": "Lass die Engine-Tests laufen.",
+    "after": "Ein Host-Test schlägt fehl. Soll ich das korrigieren?",
+    "spec": {
+      "type": "test-result",
+      "title": "Engine-Tests",
+      "command": "pnpm -C engine test",
+      "duration": "48,2 s",
+      "groups": [
+        {
+          "label": "Core",
+          "passed": 344,
+          "total": 344
+        },
+        {
+          "label": "Host",
+          "passed": 113,
+          "total": 114
+        }
+      ],
+      "failures": [
+        {
+          "name": "faltet die Arbeit nach Abschluss",
+          "file": "codexChat.test.ts",
+          "detail": "expect(screen.getByRole('button', { name: /gearbeitet/ }))\n- Erwartet  \"11m 58s lang gearbeitet ›\"\n+ Erhalten  \"11m 58s gearbeitet ›\"\n    at test/unit/codexChat.test.ts:212:7"
+        }
+      ],
+      "actions": [
+        {
+          "label": "Fehler beheben",
+          "prompt": "Behebe den fehlschlagenden Host-Test in codexChat.test.ts.",
+          "primary": true
+        },
+        {
+          "label": "Datei öffnen",
+          "path": "test/unit/codexChat.test.ts"
+        }
+      ]
+    }
+  },
+  {
+    "question": "Wie viel ist auf meinen Konten noch frei?",
+    "after": "",
+    "spec": {
+      "type": "quota",
+      "accounts": [
+        {
+          "provider": "claude",
+          "name": "Claude · privat",
+          "plan": "Max · 5-Stunden-Fenster",
+          "percent": 62,
+          "reset": "16:40",
+          "bound": true
+        },
+        {
+          "provider": "claude",
+          "name": "Claude · geschäftlich",
+          "plan": "Team · 5-Stunden-Fenster",
+          "percent": 78,
+          "reset": "15:10"
+        },
+        {
+          "provider": "codex",
+          "name": "Codex · privat",
+          "plan": "Pro · Wochenlimit",
+          "percent": 41,
+          "reset": "Mo 09:00"
+        },
+        {
+          "provider": "grok",
+          "name": "Grok · privat",
+          "plan": "SuperGrok",
+          "percent": null
+        }
+      ],
+      "note": "Bei einem Limit wechselt Cortex nicht unbemerkt das Konto."
+    }
+  },
+  {
+    "question": "Wie geht es dem Server?",
+    "after": "",
+    "spec": {
+      "type": "server",
+      "name": "demo-hetzner",
+      "subtitle": "Erreichbar · 16 Container · Ubuntu 24.04",
+      "metrics": [
+        {
+          "label": "CPU · 8 Kerne",
+          "value": 23,
+          "unit": "%",
+          "series": [
+            24.73,
+            29.34,
+            26.69,
+            23.69,
+            25.01,
+            31.08,
+            32.57,
+            28.65,
+            26.08,
+            26.0,
+            29.37,
+            29.44,
+            28.3,
+            27.62,
+            28.31,
+            25.86,
+            25.97,
+            26.99,
+            32.73,
+            32.64,
+            36.06,
+            32.64,
+            35.7,
+            36.36,
+            34.62,
+            34.65,
+            37.86,
+            36.86,
+            40.49,
+            45.83,
+            51.51,
+            57.18,
+            52.94,
+            54.22,
+            52.0,
+            55.36,
+            55.74,
+            56.62,
+            58.33,
+            56.42
+          ]
+        },
+        {
+          "label": "Arbeitsspeicher",
+          "value": "9,1",
+          "unit": "/ 16 GB",
+          "percent": 57
+        },
+        {
+          "label": "Festplatte",
+          "value": 61,
+          "unit": "%",
+          "percent": 61
+        }
+      ],
+      "containers": [
+        {
+          "name": "nginx",
+          "state": "ok",
+          "note": "41 T"
+        },
+        {
+          "name": "postgres",
+          "state": "ok",
+          "note": "41 T"
+        },
+        {
+          "name": "redis",
+          "state": "ok",
+          "note": "41 T"
+        },
+        {
+          "name": "rabbitmq",
+          "state": "ok",
+          "note": "41 T"
+        },
+        {
+          "name": "firecrawl",
+          "state": "warn",
+          "note": "3×"
+        },
+        {
+          "name": "crawl-worker",
+          "state": "ok",
+          "note": "12 T"
+        },
+        {
+          "name": "searxng",
+          "state": "ok",
+          "note": "41 T"
+        },
+        {
+          "name": "postgrest",
+          "state": "ok",
+          "note": "41 T"
+        },
+        {
+          "name": "couchdb",
+          "state": "ok",
+          "note": "7 T"
+        },
+        {
+          "name": "clips-web",
+          "state": "ok",
+          "note": "2 T"
+        },
+        {
+          "name": "workflows",
+          "state": "ok",
+          "note": "2 T"
+        },
+        {
+          "name": "ernte-worker",
+          "state": "ok",
+          "note": "5 T"
+        }
+      ],
+      "alerts": [
+        {
+          "tone": "warn",
+          "text": "firecrawl startet seit 14:12 immer wieder neu: Speicherlimit 2 GB erreicht"
+        },
+        {
+          "tone": "pos",
+          "text": "6 Zertifikate gültig · das nächste läuft in 64 Tagen ab"
+        }
+      ],
+      "source": "Über SSH gelesen · 14:32"
+    }
+  },
+  {
+    "question": "Deploy Nordwind Clips auf den Server.",
+    "after": "",
+    "spec": {
+      "type": "deploy",
+      "title": "Nordwind Clips → Hetzner",
+      "ref": "main · a3f9c2e",
+      "message": "Header nach Figma angeglichen",
+      "elapsed": "1:48",
+      "steps": [
+        {
+          "label": "Build",
+          "state": "done",
+          "duration": "1:02"
+        },
+        {
+          "label": "Tests",
+          "state": "done",
+          "duration": "0:21"
+        },
+        {
+          "label": "Upload",
+          "state": "done",
+          "duration": "0:14"
+        },
+        {
+          "label": "Neustart",
+          "state": "done",
+          "duration": "0:06"
+        },
+        {
+          "label": "Healthcheck",
+          "state": "now",
+          "duration": "2 von 3"
+        }
+      ],
+      "log": "14:36:02  GET /health  200  38 ms\n14:36:07  GET /health  200  41 ms\n14:36:12  warte auf dritten Check …"
+    }
+  },
+  {
+    "question": "Hat der Scrape-Lauf wirklich überall funktioniert?",
+    "after": "",
+    "spec": {
+      "type": "verification",
+      "title": "Lauf verifiziert: Instagram-Profile",
+      "subtitle": "4 Belege auf 3 Plattformen · 14:41",
+      "rows": [
+        {
+          "platform": "Apify",
+          "evidence": "Lauf 8kQ2vTz",
+          "expected": "SUCCEEDED",
+          "found": "SUCCEEDED",
+          "state": "ok"
+        },
+        {
+          "platform": "Apify Datensatz",
+          "evidence": "Einträge",
+          "expected": 412,
+          "found": 412,
+          "state": "ok"
+        },
+        {
+          "platform": "Supabase",
+          "evidence": "Tabelle profiles",
+          "expected": "412 Zeilen",
+          "found": "409 Zeilen",
+          "state": "warn"
+        },
+        {
+          "platform": "Slack",
+          "evidence": "Nachricht in #ernte",
+          "expected": 1,
+          "found": 1,
+          "state": "ok"
+        }
+      ],
+      "finding": {
+        "tone": "warn",
+        "title": "In Supabase fehlen 3 Zeilen.",
+        "text": "Die drei Profile haben kein Feld bio und wurden beim Einfügen abgelehnt."
+      }
+    }
+  },
+  {
+    "question": "Starte den Instagram-Scraper für die neue Liste.",
+    "after": "",
+    "spec": {
+      "type": "scrape-run",
+      "title": "instagram-profile-scraper",
+      "subtitle": "Apify · Nordwind Ernte · gestartet 14:22",
+      "done": 280,
+      "total": 412,
+      "unit": "Profile",
+      "eta": "noch etwa 4 min",
+      "stats": [
+        {
+          "label": "Kosten bisher",
+          "value": "0,84 $"
+        },
+        {
+          "label": "Fehler",
+          "value": 2,
+          "tone": "warn"
+        },
+        {
+          "label": "Durchsatz",
+          "value": "31 / min"
+        }
+      ],
+      "sample": [
+        {
+          "key": "@nordlicht.studio",
+          "label": "Nordlicht Studio",
+          "value": "12.480"
+        },
+        {
+          "key": "@hafenkaffee.hh",
+          "label": "Hafenkaffee",
+          "value": "8.912"
+        },
+        {
+          "key": "@elbfilm.produktion",
+          "label": "Elbfilm Produktion",
+          "value": "3.205"
+        }
+      ],
+      "dataset": "Datensatz 6sXkP0aL"
+    }
+  },
+  {
+    "question": "Wo steht der Lead-Workflow gerade?",
+    "after": "",
+    "spec": {
+      "type": "workflow",
+      "title": "Lead-Anreicherung",
+      "subtitle": "Nordwind Workflows · Lauf 1.284",
+      "nodes": [
+        {
+          "id": "a",
+          "label": "Neuer Lead",
+          "detail": "Webhook",
+          "state": "done"
+        },
+        {
+          "id": "b",
+          "label": "Profil scrapen",
+          "detail": "Apify · 6 s",
+          "state": "done"
+        },
+        {
+          "id": "c",
+          "label": "Mit KI anreichern",
+          "detail": "Claude · läuft",
+          "state": "now"
+        },
+        {
+          "id": "r",
+          "label": "Erneut versuchen",
+          "detail": "2 Versuche",
+          "state": "retry"
+        },
+        {
+          "id": "d",
+          "label": "In Supabase speichern",
+          "detail": "wartet",
+          "state": "next"
+        },
+        {
+          "id": "e",
+          "label": "Slack benachrichtigen",
+          "detail": "wartet",
+          "state": "next"
+        }
+      ],
+      "edges": [
+        [
+          "a",
+          "b"
+        ],
+        [
+          "b",
+          "c"
+        ],
+        [
+          "b",
+          "r"
+        ],
+        [
+          "c",
+          "d"
+        ],
+        [
+          "c",
+          "e"
+        ]
+      ],
+      "source": "Gestartet 14:40:12 · 38 s"
+    }
+  },
+  {
+    "question": "Zeig mir alle meine bisherigen Arbeitgeber aus dem Graphen.",
+    "after": "",
+    "spec": {
+      "type": "query-result",
+      "title": "Abfrage im Exokortex-Graphen",
+      "subtitle": "Vektor · 6 Zeilen · 12 ms",
+      "query": "MATCH (p:Person {name: \"Alex Beispiel\"})-[r:ARBEITETE_BEI]->(o:Organisation)\nRETURN o.name, r.rolle, r.von, r.bis ORDER BY r.von DESC",
+      "columns": [
+        "o.name",
+        "r.rolle",
+        "r.von",
+        "r.bis"
+      ],
+      "rows": [
+        [
+          "Nordlicht Akademie",
+          "E-Commerce-Azubi",
+          2025,
+          "heute"
+        ],
+        [
+          "Beispiel Studios",
+          "CEO & Sound Engineer",
+          2022,
+          2024
+        ],
+        [
+          "Kranich Media GmbH",
+          "Junior Sales Manager",
+          2023,
+          2023
+        ],
+        [
+          "Fokus Vertrieb",
+          "Sales Manager",
+          2020,
+          2021
+        ],
+        [
+          "Wohnwert AG",
+          "Immobilienberater",
+          2019,
+          2020
+        ],
+        [
+          "Funke Marketing GbR",
+          "Gründer & CEO",
+          2018,
+          2019
+        ]
+      ],
+      "source": "Nur lesend"
+    }
+  },
+  {
+    "question": "Was weiß der Exokortex über Beispiel Studios?",
+    "after": "",
+    "spec": {
+      "type": "graph-node",
+      "name": "Beispiel Studios",
+      "kind": "Organisation",
+      "id": "org_beispiel_studios",
+      "neighbors": [
+        {
+          "label": "Alex Beispiel",
+          "kind": "Person"
+        },
+        {
+          "label": "Werbefilme",
+          "kind": "Tätigkeit"
+        },
+        {
+          "label": "Maschinenbau",
+          "kind": "Branche"
+        },
+        {
+          "label": "Freelancer-Team",
+          "kind": "Gruppe"
+        }
+      ],
+      "confirmed": [
+        "Alex war dort CEO und Sound Engineer, 2022 bis 2024",
+        "Werbefilme für Unternehmen des Maschinenbaus",
+        "Soundtracks und Voice-overs in drei Sprachen"
+      ],
+      "confirmedSource": "aus dem CV, April 2025",
+      "observedSource": "aus der Zusammenarbeit",
+      "updated": "06.09.2026"
+    }
+  },
+  {
+    "question": "Welche Entscheidungen sind noch offen?",
+    "after": "",
+    "spec": {
+      "type": "decision",
+      "id": "DEC-2026-09-06-01",
+      "title": "Obsidian-Vault als Projektion statt als Quelle der Wahrheit",
+      "status": "Offen",
+      "project": "Exokortex",
+      "decision": "Die Datenbank ist die Quelle der Wahrheit. Der Vault ist eine daraus erzeugte, lesbare Projektion.",
+      "rejected": [
+        "Obsidian als alleinige Datenbank",
+        "Nur Datenbank, kein Vault"
+      ],
+      "wrongIf": "ich nach drei Monaten die Datenbank nie direkt abfrage und nur im Vault arbeite.",
+      "decided": "2026-09-06",
+      "review": "2026-12-05",
+      "gaps": 2,
+      "actions": [
+        {
+          "label": "Im Vault öffnen",
+          "path": "~/Obsidian-Vault/50-Entscheidungen/DEC-2026-09-06-01.md"
+        }
+      ]
+    }
+  },
+  {
+    "question": "Lass uns die Orte aus dem Fotoimport benennen.",
+    "after": "",
+    "spec": {
+      "type": "place-naming",
+      "id": "place_014",
+      "count": 42,
+      "span": "März 2019 bis September 2026",
+      "points": [
+        [
+          53.5628,
+          9.93346
+        ],
+        [
+          53.56047,
+          9.92939
+        ],
+        [
+          53.56161,
+          9.93317
+        ],
+        [
+          53.56157,
+          9.93006
+        ],
+        [
+          53.56125,
+          9.93411
+        ],
+        [
+          53.56046,
+          9.93357
+        ],
+        [
+          53.56217,
+          9.93277
+        ],
+        [
+          53.56239,
+          9.93134
+        ],
+        [
+          53.56159,
+          9.93462
+        ],
+        [
+          53.56135,
+          9.93151
+        ],
+        [
+          53.56044,
+          9.93144
+        ],
+        [
+          53.56237,
+          9.93385
+        ],
+        [
+          53.56228,
+          9.93299
+        ],
+        [
+          53.56223,
+          9.93257
+        ],
+        [
+          53.56261,
+          9.9319
+        ],
+        [
+          53.56267,
+          9.93201
+        ],
+        [
+          53.56027,
+          9.93032
+        ],
+        [
+          53.56153,
+          9.93147
+        ],
+        [
+          53.56062,
+          9.93105
+        ],
+        [
+          53.56187,
+          9.93267
+        ],
+        [
+          53.56246,
+          9.93091
+        ],
+        [
+          53.56204,
+          9.93354
+        ],
+        [
+          53.56202,
+          9.93456
+        ],
+        [
+          53.56128,
+          9.9321
+        ],
+        [
+          53.56186,
+          9.93155
+        ],
+        [
+          53.56166,
+          9.93243
+        ],
+        [
+          53.56167,
+          9.93141
+        ],
+        [
+          53.56131,
+          9.932
+        ],
+        [
+          53.56034,
+          9.93236
+        ],
+        [
+          53.56073,
+          9.93176
+        ],
+        [
+          53.56074,
+          9.93224
+        ],
+        [
+          53.56137,
+          9.93175
+        ],
+        [
+          53.56105,
+          9.93226
+        ],
+        [
+          53.56311,
+          9.92962
+        ],
+        [
+          53.56216,
+          9.93242
+        ],
+        [
+          53.56136,
+          9.93035
+        ],
+        [
+          53.5631,
+          9.93236
+        ],
+        [
+          53.56259,
+          9.93159
+        ],
+        [
+          53.56103,
+          9.93359
+        ],
+        [
+          53.56235,
+          9.93169
+        ],
+        [
+          53.56151,
+          9.93296
+        ],
+        [
+          53.561,
+          9.93096
+        ]
+      ],
+      "photos": [
+        "12.03.2019",
+        "28.11.2022",
+        "04.06.2025",
+        "09.09.2026"
+      ],
+      "hint": "Meist abends und am Wochenende aufgenommen, über sieben Jahre verteilt.",
+      "suggestions": [
+        "Zuhause",
+        "Studio",
+        "Bei Freunden"
+      ],
+      "remaining": 240
+    }
+  },
+  {
+    "question": "Was habe ich gestern gemacht?",
+    "after": "",
+    "spec": {
+      "type": "timeline",
+      "title": "Samstag, 12. September",
+      "subtitle": "11 h 50 min erfasst · 23 Sitzungen",
+      "startHour": 8,
+      "endHour": 24,
+      "lanes": [
+        {
+          "label": "Cortex",
+          "total": "8 h 00",
+          "blocks": [
+            {
+              "start": "09:10",
+              "end": "12:40",
+              "label": "Codex-Chat"
+            },
+            {
+              "start": "17:00",
+              "end": "21:30",
+              "label": "Bildbearbeitung"
+            }
+          ]
+        },
+        {
+          "label": "Exokortex",
+          "tone": "violet",
+          "total": "1 h 30",
+          "blocks": [
+            {
+              "start": "13:30",
+              "end": "15:00",
+              "label": "Fotoimport"
+            }
+          ]
+        },
+        {
+          "label": "Vektor",
+          "tone": "info",
+          "total": "1 h 30",
+          "blocks": [
+            {
+              "start": "20:10",
+              "end": "21:40",
+              "label": "MCP"
+            }
+          ]
+        },
+        {
+          "label": "Unterwegs",
+          "tone": "pos",
+          "total": "0 h 50",
+          "blocks": [
+            {
+              "start": "15:20",
+              "end": "16:10",
+              "label": "Bornheim"
+            }
+          ]
+        }
+      ],
+      "source": "Aus Sitzungen, Transkripten und Fotos · 80-Auto"
+    }
+  },
+  {
+    "question": "Gibt es neue Stellen für mein Profil?",
+    "after": "",
+    "spec": {
+      "type": "jobs",
+      "title": "5 neue Treffer",
+      "subtitle": "Profil „KI-Automatisierung Frankfurt“ · 23 Quellen",
+      "jobs": [
+        {
+          "score": 92,
+          "title": "AI Automation Specialist",
+          "company": "Hafenwerk Digital GmbH",
+          "location": "Frankfurt · hybrid",
+          "salary": "55–65 T €",
+          "source": "StepStone",
+          "tags": [
+            "Agenten",
+            "n8n",
+            "E-Commerce"
+          ]
+        },
+        {
+          "score": 88,
+          "title": "Marketing Technologist",
+          "company": "Nordstern Commerce",
+          "location": "Frankfurt · vor Ort",
+          "salary": "50–58 T €",
+          "source": "LinkedIn",
+          "tags": [
+            "Kampagnen",
+            "Automatisierung"
+          ]
+        },
+        {
+          "score": 81,
+          "title": "Content & KI-Produktion",
+          "company": "Elbwerk Media",
+          "location": "Remote · DACH",
+          "salary": "48–56 T €",
+          "source": "Welcome to the Jungle",
+          "tags": [
+            "Video",
+            "Voice-over",
+            "KI-Bild"
+          ]
+        }
+      ],
+      "note": "Gefiltert: EU und UK, KMU, ab 45 T €"
+    }
+  },
+  {
+    "question": "Prüf den Header von Nordwind Clips gegen Figma.",
+    "after": "",
+    "spec": {
+      "type": "design-diff",
+      "title": "Nordwind Clips · Header",
+      "subtitle": "Organismus · Figma gegen Code",
+      "diffs": [
+        {
+          "label": "Eckenradius Primärknopf",
+          "design": "8 px",
+          "code": "12 px",
+          "fixed": true
+        },
+        {
+          "label": "Abstand in der Navigation",
+          "design": "16 px",
+          "code": "14 px",
+          "fixed": true
+        },
+        {
+          "label": "Textfarbe inaktiv",
+          "design": "#999A9D",
+          "code": "#8F9094",
+          "designColor": "#999a9d",
+          "codeColor": "#8f9094"
+        }
+      ],
+      "actions": [
+        {
+          "label": "Offene beheben",
+          "prompt": "Gleiche die Textfarbe inaktiv im Header von Nordwind Clips an Figma an.",
+          "primary": true
+        }
+      ]
+    }
+  },
+  {
+    "question": "Zeig mir die Grundfarben von Cortex mit Kontrast.",
+    "after": "",
+    "spec": {
+      "type": "palette",
+      "title": "Cortex · Grundtöne",
+      "background": "#101113",
+      "colors": [
+        {
+          "name": "--cx-bg",
+          "hex": "#101113"
+        },
+        {
+          "name": "--cx-raised",
+          "hex": "#18191b"
+        },
+        {
+          "name": "--cx-rail",
+          "hex": "#1b1c1f"
+        },
+        {
+          "name": "--cx-text",
+          "hex": "#ededee"
+        },
+        {
+          "name": "--cx-muted",
+          "hex": "#999a9d"
+        },
+        {
+          "name": "--cx-dim",
+          "hex": "#707277"
+        },
+        {
+          "name": "--cx-green",
+          "hex": "#88b99b"
+        },
+        {
+          "name": "Link",
+          "hex": "#6aa8ff"
+        }
+      ]
+    }
+  },
+  {
+    "question": "Mach drei Takes für das Voice-over-Intro.",
+    "after": "",
+    "spec": {
+      "type": "audio-takes",
+      "title": "Voice-over · Werbefilm-Intro",
+      "subtitle": "Deutsch · 3 Takes · ElevenLabs",
+      "takes": [
+        {
+          "label": "Take 1",
+          "note": "Neutral",
+          "duration": "0:28",
+          "peaks": [
+            0.52,
+            0.94,
+            0.92,
+            0.64,
+            0.79,
+            0.77,
+            0.89,
+            0.96,
+            0.54,
+            0.48,
+            0.9,
+            0.65,
+            0.78,
+            0.38,
+            0.53,
+            0.59,
+            0.36,
+            0.53,
+            0.44,
+            0.18,
+            0.22,
+            0.41,
+            0.6,
+            0.46,
+            0.44,
+            0.57,
+            0.42,
+            0.55,
+            0.69,
+            0.75,
+            0.62,
+            0.63,
+            0.63,
+            0.78,
+            0.67,
+            0.5,
+            0.96,
+            0.78,
+            0.79,
+            0.52,
+            0.88,
+            0.76,
+            0.39,
+            0.43,
+            0.51,
+            0.45,
+            0.43,
+            0.27,
+            0.44,
+            0.46,
+            0.4,
+            0.55,
+            0.73,
+            0.77,
+            0.66,
+            0.74,
+            0.47,
+            0.61,
+            0.95,
+            0.74,
+            0.6,
+            0.83,
+            0.92,
+            0.89
+          ]
+        },
+        {
+          "label": "Take 2",
+          "note": "Ruhiger, tiefer",
+          "duration": "0:31",
+          "favorite": true,
+          "peaks": [
+            0.54,
+            0.5,
+            0.68,
+            0.57,
+            0.53,
+            0.74,
+            1,
+            0.98,
+            0.95,
+            0.61,
+            0.78,
+            0.61,
+            0.53,
+            0.46,
+            0.48,
+            0.75,
+            0.65,
+            0.57,
+            0.5,
+            0.27,
+            0.25,
+            0.36,
+            0.45,
+            0.56,
+            0.64,
+            0.38,
+            0.64,
+            0.72,
+            0.68,
+            0.54,
+            0.73,
+            0.53,
+            1,
+            1,
+            0.83,
+            0.68,
+            1,
+            0.82,
+            0.97,
+            0.91,
+            0.69,
+            0.61,
+            0.65,
+            0.53,
+            0.38,
+            0.39,
+            0.49,
+            0.22,
+            0.19,
+            0.37,
+            0.33,
+            0.46,
+            0.49,
+            0.49,
+            0.83,
+            0.5,
+            0.64,
+            0.56,
+            0.82,
+            0.64,
+            0.7,
+            0.94,
+            0.69,
+            0.83
+          ]
+        },
+        {
+          "label": "Take 3",
+          "note": "Schneller",
+          "duration": "0:27",
+          "peaks": [
+            0.48,
+            0.4,
+            0.28,
+            0.41,
+            0.19,
+            0.35,
+            0.53,
+            0.32,
+            0.54,
+            0.62,
+            0.4,
+            0.6,
+            0.8,
+            0.7,
+            0.88,
+            0.58,
+            0.64,
+            0.57,
+            0.8,
+            1,
+            0.84,
+            0.92,
+            0.67,
+            0.84,
+            0.47,
+            0.53,
+            0.66,
+            0.63,
+            0.46,
+            0.3,
+            0.31,
+            0.25,
+            0.25,
+            0.45,
+            0.33,
+            0.61,
+            0.68,
+            0.39,
+            0.57,
+            0.66,
+            0.45,
+            0.69,
+            0.99,
+            0.55,
+            0.85,
+            0.57,
+            0.85,
+            1,
+            0.61,
+            0.48,
+            0.5,
+            0.72,
+            0.43,
+            0.43,
+            0.58,
+            0.7,
+            0.45,
+            0.39,
+            0.4,
+            0.21,
+            0.33,
+            0.28,
+            0.46,
+            0.65
+          ]
+        }
+      ],
+      "source": "„Präzision, die man hört.“ · 48 Wörter"
+    }
+  },
+  {
+    "question": "Wie läuft der Herbst-Sale diese Woche?",
+    "after": "",
+    "spec": {
+      "type": "kpis",
+      "title": "Herbst-Sale · Meta Ads",
+      "subtitle": "6. bis 12. September",
+      "kpis": [
+        {
+          "label": "Umsatz",
+          "value": "4.820 €",
+          "change": "+18 %"
+        },
+        {
+          "label": "ROAS",
+          "value": "3,4",
+          "change": "+0,4"
+        },
+        {
+          "label": "CTR",
+          "value": "1,80 %",
+          "change": "−0,3 Pp.",
+          "tone": "neg"
+        },
+        {
+          "label": "Conversion-Rate",
+          "value": "2,59 %",
+          "change": "±0",
+          "tone": "mute"
+        }
+      ],
+      "funnel": [
+        {
+          "label": "Impressionen",
+          "value": 184200
+        },
+        {
+          "label": "Klicks",
+          "value": 3316
+        },
+        {
+          "label": "In den Warenkorb",
+          "value": 410
+        },
+        {
+          "label": "Käufe",
+          "value": 86
+        }
+      ],
+      "note": "Ausgaben 1.418 € · Ø Warenkorb 56 €"
+    }
+  },
+  {
+    "question": "Frag mich was zum magischen Viereck.",
+    "after": "",
+    "spec": {
+      "type": "quiz",
+      "topic": "Wirtschaft · Magisches Viereck",
+      "subtitle": "Prüfungsvorbereitung · Frage 7 von 20",
+      "question": "Welches Ziel des magischen Vierecks gerät typischerweise mit der Preisniveaustabilität in Konflikt, wenn die Wirtschaft stark wächst?",
+      "options": [
+        "Außenwirtschaftliches Gleichgewicht",
+        "Hoher Beschäftigungsstand",
+        "Gerechte Einkommensverteilung",
+        "Erhalt der natürlichen Umwelt"
+      ],
+      "answer": 1,
+      "explanation": "Sinkt die Arbeitslosigkeit, steigen Löhne und Nachfrage und mit ihnen meist die Preise. Diesen Zusammenhang beschreibt die Phillips-Kurve.",
+      "progress": {
+        "current": 7,
+        "total": 20,
+        "history": "rrwrwr"
+      },
+      "actions": [
+        {
+          "label": "Nächste Frage",
+          "prompt": "Nächste Frage zum magischen Viereck.",
+          "primary": true
+        },
+        {
+          "label": "Genauer erklären",
+          "prompt": "Erklär mir die Phillips-Kurve genauer."
+        }
+      ]
+    }
+  },
+  {
+    "question": "Wie gehe ich ins Gehaltsgespräch nach der Ausbildung?",
+    "after": "",
+    "spec": {
+      "type": "game-theory",
+      "title": "Gehaltsgespräch nach der Ausbildung",
+      "subtitle": "Strategische Lage · 3 Beteiligte",
+      "actors": [
+        {
+          "name": "Du",
+          "want": "Mehr Gehalt, sicher bleiben"
+        },
+        {
+          "name": "Ausbildungsbetrieb",
+          "want": "Dich halten, aber günstig",
+          "tone": "info"
+        },
+        {
+          "name": "Anderes Angebot",
+          "want": "Noch nicht bekannt",
+          "tone": "warn",
+          "hidden": true
+        }
+      ],
+      "relations": [
+        {
+          "from": 0,
+          "to": 1,
+          "label": "will mehr Gehalt"
+        },
+        {
+          "from": 1,
+          "to": 0,
+          "label": "will Einarbeitung nicht verlieren"
+        },
+        {
+          "from": 2,
+          "to": 1,
+          "label": "würde Druck machen",
+          "dashed": true
+        }
+      ],
+      "balance": {
+        "value": 0.16,
+        "left": "Du brauchst ihn mehr",
+        "right": "Er braucht dich mehr",
+        "note": "Leicht beim Betrieb: Dich neu zu besetzen kostet ihn Monate."
+      },
+      "recommendation": "Mach das andere Angebot sichtbar, bevor du eine Zahl nennst. Nenn dann einen festen Betrag statt einer Spanne."
+    }
+  }
+]

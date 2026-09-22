@@ -1,0 +1,784 @@
+{
+  "name": "cortex",
+  "displayName": "Cortex",
+  "description": "Cortex agent — connect the AI subscriptions you already pay for.",
+  "version": "0.13.0",
+  "publisher": "oskarschiermeister",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "router",
+    "claude",
+    "codex",
+    "grok",
+    "subscriptions"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "*"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cortex",
+          "title": "Cortex",
+          "icon": "media/icon.svg",
+          "when": "false"
+        }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "cortex-secondary",
+          "title": "Cortex",
+          "icon": "media/icon.svg",
+          "when": "false"
+        }
+      ]
+    },
+    "views": {
+      "cortex": [
+        {
+          "type": "webview",
+          "id": "cortex.chat",
+          "name": "Cortex"
+        }
+      ],
+      "cortex-secondary": [
+        {
+          "type": "webview",
+          "id": "cortex.chatSecondary",
+          "name": "Cortex",
+          "when": "!cortex.noSecondarySidebar"
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "cortex.databaseStudio",
+        "displayName": "Vektor",
+        "selector": [
+          {
+            "filenamePattern": "*.sqlite"
+          },
+          {
+            "filenamePattern": "*.sqlite2"
+          },
+          {
+            "filenamePattern": "*.sqlite3"
+          },
+          {
+            "filenamePattern": "*.db"
+          },
+          {
+            "filenamePattern": "*.db3"
+          },
+          {
+            "filenamePattern": "*.graph"
+          },
+          {
+            "filenamePattern": "*.rdb"
+          },
+          {
+            "filenamePattern": "*.aof"
+          },
+          {
+            "filenamePattern": "*.amqrun"
+          },
+          {
+            "filenamePattern": "*.amqrun.json"
+          },
+          {
+            "filenamePattern": "*.xlsx"
+          },
+          {
+            "filenamePattern": "*.xlsm"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "cortex.databaseStudio",
+        "displayName": "Vektor",
+        "selector": [
+          {
+            "filenamePattern": "*.csv"
+          },
+          {
+            "filenamePattern": "*.tsv"
+          },
+          {
+            "filenamePattern": "*.jsonl"
+          },
+          {
+            "filenamePattern": "*.ndjson"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "cortex.databaseStudio.open",
+        "title": "Cortex: In Vektor öffnen",
+        "icon": "$(database)"
+      },
+      {
+        "command": "cortex.databaseStudio.status",
+        "title": "Cortex: Datenbank-Verbindung"
+      },
+      {
+        "command": "cortex.addAccount",
+        "title": "Cortex: Add Account",
+        "icon": "$(add)"
+      },
+      {
+        "command": "cortex.removeAccount",
+        "title": "Cortex: Remove Account"
+      },
+      {
+        "command": "cortex.editRules",
+        "title": "Cortex: Edit Routing Rules"
+      },
+      {
+        "command": "cortex.editCommands",
+        "title": "Cortex: Edit Custom Slash Commands"
+      },
+      {
+        "command": "cortex.syncMcp",
+        "title": "Cortex: Sync MCP Servers to All Profiles"
+      },
+      {
+        "command": "cortex.newConversation",
+        "title": "Cortex: New Conversation",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "cortex.openChatInTab",
+        "title": "Cortex: Open Chat",
+        "icon": "media/tab-icon.svg"
+      },
+      {
+        "command": "cortex.openAccounts",
+        "title": "Cortex: Accounts",
+        "icon": "$(account)"
+      },
+      {
+        "command": "cortex.openRules",
+        "title": "Cortex: Routing Rules",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "cortex.openInTerminal",
+        "title": "Cortex: Open Session in Terminal"
+      },
+      {
+        "command": "cortex.cancelTask",
+        "title": "Cortex: Cancel Running Task"
+      },
+      {
+        "command": "cortex.debug.simulateLimit",
+        "title": "Cortex: Simulate Usage Limit (debug)"
+      },
+      {
+        "command": "cortex.openAnalytics",
+        "title": "Cortex: Analytics",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "cortex.toggleAsk",
+        "title": "Cortex: Toggle Ask Before Acting"
+      },
+      {
+        "command": "cortex.pickModel",
+        "title": "Cortex: Pick Model"
+      },
+      {
+        "command": "cortex.restartApplication",
+        "title": "Cortex: Vollständig neu starten"
+      },
+      {
+        "command": "cortex.toggleSidebar",
+        "title": "Seitenleiste",
+        "category": "Cortex",
+        "icon": "$(layout-sidebar-left)"
+      },
+      {
+        "command": "cortex.showFiles",
+        "title": "Dateien",
+        "category": "Cortex",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "cortex.showChanges",
+        "title": "Änderungen",
+        "category": "Cortex",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "cortex.showPreview",
+        "title": "Browser",
+        "category": "Cortex",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "cortex.renameChat",
+        "title": "Umbenennen",
+        "category": "Cortex",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "cortex.closeBrowser",
+        "title": "Browser schließen",
+        "category": "Cortex",
+        "icon": "$(close)"
+      },
+      {
+        "command": "cortex.showTranscript",
+        "title": "Transkript-Ansicht",
+        "category": "Cortex",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "cortex.showCanvas",
+        "title": "Excalidraw",
+        "category": "Cortex",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "cortex.exportChat",
+        "title": "Chat exportieren …",
+        "category": "Cortex",
+        "icon": "$(save)"
+      },
+      {
+        "command": "cortex.copyChat",
+        "title": "Chat kopieren",
+        "category": "Cortex",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "cortex.outputStyle",
+        "title": "Ausgabestil",
+        "category": "Cortex",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "cortex.forkChat",
+        "title": "Fork",
+        "category": "Cortex",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "cortex.keepAwake",
+        "title": "Computer wach halten",
+        "category": "Cortex",
+        "icon": "$(device-desktop)"
+      },
+      {
+        "command": "cortex.archiveChat",
+        "title": "Archivieren",
+        "category": "Cortex",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "cortex.deleteChat",
+        "title": "Löschen",
+        "category": "Cortex",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "cortex.hideFiles",
+        "title": "Dateien",
+        "category": "Cortex",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "cortex.hidePreview",
+        "title": "Browser",
+        "category": "Cortex",
+        "icon": "$(browser)"
+      },
+      {
+        "command": "cortex.showTerminal",
+        "title": "Terminal",
+        "category": "Cortex",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "cortex.hideTerminal",
+        "title": "Terminal",
+        "category": "Cortex",
+        "icon": "$(terminal-view-icon)"
+      }
+    ],
+    "menus": {
+      "view/title": [],
+      "editor/title": [],
+      "explorer/context": [
+        {
+          "command": "cortex.databaseStudio.open",
+          "when": "resourceExtname =~ /\\.(sqlite|sqlite2|sqlite3|db|db3|graph|rdb|aof|amqrun|xlsx|xlsm|csv|tsv|jsonl|ndjson)$/",
+          "group": "navigation@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "cortex.databaseStudio.open"
+        },
+        {
+          "command": "cortex.databaseStudio.status"
+        },
+        {
+          "command": "cortex.openAccounts"
+        },
+        {
+          "command": "cortex.addAccount"
+        },
+        {
+          "command": "cortex.openChatInTab"
+        },
+        {
+          "command": "cortex.hideFiles",
+          "when": "false"
+        },
+        {
+          "command": "cortex.hidePreview",
+          "when": "false"
+        },
+        {
+          "command": "cortex.closeBrowser",
+          "when": "cortex.browserOpen"
+        },
+        {
+          "command": "cortex.hideTerminal",
+          "when": "false"
+        }
+      ],
+      "titleBar": [
+        {
+          "command": "cortex.showPreview",
+          "when": "cortex.chatToolsVisible && !cortex.browserOpen",
+          "group": "navigation@1"
+        },
+        {
+          "command": "cortex.hidePreview",
+          "when": "cortex.chatToolsVisible && cortex.browserOpen",
+          "group": "navigation@1"
+        },
+        {
+          "command": "cortex.showFiles",
+          "when": "cortex.chatToolsVisible && !cortex.filesOpen",
+          "group": "navigation@2"
+        },
+        {
+          "command": "cortex.hideFiles",
+          "when": "cortex.chatToolsVisible && cortex.filesOpen",
+          "group": "navigation@2"
+        },
+        {
+          "command": "cortex.showTerminal",
+          "when": "cortex.chatToolsVisible && !cortex.terminalOpen",
+          "group": "navigation@3"
+        },
+        {
+          "command": "cortex.hideTerminal",
+          "when": "cortex.chatToolsVisible && cortex.terminalOpen",
+          "group": "navigation@3"
+        },
+        {
+          "submenu": "cortex.chatMenu",
+          "when": "cortex.chatToolsVisible",
+          "group": "navigation@9"
+        }
+      ],
+      "cortex.chatMenu": [
+        {
+          "command": "cortex.showFiles",
+          "group": "1_view@1"
+        },
+        {
+          "command": "cortex.showChanges",
+          "group": "1_view@2"
+        },
+        {
+          "command": "cortex.showTranscript",
+          "group": "1_view@3"
+        },
+        {
+          "command": "cortex.showCanvas",
+          "group": "1_view@4"
+        },
+        {
+          "command": "cortex.closeBrowser",
+          "when": "cortex.browserOpen",
+          "group": "1_view@7"
+        },
+        {
+          "command": "cortex.copyChat",
+          "group": "1_view@5"
+        },
+        {
+          "command": "cortex.exportChat",
+          "group": "1_view@6"
+        },
+        {
+          "command": "cortex.renameChat",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "cortex.outputStyle",
+          "group": "2_edit@2"
+        },
+        {
+          "command": "cortex.forkChat",
+          "group": "2_edit@3"
+        },
+        {
+          "command": "cortex.keepAwake",
+          "group": "3_session@1"
+        },
+        {
+          "command": "cortex.archiveChat",
+          "group": "4_danger@1"
+        },
+        {
+          "command": "cortex.deleteChat",
+          "group": "4_danger@2"
+        }
+      ]
+    },
+    "configurationDefaults": {
+      "workbench.activityBar.location": "hidden",
+      "workbench.statusBar.visible": false,
+      "workbench.editor.showTabs": "none",
+      "workbench.startupEditor": "none",
+      "workbench.editor.restoreEditors": false,
+      "debug.toolBarLocation": "hidden",
+      "debug.openDebug": "neverOpen",
+      "window.commandCenter": false,
+      "workbench.layoutControl.enabled": false,
+      "workbench.tips.enabled": false,
+      "workbench.browser.showInTitleBar": false
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": [
+          "**/.cortex/rules.json",
+          "**/rules.json"
+        ],
+        "url": "./schemas/rules.schema.json"
+      }
+    ],
+    "configuration": {
+      "title": "Cortex",
+      "properties": {
+        "cortex.permissionMode": {
+          "type": "string",
+          "enum": [
+            "safe",
+            "edits",
+            "full"
+          ],
+          "default": "safe",
+          "markdownDescription": "How much autonomy routed CLIs get: `safe` (read/plan only), `edits` (auto-accept file edits), `full` (skip all approvals — use with care)."
+        },
+        "cortex.activityVerbosity": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "compact",
+            "detailed"
+          ],
+          "enumDescriptions": [
+            "Nur zusammengefasste Tätigkeiten.",
+            "Verständliche Tätigkeiten mit aufklappbaren Details.",
+            "Alle Befehle, Pfade und Werkzeugdetails aufgeklappt."
+          ],
+          "default": "compact",
+          "description": "Wie ausführlich Cortex seine Tätigkeiten im Chat darstellt."
+        },
+        "cortex.terminalLocation": {
+          "type": "string",
+          "enum": [
+            "panel",
+            "beside"
+          ],
+          "enumDescriptions": [
+            "Im unteren Panel — mit eigener Kopfzeile und Schließen-Knopf. Die Kopfleiste von Cortex reicht dann bis zum rechten Rand.",
+            "Als Editor neben dem Chat. Ohne Tableiste hat dieser Bereich keine eigene Kopfzeile; geschlossen wird er über das Werkzeugmenü."
+          ],
+          "default": "panel",
+          "markdownDescription": "Wo `Terminal öffnen` das Projektterminal ablegt."
+        },
+        "cortex.pollUsage": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Poll quota (Claude 5h/weekly, Copilot credits) so the connection view stays current. Uses undocumented endpoints; turn off if a provider rate-limits the check."
+        },
+        "cortex.codexIdleTimeoutSeconds": {
+          "type": "integer",
+          "default": 180,
+          "minimum": 30,
+          "maximum": 3600,
+          "description": "Codex-Aufträge nach dieser Zeit ohne Aktivität anhalten. Wartezeit auf deine Genehmigung zählt nicht mit."
+        },
+        "cortex.cliPath.claude": {
+          "type": "string",
+          "default": "claude",
+          "description": "Path to the claude CLI binary."
+        },
+        "cortex.cliPath.codex": {
+          "type": "string",
+          "default": "codex",
+          "description": "Path to the codex CLI binary."
+        },
+        "cortex.cliPath.copilot": {
+          "type": "string",
+          "default": "copilot",
+          "description": "Path to the copilot CLI binary."
+        },
+        "cortex.cliPath.grok": {
+          "type": "string",
+          "default": "grok",
+          "description": "Path to the grok CLI binary."
+        },
+        "cortex.routingMode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "manual"
+          ],
+          "default": "auto",
+          "markdownDescription": "`auto`: cortex reads the task, judges its difficulty and picks the model — keeping nearly-exhausted accounts in reserve. `manual`: follow your rules and default chain exactly. Your rules always win in both modes."
+        },
+        "cortex.autoPlanHeavyEdits": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "In auto mode, plan heavy code-writing work before it edits: cortex switches that turn to Plan so you can review the approach. Turn off to let heavy work edit straight away."
+        },
+        "cortex.sizeReasoning": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "In auto mode, decide how hard each turn thinks — not just which model runs it. Reasoning tokens are billed as output, so a typo fix reasoned at full depth burns a window for nothing: trivial work runs at minimum effort and hard work at maximum. Delivered through each CLI's own control — a config key on Codex, a thinking budget on Claude — and a CLI without one is left alone. Turn off to leave every CLI on its default."
+        },
+        "cortex.sendWorkspaceContext": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Tell the model what it would have known sitting where you are: the open file and your selection, the branch and uncommitted changes, and the project's own convention files. Whatever a CLI already reads by itself is not sent twice."
+        },
+        "cortex.frameTasks": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Add the framing a request is missing before it runs: the exact check the model should run when it is done, reproducing a bug before fixing it, naming files before editing them, and staying inside the scope you asked for. Only ever adds what your prompt did not already cover, never rewrites it. Requires `#cortex.sendWorkspaceContext#`."
+        },
+        "cortex.standingInstructions": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Give each provider the standing instructions it needs to behave like the best one — delivered through its own system-prompt channel. Lines that measurably lower the clean-run rate are dropped automatically."
+        },
+        "cortex.homeLocation": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Where you are based, e.g. `Frankfurt`. Every provider is told this place for local questions — weather, departures, routes — and never to guess your location from the IP address."
+        },
+        "cortex.chatWidgets": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Let agents answer with small cards in the chat — weather, timers, test results, server health and more — instead of plain text. The agent writes a `cortex-widget` block; Cortex draws it."
+        },
+        "cortex.verifyChanges": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "After a run changes files, run the project's **own** typecheck/test script and, if it fails, give the model one chance to fix it. Commands are never invented — only what `package.json` or a `Makefile` declares. Never runs in Plan mode."
+        },
+        "cortex.secondOpinion": {
+          "type": "string",
+          "enum": [
+            "never",
+            "hard",
+            "always"
+          ],
+          "default": "hard",
+          "markdownDescription": "Have a **different** provider review the work before you rely on it — a different model sees different mistakes. `hard`: only on work classified as hard. Connect an **OpenRouter** account and the review runs on a free open-weight model, costing none of your quota; without one it spends a second subscription and is skipped when headroom is low."
+        },
+        "cortex.imageAccountOrder": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "markdownDescription": "Welches Konto „Bild erstellen“ zuerst nimmt, je Anbieter, z. B. `{ \"grok\": [\"Side-Hustle\", \"privat\"] }`. Ist ein Konto im Limit, geht der Auftrag automatisch an das nächste desselben Anbieters. Ohne Eintrag kommt bei ChatGPT der größere Tarif zuerst, sonst die Reihenfolge der Konten."
+        },
+        "cortex.askPermission": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Stop and ask before consequential actions — running a command, changing a file — instead of deciding from the permission mode alone. Works on **every** provider: Codex and the ACP agents ask over their own protocols, and Claude asks through a local MCP bridge (it cannot ask over stream-json). Reads are never interrupted, and Plan mode still refuses rather than asking."
+        },
+        "cortex.databaseStudio.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Vektor ist die Datenbank-Integration von Cortex: eine Datenquelle wird als Tab geöffnet, und der Agent liest über den Konnektor `database-studio` genau die Datenbank, die dort offen ist. Ausgeschaltet bleibt der Konnektor aus jedem Anbieterprofil."
+        },
+        "cortex.databaseStudio.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Der Ordner, der `database-studio/` und `studio-mcp/` enthält. Leer bedeutet `~/dev/Database System`."
+        },
+        "cortex.databaseStudio.allowWrites": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Lässt schreibende Aufrufe **über die API** zu — also durch den Agenten. Aus bedeutet: der Agent liest, geändert wird von Hand im Tab. Direktes Bearbeiten im Fenster ist davon nie betroffen."
+        },
+        "cortex.exokortex.pythonPath": {
+          "type": "string",
+          "default": "/usr/bin/python3",
+          "markdownDescription": "Python für die Exokortex-Skripte. **Absolut angeben** — der ererbte PATH ist unbestimmt, und nur `/usr/bin/python3` trägt die Extraktionspakete (Homebrew-Python nicht)."
+        },
+        "cortex.exokortex.repoPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Wurzel des Exokortex-Repos. Leer heißt `~/dev/Exokortex`."
+        },
+        "cortex.exokortex.statusIntervalMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "markdownDescription": "Wie oft die Exokortex-Seite nachsieht, solange sie offen ist. Ist sie zu, läuft nichts."
+        },
+        "cortex.memory.notes": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Führt je Chat einen **Notizzettel** (Entscheidungen, Festlegungen, Offen, Verworfen) und schickt ihn an jedes Modell mit — so überlebt, was feststeht, jeden Modellwechsel."
+        },
+        "cortex.memory.retrieval": {
+          "type": "string",
+          "enum": [
+            "nie",
+            "erste",
+            "themenwechsel",
+            "jede"
+          ],
+          "enumDescriptions": [
+            "Nie",
+            "Nur bei der ersten Nachricht eines Chats",
+            "Bei der ersten Nachricht und bei jedem Themenwechsel",
+            "Bei jeder Nachricht"
+          ],
+          "default": "themenwechsel",
+          "markdownDescription": "Wann Cortex im **Exokortex** nach passenden Erinnerungen sucht und sie mitschickt."
+        },
+        "cortex.memory.hits": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 10,
+          "markdownDescription": "Wie viele Fundstellen aus dem Exokortex höchstens mitgehen."
+        },
+        "cortex.memory.budget": {
+          "type": "number",
+          "default": 1500,
+          "minimum": 300,
+          "maximum": 4000,
+          "markdownDescription": "Token-Budget für die mitgeschickten Erinnerungen."
+        },
+        "cortex.memory.threshold": {
+          "type": "string",
+          "enum": [
+            "locker",
+            "normal",
+            "streng"
+          ],
+          "default": "normal",
+          "markdownDescription": "Wie gut eine Fundstelle passen muss, damit sie mitgeht."
+        },
+        "cortex.memory.helper": {
+          "type": "string",
+          "enum": [
+            "guenstig",
+            "aktuell"
+          ],
+          "enumDescriptions": [
+            "Haiku auf einem freien Claude-Konto",
+            "Das Modell, das gerade geantwortet hat"
+          ],
+          "default": "guenstig",
+          "markdownDescription": "Welches Modell den Notizzettel schreibt."
+        },
+        "cortex.browserAccess": {
+          "type": "string",
+          "enum": [
+            "nie",
+            "auf-ansage",
+            "immer"
+          ],
+          "enumDescriptions": [
+            "Kein Desktop-Browser, auch nicht auf ausdrückliche Ansage.",
+            "Nur wenn du es in einem Auftrag ausdrücklich verlangst.",
+            "Der Agent darf den Desktop-Browser öffnen, wenn er ihn für die Aufgabe braucht."
+          ],
+          "default": "auf-ansage",
+          "markdownDescription": "Wie weit ein Agent den Desktop-Browser benutzen darf. Betrifft nicht die eingebaute Vorschau, den Anbieter-Login oder Tests mit `chromium-headless-shell` — die laufen ohne Desktop-Browser. Siehe `AGENTS.md`."
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "cortex.restartApplication",
+        "key": "ctrl+alt+shift+r",
+        "mac": "cmd+alt+shift+r"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "cortex.chatMenu",
+        "label": "Chat-Aktionen",
+        "icon": "$(ellipsis)"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.mjs && tsc -p tsconfig.json",
+    "watch": "node esbuild.mjs --watch",
+    "preview": "node esbuild.mjs && open dev/preview.html",
+    "typecheck": "tsc -p tsconfig.json",
+    "test:vscode": "vscode-test",
+    "package": "node esbuild.mjs --production && vsce package --no-dependencies",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cortex/core": "workspace:*",
+    "@excalidraw/excalidraw": "0.18.1",
+    "cron-parser": "5.4.0",
+    "preact": "^10.24.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@svg-maps/germany": "2.0.0",
+    "@types/node": "^22.9.0",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@types/vscode": "^1.95.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.2.0",
+    "emojibase-data": "^17.0.0",
+    "esbuild": "^0.24.0",
+    "topojson-client": "3.1.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.9",
+    "world-atlas": "2.0.2"
+  }
+}
