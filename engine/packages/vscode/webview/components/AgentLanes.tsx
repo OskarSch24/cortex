@@ -1,10 +1,10 @@
 import type { AgentLane } from '../../src/panel/transcript.js';
 import { Markdown } from './Markdown.js';
+import { formatDuration } from '../format/duration.js';
+import { formatTokens } from '../format/tokens.js';
 import {
   LiveDots,
   ToolStepRow,
-  formatDuration,
-  formatTokens,
   summarizeSteps,
   useAutoOpen,
 } from './steps.js';

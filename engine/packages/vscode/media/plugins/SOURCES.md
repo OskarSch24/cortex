@@ -27,6 +27,18 @@ die erste mit Treffer gewinnt:
 
 Bei hell/dunkel-Paaren wird die dunkle Variante genommen: Cortex ist dunkel.
 
+Führt keine der drei ein Zeichen, kommt es vom Hersteller selbst (seit
+22. September 2026):
+
+| Eintrag | Quelle |
+|---|---|
+| Context7 | `public/context7-icon-green.svg` im Repository [upstash/context7](https://github.com/upstash/context7) |
+| Xcode | das App-Symbol aus `/Applications/Xcode.app` (`Xcode.icns`), als 128-px-PNG in eine SVG gehüllt |
+| Apify | das Symbol von apify.com, `https://apify.com/img/apify-logo/apify-symbol-200x200.svg` (22. September 2026) |
+
+Vorher standen dort das MCP-Zeichen (Context7) und ein nachgezeichnetes Symbol
+(Xcode) — beides kein Originallogo.
+
 **Jeder Katalogeintrag trägt ein echtes Logo.** Wo keine der drei Sammlungen
 eines führt, kommt der Dienst nicht in den Katalog — nachgezeichnet wird nichts.
 Ein selbst gezeichnetes Markenzeichen wäre eine Behauptung über fremdes
@@ -34,8 +46,8 @@ Eigentum, die niemand belegen kann, und eine Kachelreihe mit einzelnen
 Buchstabenfeldern sieht nach Fehler aus.
 
 Aus diesem Grund am 9. September 2026 nicht aufgenommen, obwohl ihre Server
-geprüft und lauffähig sind: Apify, Browserbase, DBHub, DeepWiki, Desktop
-Commander, E2B, Globalping, Kagi, Puppeteer, Raygun, Serena und Square. Wer sie
+geprüft und lauffähig sind: Browserbase, DBHub, DeepWiki, Desktop
+Commander, E2B, Globalping, Kagi, Puppeteer, Raygun, Serena und Square. (Apify kam am 22. September 2026 mit dem Herstellerlogo dazu.) Wer sie
 braucht, trägt sie über „mcp.json bearbeiten“ von Hand ein — die Seite führt sie
 dann als „Importierte Plugins“.
 

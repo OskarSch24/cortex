@@ -1,13 +1,12 @@
 import { readdir, realpath, stat, lstat, readFile, open } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { execFile } from 'node:child_process';
 import { homedir } from 'node:os';
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
-import { promisify } from 'node:util';
 import type { WorkspaceDto } from './protocol.js';
+import { git as runGit, gitBuffer } from '../util/exec.js';
+import { isInside } from '../util/paths.js';
 
-const exec = promisify(execFile);
 const HIDDEN = new Set(['.git', 'node_modules', '.DS_Store', '.cache']);
 
 /** Resolve both sides: a symlink must not turn a project file button into arbitrary file access. */
@@ -31,8 +30,7 @@ export function projectRelative(path: string, root: string, home = homedir()): s
 export async function projectFile(root: string, path = ''): Promise<string> {
   const base = await realpath(root);
   const target = await realpath(resolve(base, path));
-  const rel = relative(base, target);
-  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error('Datei liegt außerhalb des Projekts.');
+  if (!isInside(base, target)) throw new Error('Datei liegt außerhalb des Projekts.');
   return target;
 }
 
@@ -61,7 +59,7 @@ export async function inspectWorkspace(root?: string, directory = ''): Promise<W
       .sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name))
       .slice(0, 300).map(e => ({ name: e.name, path: relative(canonicalRoot, resolve(target, e.name)), directory: e.isDirectory() }));
     const git = async (args: string[]) => {
-      try { return (await exec('git', args, { cwd: root, timeout: 3000, maxBuffer: 1024 * 1024 })).stdout; }
+      try { return await runGit(root, args, { timeout: 3000, maxBuffer: 1024 * 1024 }); }
       catch { return ''; }
     };
     const [branch, status] = await Promise.all([git(['branch', '--show-current']), git(['status', '--porcelain=v1', '-z'])]);
@@ -83,7 +81,7 @@ export async function inspectWorkspace(root?: string, directory = ''): Promise<W
  * `--no-index` gegen /dev/null verglichen — sonst fehlten in der Übersicht
  * ausgerechnet die Dateien, die gerade entstanden sind.
  */
-export interface FileDiff {
+interface FileDiff {
   path: string;
   added: number;
   removed: number;
@@ -92,7 +90,7 @@ export interface FileDiff {
   binary?: boolean;
 }
 
-export interface DiffHunk {
+interface DiffHunk {
   /** Erste Zeilennummer der neuen Fassung in diesem Abschnitt. */
   start: number;
   lines: Array<{ kind: 'add' | 'del' | 'ctx'; text: string; line?: number }>;
@@ -144,7 +142,7 @@ export function parseNumstat(output: string): Array<{ path: string; added: numbe
 export async function collectDiff(root?: string): Promise<FileDiff[]> {
   if (!root) return [];
   const git = async (args: string[]) => {
-    try { return (await exec('git', args, { cwd: root, timeout: 6000, maxBuffer: 8 * 1024 * 1024 })).stdout; }
+    try { return await runGit(root, args, { timeout: 6000, maxBuffer: 8 * 1024 * 1024 }); }
     catch (error) {
       // git diff --no-index uses exit 1 for a valid difference.
       const result = error as { code?: number; stdout?: string };
@@ -200,7 +198,7 @@ export interface Baseline {
 }
 
 export async function captureBaseline(root: string): Promise<Baseline | undefined> {
-  const git = async (args: string[]) => (await exec('git', args, { cwd: root, timeout: 8000, maxBuffer: 16 * 1024 * 1024 })).stdout.trim();
+  const git = async (args: string[]) => (await runGit(root, args, { timeout: 8000, maxBuffer: 16 * 1024 * 1024 })).trim();
   try {
     if ((await git(['rev-parse', '--is-inside-work-tree'])) !== 'true') return undefined;
     const commit = (await git(['stash', 'create'])) || (await git(['rev-parse', 'HEAD']));
@@ -212,7 +210,7 @@ export async function captureBaseline(root: string): Promise<Baseline | undefine
   }
 }
 
-export interface RevertPlan {
+interface RevertPlan {
   /** Mit Inhalt aus dem gemerkten Stand. */
   restore: Array<{ path: string; content: Buffer }>;
   /** Erst in diesem Auftrag entstanden — gehen in den Papierkorb. */
@@ -228,7 +226,7 @@ export async function safeRevertPath(root: string, path: string): Promise<string
   const base = await realpath(root);
   const target = resolve(base, path);
   const rel = relative(base, target);
-  if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error('Außerhalb des Projekts');
+  if (!isInside(base, target, { allowSelf: false })) throw new Error('Außerhalb des Projekts');
   let current = base;
   for (const part of rel.split(sep)) {
     current = resolve(current, part);
@@ -272,7 +270,7 @@ export async function planRevert(root: string, baseline: Baseline, paths: string
   const plan: RevertPlan = { restore: [], remove: [], skipped: [], conflicts: [], expected: {} };
   if (baseline.root && baseline.root !== await realpath(root)) throw new Error('Der gespeicherte Stand gehört zu einem anderen Projektordner.');
   // A missing Git object is not evidence that a file was newly created.
-  await exec('git', ['cat-file', '-e', `${baseline.commit}^{commit}`], { cwd: root, timeout: 8000 });
+  await runGit(root, ['cat-file', '-e', `${baseline.commit}^{commit}`], { timeout: 8000 });
   for (const raw of [...new Set(paths)]) {
     const absolute = raw.startsWith('~/') ? resolve(home, raw.slice(2)) : resolve(root, raw);
     const rel = relative(root, absolute);
@@ -281,11 +279,11 @@ export async function planRevert(root: string, baseline: Baseline, paths: string
     catch { plan.skipped.push(raw); continue; }
     const after = baseline.after?.[rel.split(sep).join('/')];
     if (after === undefined || after !== plan.expected[rel]) plan.conflicts.push(rel);
-    const entry = (await exec('git', ['ls-tree', '-z', baseline.commit, '--', rel], { cwd: root, timeout: 8000 })).stdout;
+    const entry = await runGit(root, ['ls-tree', '-z', baseline.commit, '--', rel], { timeout: 8000 });
     if (entry) {
       if (!/^100\d+ blob /.test(entry)) { plan.skipped.push(raw); continue; }
-      const { stdout } = await exec('git', ['show', `${baseline.commit}:./${rel.split(sep).join('/')}`], { cwd: root, timeout: 8000, maxBuffer: 64 * 1024 * 1024, encoding: 'buffer' });
-      plan.restore.push({ path: rel, content: stdout as unknown as Buffer });
+      const content = await gitBuffer(root, ['show', `${baseline.commit}:./${rel.split(sep).join('/')}`], { timeout: 8000, maxBuffer: 64 * 1024 * 1024 });
+      plan.restore.push({ path: rel, content });
     } else {
       if (baseline.untracked.includes(rel.split(sep).join('/'))) plan.skipped.push(raw);
       else plan.remove.push(rel);

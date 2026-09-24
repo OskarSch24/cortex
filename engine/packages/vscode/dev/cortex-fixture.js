@@ -13,7 +13,7 @@ const emit = msg => {
 const project = { name: 'Studio Website', path: '/demo/studio-website' };
 const projects = [
   { name: 'Cortex', path: '/demo/cortex', pinned: true },
-  { name: 'Nordwind Console Build', path: '/demo/amq-console', pinned: true, missing: true },
+  { name: 'Nordwind Console Build', path: '/demo/nordwind-console', pinned: true, missing: true },
   project,
   { name: 'Design System', path: '/demo/design-system', folders: ['/demo/design-system', '/Users/demo/Documents/Marken'] },
   { name: 'Exokortex', path: '/demo/exokortex' },
@@ -27,6 +27,22 @@ const profiles = query.get('accounts') === 'empty' ? [] : [
   { id: 'codex-work', provider: 'codex', label: 'geschäftlich', identity: 'oskar@studio.example', authState: 'ok', authMode: 'managed-home', available: true, models: [{ id: 'gpt', label: 'Codex' }], usage: [{ label: 'Woche', utilizationPct: 91 }] },
   { id: 'grok-work', provider: 'grok', label: 'studio', identity: 'oskar@studio.example', authState: 'expired', authMode: 'managed-home', available: false, models: [{ id: 'grok', label: 'Grok' }], usage: [] },
 ];
+// OpenRouter nur auf Wunsch (?openrouter=1), damit bestehende Abnahmen ihre Kontenzahl behalten.
+const openRouterCatalog = [
+  { id: 'anthropic/claude-opus-5', label: 'Claude Opus 5', free: false, contextLength: 1000000, promptPerMillion: 5, completionPerMillion: 25 },
+  { id: 'openai/gpt-5.6-terra', label: 'GPT-5.6 Terra', free: false, contextLength: 400000, promptPerMillion: 1.25, completionPerMillion: 10 },
+  { id: 'google/gemini-3.8-flash', label: 'Gemini 3.8 Flash', free: false, contextLength: 1048576, promptPerMillion: 0.3, completionPerMillion: 2.5 },
+  { id: 'x-ai/grok-4.7', label: 'Grok 4.7', free: false, contextLength: 256000, promptPerMillion: 3, completionPerMillion: 15 },
+  { id: 'moonshotai/kimi-k3', label: 'Kimi K3', free: false, contextLength: 262144, promptPerMillion: 0.6, completionPerMillion: 2.5 },
+  { id: 'z-ai/glm-5.3', label: 'GLM 5.3', free: false, contextLength: 202752, promptPerMillion: 0.5, completionPerMillion: 1.9 },
+  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron 3 Ultra (free)', free: true, contextLength: 1000000, promptPerMillion: 0, completionPerMillion: 0 },
+  { id: 'qwen/qwen3.8-27b:free', label: 'Qwen3.8 27B (free)', free: true, contextLength: 262144, promptPerMillion: 0, completionPerMillion: 0 },
+];
+let openRouterFavorites = ['anthropic/claude-opus-5', 'openai/gpt-5.6-terra', 'google/gemini-3.8-flash'];
+let openRouterDefault;
+const openRouterModels = () => [...openRouterFavorites, 'nvidia/nemotron-3-ultra-550b-a55b:free'].map(id => ({ id, label: openRouterCatalog.find(m => m.id === id)?.label ?? id }));
+if (query.get('openrouter') === '1') profiles.push({ id: 'openrouter-main', provider: 'openrouter', label: 'privat', identity: 'sk-or-v1-8f3...c21', authState: 'ok', authMode: 'api-key', available: true, reviewOnly: true, defaultModel: 'anthropic/claude-opus-5', models: openRouterModels(), usage: [] });
+if (query.get('openrouter') === '1') openRouterDefault = 'anthropic/claude-opus-5';
 // Bildmodus: der Host legt das größere Konto nach vorn — hier „geschäftlich“.
 const imageRank = { 'codex-work': 0, 'codex-private': 1, 'grok-work': 0 };
 for (const account of profiles) {
@@ -305,6 +321,28 @@ function fixtureAccountLogin(id, account) {
 }
 window.addEventListener('preview:host', e => {
   const msg = e.detail;
+  if (msg.kind === 'getOpenRouterCatalog') setTimeout(() => emit({ kind: 'openRouterCatalog', models: openRouterCatalog, favorites: openRouterFavorites, defaultModel: openRouterDefault }), 120);
+  if (msg.kind === 'setOpenRouterFavorites') {
+    openRouterFavorites = msg.ids;
+    for (const p of profiles) if (p.provider === 'openrouter') p.models = openRouterModels();
+    emit({ kind: 'accounts', accounts: profiles });
+    emit({ kind: 'openRouterCatalog', models: openRouterCatalog, favorites: openRouterFavorites, defaultModel: openRouterDefault });
+  }
+  if (msg.kind === 'setOpenRouterDefault') {
+    openRouterDefault = msg.id;
+    for (const p of profiles) if (p.provider === 'openrouter') p.defaultModel = openRouterDefault;
+    emit({ kind: 'accounts', accounts: profiles });
+    emit({ kind: 'openRouterCatalog', models: openRouterCatalog, favorites: openRouterFavorites, defaultModel: openRouterDefault });
+  }
+  if (msg.kind === 'addApiKeyAccount') {
+    emit({ kind: 'connectionProgress', provider: 'openrouter', state: 'connecting', message: 'Schlüssel wird bei OpenRouter geprüft …' });
+    setTimeout(() => {
+      if (!/^sk-or-/.test(msg.key)) { emit({ kind: 'connectionProgress', provider: 'openrouter', state: 'error', message: 'Das sieht nicht nach einem OpenRouter-Schlüssel aus — er beginnt mit „sk-or-“.' }); return; }
+      if (!msg.accountId) profiles.push({ id: `openrouter-${profiles.length}`, provider: 'openrouter', label: msg.label, identity: 'sk-or-v1-8f3...c21', authState: 'ok', authMode: 'api-key', available: true, reviewOnly: true, models: openRouterModels(), usage: [] });
+      emit({ kind: 'accounts', accounts: profiles });
+      emit({ kind: 'connectionProgress', provider: 'openrouter', state: 'connected', message: `OpenRouter-Schlüssel sk-or-v1-8f3...c21 ist als „${msg.label}“ verbunden.`, identity: 'sk-or-v1-8f3...c21' });
+    }, 300);
+  }
   if (msg.kind === 'getWidgetState' || msg.kind === 'setWidgetState') {
     const key = `fixture-widget:${msg.conversationId}/${msg.key}`;
     if (msg.kind === 'setWidgetState') localStorage.setItem(key, JSON.stringify(msg.value));
@@ -358,7 +396,7 @@ window.addEventListener('preview:host', e => {
     sendPluginLive();
   }
   if (msg.kind === 'showPluginLog') emit({ kind: 'pluginProgress', id: msg.server, ok: true, message: 'Protokoll im Ausgabefenster „Cortex Plugins“.' });
-  if (msg.kind === 'pickPluginClientFile') fixtureClient(msg.id, { clientId: '492409157416-demo0000000000000000000000ds61.apps.googleusercontent.com', hasSecret: true, fileName: 'client_secret_demo.json', projectId: 'amq-youtube' });
+  if (msg.kind === 'pickPluginClientFile') fixtureClient(msg.id, { clientId: '492409157416-demo0000000000000000000000ds61.apps.googleusercontent.com', hasSecret: true, fileName: 'client_secret_demo.json', projectId: 'nordwind-youtube' });
   if (msg.kind === 'pluginClientFile') fixtureClient(msg.id, { clientId: '492409157416-demo0000000000000000000000ds61.apps.googleusercontent.com', hasSecret: true, fileName: msg.path.split('/').pop() });
   if (msg.kind === 'setPluginClient') fixtureClient(msg.id, { clientId: msg.clientId, hasSecret: !!msg.clientSecret });
   if (msg.kind === 'clearPluginClient') {

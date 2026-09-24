@@ -1,5 +1,10 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import { terminateChild } from '../util/process.js';
+import { RpcError } from '../util/rpcError.js';
+import { CLI_KILL_GRACE_MS, RPC_IDLE_MS } from '../util/timeouts.js';
+
+export { RpcError };
 
 /**
  * Minimal line-delimited JSON-RPC 2.0 client over a child process's stdio —
@@ -130,7 +135,7 @@ export class JsonRpcProcess {
         // The code travels with the error: a caller has to be able to tell an
         // unimplemented method (-32601) from a refusal, and the message alone
         // ("Method not found") says nothing about which method it was.
-        entry.reject(Object.assign(new Error(err.message ?? 'JSON-RPC error'), { code: err.code }));
+        entry.reject(new RpcError(err.message ?? 'JSON-RPC error', err.code));
       } else {
         entry.resolve((msg.result ?? {}) as Record<string, unknown>);
       }
@@ -170,7 +175,7 @@ export class JsonRpcProcess {
    * `idleMs` ist kein Deckel auf die Laufzeit, sondern die längste erlaubte
    * Stille: jede eingehende Zeile stellt die Frist neu.
    */
-  request(method: string, params: unknown, idleMs = 120_000): Promise<Record<string, unknown>> {
+  request(method: string, params: unknown, idleMs = RPC_IDLE_MS): Promise<Record<string, unknown>> {
     const id = ++this.nextId;
     return new Promise((resolve, reject) => {
       const timer = this.arm(id, method, idleMs);
@@ -229,11 +234,7 @@ export class JsonRpcProcess {
     } catch {
       // ignore
     }
-    child.kill('SIGTERM');
-    const timer = setTimeout(() => {
-      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
-    }, 3000);
-    if (typeof timer.unref === 'function') timer.unref();
+    terminateChild(child, CLI_KILL_GRACE_MS);
   }
 }
 

@@ -1,18 +1,17 @@
 import { AgentApp } from './AgentApp.js';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { AccountStatusDto, ConversationMeta, HostToWebview, QueuedMessageDto } from '../src/panel/protocol.js';
-import type { TaskMetric } from '../../core/src/quota/metricsSchema.js';
 import { vscode } from './vscodeApi.js';
+import { tagsOf } from '../src/panel/tags.js';
 import { Transcript } from './components/Transcript.js';
 import { applyHostMessage, type TranscriptItem } from '../src/panel/transcript.js';
 import { Composer, type PinnedTarget } from './components/Composer.js';
 import { QueuedMessages } from './components/QueuedMessages.js';
 import { HistoryList } from './components/HistoryList.js';
 import { AccountsView } from './components/AccountsView.js';
-import { SettingsView } from './components/SettingsView.js';
 import { RulesView } from './components/RulesView.js';
 import { AnalyticsView } from './components/AnalyticsView.js';
-import { IconAccounts, IconGear, IconPlus, IconRoute, IconAnalytics } from './components/icons.js';
+import { IconAccounts, IconPlus, IconRoute, IconAnalytics } from './components/icons.js';
 
 declare global {
   interface Window {
@@ -23,7 +22,6 @@ declare global {
 const MODE: 'sidebar' | 'tab' | 'accounts' | 'rules' | 'analytics' | 'agent' =
   window.__CORTEX_MODE__ ?? 'tab';
 
-const HASHTAG_RE = /(^|\s)#([\w-]+)/g;
 
 export function App() {
   if (MODE === 'agent') return <AgentApp />;
@@ -229,7 +227,7 @@ function ChatApp() {
   const send = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    const tags = [...trimmed.matchAll(HASHTAG_RE)].map((m) => m[2]!);
+    const tags = tagsOf(trimmed);
     pinnedRef.current = true;
     vscode.postMessage({
       kind: 'send',
@@ -299,7 +297,6 @@ function ChatApp() {
           running={running}
           permissionMode={permissionMode}
           askPermission={askPermission}
-          routingMode={routingMode}
           attachments={attachments}
           onPickAttachments={() => vscode.postMessage({ kind: 'pickAttachments' })}
           onRemoveAttachment={(path) => setAttachments((prev) => prev.filter((p) => p !== path))}

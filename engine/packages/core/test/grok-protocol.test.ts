@@ -9,7 +9,7 @@ async function run(model: string, resumeSessionId?: string, extra: { prompt?: st
  return events;
 }
 it('never passes model arguments to the stdio subcommand', () => {
- expect(grokAcpArgs('grok-4.6')).toEqual(['agent','stdio']);
+ expect(grokAcpArgs()).toEqual(['agent','stdio']);
 });
 it('authenticates and selects the exact model for new and resumed sessions', async () => {
  for (const resume of [undefined, 'fake-session-1']) {

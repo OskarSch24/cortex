@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import * as vscode from 'vscode';
-import type { AccountProfile } from '@cortex/core';
+import { grokAuthOk, type AccountProfile } from '@cortex/core';
 import type { AccountStore } from './storage/accountStore.js';
 
 export type AuthHealth = 'ok' | 'expired' | 'unknown';
@@ -30,9 +30,7 @@ export async function probeAccount(
       }
       case 'grok': {
         if (!account.homeDir) return 'unknown';
-        const nested = join(account.homeDir, '.grok', 'auth.json');
-        const flat = join(account.homeDir, 'auth.json');
-        return existsSync(nested) || existsSync(flat) ? 'ok' : 'expired';
+        return grokAuthOk(account.homeDir) ? 'ok' : 'expired';
       }
       default:
         return account.hasSecret ? 'ok' : 'unknown';

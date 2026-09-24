@@ -165,14 +165,3 @@ export function shapeTask(input: TaskShapeInput): ShapedLine[] {
   const cap = task.complexity === 'trivial' || isContinuation(prompt) ? 1 : MAX_LINES;
   return lines.slice(0, cap);
 }
-
-/** Every id `shapeTask` can produce, for settings and tests. */
-export const SHAPE_LINE_IDS = [
-  'verify-with-check',
-  'verify-no-check',
-  'repro-first',
-  'criteria-first',
-  'name-scope',
-  'follow-pattern',
-  'scope-fence',
-] as const;

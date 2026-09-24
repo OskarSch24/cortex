@@ -70,7 +70,7 @@ with headless_browser(port=PORT) as browser:
     assert page.locator('.suggest-icon svg').count() == rows.count()
     assert popup.bounding_box()['width'] == 736
     assert popup.bounding_box()['height'] <= 320
-    assert popup.evaluate('e => getComputedStyle(e).backgroundColor') == 'rgb(45, 45, 45)'
+    assert popup.evaluate('e => getComputedStyle(e).backgroundColor') == 'rgb(29, 32, 36)'  # --cx-popover
     assert rows.first.evaluate('e => getComputedStyle(e).fontSize') == '13px'
     assert 'mono' not in page.locator('.suggest-label').first.evaluate('e => getComputedStyle(e).fontFamily').lower()
     expect(page.locator('.suggest-hint')).not_to_be_visible()

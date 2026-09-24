@@ -22,7 +22,7 @@ with headless_browser(port=4174) as browser:
     emit({'kind': 'pinnedTarget', 'target': {'provider': 'codex', 'account': 'privat', 'model': 'gpt-6-astra'}, 'standard': False})
     composer = page.locator('.composer')
     text = page.locator('.composer > textarea')
-    assert composer.evaluate('e => getComputedStyle(e).backgroundColor') == 'rgb(53, 53, 53)'
+    assert composer.evaluate('e => getComputedStyle(e).backgroundColor') == 'rgb(27, 30, 34)'  # --cx-composer
     assert abs(composer.bounding_box()['height'] - 98) <= 1, composer.bounding_box()
     assert composer.bounding_box()['width'] == 736
     composer.screenshot(path=str(OUT / 'codex-composer-empty.png'))
@@ -31,7 +31,7 @@ with headless_browser(port=4174) as browser:
     gallery = page.locator('.cx-templates')
     expect(page.locator('.cx-template')).to_have_count(7, timeout=20000)
     page.wait_for_function('Array.from(document.querySelectorAll(".cx-template-sheet img")).every(i => i.complete && i.naturalWidth > 0)')
-    assert gallery.evaluate('e => getComputedStyle(e).backgroundColor') == 'rgb(45, 45, 45)'
+    assert gallery.evaluate('e => getComputedStyle(e).backgroundColor') == 'rgb(31, 34, 39)'  # --cx-template-panel
     first = page.locator('.cx-template-sheet').first.bounding_box()
     assert first['width'] == 138 and first['height'] == 174, first
     expect(page.get_by_role('button', name='Vorherige Vorlagen')).to_be_disabled()

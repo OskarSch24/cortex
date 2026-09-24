@@ -1,5 +1,4 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { spawnLines } from '@cortex/core';
 import { appSymbol } from './icons.js';
@@ -8,6 +7,7 @@ import type {
   ExokortexStatusDto,
   ExokortexZustand,
 } from '../panel/protocol.js';
+import { profilesRoot } from '../paths.js';
 
 /**
  * Der Zustand des Exokortex, für die Seite.
@@ -210,7 +210,7 @@ function mitSymbolen(
 
 /** Profile, wie sie auf der Platte liegen — als Rückfall ohne Kontoliste. */
 export function profileAufDerPlatte(): Profil[] {
-  const wurzel = join(homedir(), '.cortex', 'profiles');
+  const wurzel = profilesRoot();
   if (!existsSync(wurzel)) return [];
   return readdirSync(wurzel).map((name) => {
     const [provider = name] = name.split('-');

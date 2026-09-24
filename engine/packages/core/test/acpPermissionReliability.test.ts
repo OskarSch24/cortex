@@ -13,6 +13,7 @@ vi.mock('../src/adapters/jsonRpc.js', async original => ({
     start() { mock.options!.signal.addEventListener('abort', () => mock.options!.onExit?.(null), { once: true }); }
     notify() {} dispose() {}
     async request(method: string) {
+      if (method === 'initialize') return { authMethods: [{ id: 'cached_token' }] }; // für Grok-Läufe
       if (method === 'session/new') return { sessionId: 'session' };
       if (method === 'session/prompt') return new Promise<object>(resolve => { mock.complete = resolve; });
       return {};
@@ -46,5 +47,29 @@ describe('ACP exact approval memory and user feedback (#97–98)', () => {
     expect(await mock.options!.onServerRequest!(request(1, { rawInput: { command: 'write a.txt' } }))).toEqual({ outcome: { outcome: 'selected', optionId: 'deny' } });
     await pending;
     expect(events.filter(event => event.type === 'deferred-instruction')).toEqual([{ type: 'deferred-instruction', text: 'Keep existing content' }]);
+  });
+});
+
+describe('Cortex-Suche (Exa Instant) bei Grok', () => {
+  const searchCall = { title: 'cortex_websearch__web_search', kind: 'other', locations: [], rawInput: { variant: 'UseTool', tool_name: 'cortex_websearch__web_search', tool_input: { query: 'q' } } };
+  const runGrok = (webSearch: object | undefined, signal: AbortSignal) => runAcp({ command: 'unused', args: [], env: process.env, configureGrokSession: true, req: { prompt: 'go', cwd: process.cwd(), permissionMode: 'safe', webSearch: webSearch as never }, signal, detectLimit: () => undefined });
+
+  it('gibt nur das eingehängte Suchwerkzeug im Nur-lesen-Modus frei', async () => {
+    const controller = new AbortController();
+    const server = { command: 'node', args: ['s.js'], env: {} };
+    const pending = (async () => { for await (const _ of runGrok({ mode: 'exa-instant', server }, controller.signal)) { /* leeren */ } })();
+    await ready();
+    expect(await mock.options!.onServerRequest!(request(1, searchCall))).toEqual({ outcome: { outcome: 'selected', optionId: 'once' } });
+    // Ein anderes MCP-Werkzeug bleibt im Nur-lesen-Modus gesperrt.
+    expect(await mock.options!.onServerRequest!(request(2, { ...searchCall, title: 'other__tool', rawInput: { tool_name: 'other__tool' } }))).toEqual({ outcome: { outcome: 'selected', optionId: 'deny' } });
+    mock.complete!({ stopReason: 'end_turn' }); await pending;
+  });
+
+  it('gibt ohne Exa-Wahl nichts frei, auch wenn der Name passt', async () => {
+    const controller = new AbortController();
+    const pending = (async () => { for await (const _ of runGrok(undefined, controller.signal)) { /* leeren */ } })();
+    await ready();
+    expect(await mock.options!.onServerRequest!(request(1, searchCall))).toEqual({ outcome: { outcome: 'selected', optionId: 'deny' } });
+    mock.complete!({ stopReason: 'end_turn' }); await pending;
   });
 });

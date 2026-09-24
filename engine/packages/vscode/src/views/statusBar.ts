@@ -9,7 +9,7 @@ const SHORT_PROVIDER: Record<string, string> = {
   openrouter: 'OpenRouter',
 };
 
-export function prettyTarget(target: Target): string {
+function prettyTarget(target: Target): string {
   const provider = SHORT_PROVIDER[target.provider] ?? target.provider;
   const model = target.model ? ` / ${target.model}` : '';
   return `${provider} · ${target.account}${model}`;

@@ -81,13 +81,13 @@ describe('Schwärzen', () => {
   it('entfernt den Apify-Token aus dem Chat, der Name bleibt', () => {
     const text = 'Ich habe einen Apify Token: apify_api_EXAMPLEexampleEXAMPLEexample000000 und APIFY_TOKEN=abc123def456ghi';
     const out = schwaerze(text);
-    expect(out).not.toContain('EXAMPLEex');
+    expect(out).not.toContain('ksviJ90');
     expect(out).not.toContain('abc123def456ghi');
     expect(out).toContain('APIFY_TOKEN=<geheim>');
   });
 
   it('schwärzt Passwörter in Verbindungs-URIs', () => {
-    expect(schwaerze('postgres://app:geheimespw@127.0.0.1:5433/app')).toBe('postgres://app:<geheim>@127.0.0.1:5433/app');
+    expect(schwaerze('postgres://nordwind:geheimespw@127.0.0.1:5433/nordwind')).toBe('postgres://nordwind:<geheim>@127.0.0.1:5433/nordwind');
   });
 });
 
@@ -230,7 +230,7 @@ describe('Erinnerung im Ablauf', () => {
     await erinnerung.nachAntwort('c1', { frage: 'Merk dir: wir nehmen apidojo', antwort: 'Ok.', verlauf: [] });
     expect(merkliste).toHaveLength(1);
     expect(merkliste[0]).toContain('apidojo');
-    expect(merkliste[0]).not.toContain('EXAMPLEex');
+    expect(merkliste[0]).not.toContain('ksviJ90');
   });
 
   it('schreibt die Merkliste als einlesbare Datei', () => {

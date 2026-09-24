@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import {
-  closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync,
-  readdirSync, renameSync, rmSync, watch, writeFileSync,
+  existsSync, lstatSync, mkdirSync, readFileSync,
+  readdirSync, renameSync, rmSync, watch,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { syncDirectory, writeFileAtomic } from '../../vscode/src/util/atomicWrite.js';
 
 type State = Record<string, unknown>;
 type WorkspaceStates = Record<string, State>;
@@ -14,7 +15,7 @@ export interface DesktopEncryption {
   decryptString(value: Buffer): string;
   isEncryptionAvailable(): boolean;
 }
-export interface DesktopStorageOptions {
+interface DesktopStorageOptions {
   userDataPath: string;
   /** Explicit source is useful for a one-time migration or an isolated fixture. */
   legacyUserDataPath?: string;
@@ -68,29 +69,13 @@ function fileText(path: string): string {
   if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_FILE_SIZE) throw new Error(STORE_ERROR);
   return readFileSync(path, 'utf8');
 }
-function syncDirectory(path: string): void {
-  const fd = openSync(path, 'r');
-  try { fsyncSync(fd); } finally { closeSync(fd); }
-}
-
 /** Commit before publishing a new in-memory value; a failed write keeps both old states. */
 function atomicWrite(path: string, value: unknown): void {
-  const temporary = join(dirname(path), `.${randomUUID()}.tmp`);
-  let fd: number | undefined;
   try {
     const text = `${JSON.stringify(value, null, 2)}\n`;
     if (Buffer.byteLength(text) > MAX_FILE_SIZE) throw new Error(STORE_ERROR);
-    fd = openSync(temporary, 'wx', 0o600);
-    writeFileSync(fd, text, 'utf8');
-    fsyncSync(fd);
-    closeSync(fd); fd = undefined;
-    renameSync(temporary, path);
-    syncDirectory(dirname(path));
+    writeFileAtomic(path, text, { mode: 0o600, fsync: true, syncDir: true, temporary: join(dirname(path), `.${randomUUID()}.tmp`) });
   } catch { throw new Error(STORE_ERROR); }
-  finally {
-    if (fd !== undefined) closeSync(fd);
-    rmSync(temporary, { force: true });
-  }
 }
 
 /** Settings.json is JSONC. Strip comments/trailing commas only outside strings. */
@@ -316,6 +301,8 @@ export function createDesktopStorage(options: DesktopStorageOptions) {
   settingsWatcher.on('error', () => emit(settingsErrorListeners, { message: 'Änderungen an der Einstellungsdatei konnten nicht überwacht werden.' }));
   return {
     root,
+    /** Die Einstellungsdatei, die dieser Speicher liest und beobachtet. */
+    settingsPath: join(root, FILES[2]),
     // Keep absolute attachment/workspace paths valid and keep automation leases shared.
     globalStoragePath: join(fileStorageRoot, 'User', 'globalStorage', EXTENSION),
     globalState: memento(() => global, next => { atomicWrite(join(root, FILES[0]), next); global = next; }),
@@ -370,5 +357,3 @@ export function createDesktopStorage(options: DesktopStorageOptions) {
     dispose(): void { disposed = true; clearTimeout(settingsTimer); settingsWatcher.close(); secretListeners.clear(); configListeners.clear(); settingsErrorListeners.clear(); },
   };
 }
-
-export type DesktopStorage = ReturnType<typeof createDesktopStorage>;

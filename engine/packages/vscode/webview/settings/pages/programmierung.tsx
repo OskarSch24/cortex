@@ -88,7 +88,7 @@ export function UmgebungenPage({ ctx }: { ctx: SettingsContext }) {
   const project = ctx.projects.find(p => p.path === path);
   if (path && mode === 'bearbeiten') return <EditEnvironment path={path} name={project?.name ?? path.split('/').pop() ?? ''} onDone={() => ctx.go({ id: 'umgebungen', sub: [path] })} />;
   if (path) return <ProjectEnvironment path={path} onCreate={() => ctx.go({ id: 'umgebungen', sub: [path, 'bearbeiten'] })} />;
-  return <Page title="Umgebungen" subtitle={<>Lokale Umgebungen geben Cortex vor, wie Worktrees für ein Projekt eingerichtet werden. <Link onClick={() => vscode.postMessage({ kind: 'openExternal', url: 'https://github.com/OskarSch24/cortex' })}>Mehr erfahren.</Link></>}>
+  return <Page title="Umgebungen" subtitle={<>Lokale Umgebungen geben Cortex vor, wie Worktrees für ein Projekt eingerichtet werden. <Link onClick={() => vscode.postMessage({ kind: 'openExternal', url: 'https://github.com/oskarschiermeister/cortex' })}>Mehr erfahren.</Link></>}>
     <Section title="Projekt auswählen" actions={<Button kind="ghost" onClick={() => vscode.postMessage({ kind: 'addProject' })}>Projekt hinzufügen</Button>}>
       <div class="cxs-project-list">
         {ctx.projects.map(p => <div class="cxs-project-card" key={p.path} role="button" tabIndex={0} onClick={() => ctx.go({ id: 'umgebungen', sub: [p.path] })} onKeyDown={e => { if (e.key === 'Enter') ctx.go({ id: 'umgebungen', sub: [p.path] }); }}>

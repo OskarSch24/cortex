@@ -1,5 +1,19 @@
 import * as vscode from 'vscode';
 import { spawn, type ChildProcess } from 'node:child_process';
+import {
+  MCP_TEMPLATE,
+  isReviewOnly,
+  type Target,
+} from '@cortex/core';
+import type { AdapterRegistry, QuotaTracker } from '@cortex/core';
+import type { AccountStore } from './storage/accountStore.js';
+import type { RulesManager } from './rules/rulesFile.js';
+import type { ChatViewProvider } from './panel/chatViewProvider.js';
+import type { RouterStatusBar } from './views/statusBar.js';
+import { addAccountWizard } from './onboarding/addAccount.js';
+import { openInTerminal } from './terminalMode.js';
+import { mirrorToProfiles, profileServers } from './plugins/profileServers.js';
+import { effectiveMcp, mcpPaths } from './plugins/scopes.js';
 
 /**
  * Hält den Mac wach, solange eine lange Aufgabe läuft.
@@ -29,27 +43,6 @@ class KeepAwake implements vscode.Disposable {
   }
   dispose(): void { this.process?.kill(); this.process = undefined; }
 }
-
-import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-import {
-  MCP_TEMPLATE,
-  isReviewOnly,
-  parseMcpFile,
-  syncMcpToProfile,
-  type McpServerDef,
-  type Target,
-} from '@cortex/core';
-import type { AdapterRegistry, QuotaTracker } from '@cortex/core';
-import type { AccountStore } from './storage/accountStore.js';
-import type { RulesManager } from './rules/rulesFile.js';
-import type { ChatViewProvider } from './panel/chatViewProvider.js';
-import type { RouterStatusBar } from './views/statusBar.js';
-import { addAccountWizard } from './onboarding/addAccount.js';
-import { openInTerminal } from './terminalMode.js';
-import { profileServers } from './plugins/profileServers.js';
-import { effectiveMcp } from './plugins/scopes.js';
 
 export function registerCommands(
   ctx: vscode.ExtensionContext,
@@ -116,10 +109,7 @@ export function registerCommands(
 
     vscode.commands.registerCommand('cortex.syncMcp', async () => {
       const ws = vscode.workspace.workspaceFolders?.[0];
-      const candidates = [
-        ws ? join(ws.uri.fsPath, '.cortex', 'mcp.json') : undefined,
-        join(homedir(), '.cortex', 'mcp.json'),
-      ].filter((c): c is string => !!c);
+      const candidates = mcpPaths(ws?.uri.fsPath).map((place) => place.path);
       const effective = effectiveMcp();
       if (effective.errors.length) {
         void vscode.window.showErrorMessage(`cortex: mcp.json invalid — ${effective.errors.join(' · ')}`);
@@ -144,10 +134,8 @@ export function registerCommands(
         }
         return;
       }
-      const results = accounts.all().map((account) => {
-        const error = syncMcpToProfile(account, servers);
-        return `${account.provider}:${account.label} ${error ? `✗ (${error})` : '✓'}`;
-      });
+      const results = mirrorToProfiles(accounts.all(), servers).map(({ account, error }) =>
+        `${account.provider}:${account.label} ${error ? `✗ (${error})` : '✓'}`);
       void vscode.window.showInformationMessage(
         `cortex: synced ${names.length} MCP server(s) → ${results.join(' · ')}. They load on each account's next run.`,
       );
@@ -186,8 +174,12 @@ export function registerCommands(
     // Symbol fest, nicht nach Zustand.
     vscode.commands.registerCommand('cortex.showFiles', () => chat.toolbarAction('files')),
     vscode.commands.registerCommand('cortex.hideFiles', () => chat.toolbarAction('files')),
+    // ⌥⌘B wie bei Codex: das ganze Dock ein und aus, samt seinen Reitern.
+    vscode.commands.registerCommand('cortex.toggleDock', () => chat.toolbarAction('dock')),
     vscode.commands.registerCommand('cortex.showChanges', () => chat.toolbarAction('changes')),
     vscode.commands.registerCommand('cortex.showCanvas', () => chat.toolbarAction('canvas')),
+    vscode.commands.registerCommand('cortex.showOverview', () => chat.toolbarAction('overview')),
+    vscode.commands.registerCommand('cortex.showVideo', () => chat.toolbarAction('video')),
     vscode.commands.registerCommand('cortex.showPreview', () => chat.openPreview()),
     vscode.commands.registerCommand('cortex.hidePreview', () => chat.openPreview()),
     vscode.commands.registerCommand('cortex.closeBrowser', () => chat.closeBrowser()),

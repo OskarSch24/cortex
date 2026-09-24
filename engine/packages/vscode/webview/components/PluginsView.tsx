@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import {
   CATEGORY_LABEL,
   PLUGIN_CATEGORIES,
@@ -8,21 +8,23 @@ import {
 } from '../../../core/src/plugins/catalog.js';
 import { needsAttention, serviceKey, type PluginStatus } from '../../../core/src/plugins/installed.js';
 import { pluginOverview, statusHint } from './pluginOverview.js';
-import type { HostToWebview, PluginScope, PluginScopeState } from '../../src/panel/protocol.js';
+import type { PluginScopeState } from '../../src/panel/protocol.js';
 import { useDismissiblePopup } from '../hooks/useDismissiblePopup.js';
 import { vscode } from '../vscodeApi.js';
 import { Glyph } from './CortexIcons.js';
+import { PluginSection } from './plugins/PluginSection.js';
+import { CatalogSection } from './plugins/CatalogSection.js';
+import { InstalledSection, type InstalledTile } from './plugins/InstalledSection.js';
+import { PluginToast } from './plugins/PluginToast.js';
+import { ProfilesSection } from './plugins/ProfilesSection.js';
+import { TemplatesTab } from './plugins/TemplatesTab.js';
+import { usePluginsHost } from './plugins/usePluginsHost.js';
 import { CATALOG } from './pluginCatalog.js';
 import { PluginDetail } from './PluginDetail.js';
 import { PluginMark } from './pluginIcons.js';
 
-type Plugins = Extract<HostToWebview, { kind: 'plugins' }>;
-type Templates = Extract<HostToWebview, { kind: 'templates' }>;
-type Progress = Extract<HostToWebview, { kind: 'pluginProgress' }>;
-type Live = Extract<HostToWebview, { kind: 'pluginLive' }>;
-
 /** Ein Abschnitt der Übersicht — entweder eine Kategorie oder eine Auswahl. */
-type SectionId = PluginCategory | 'featured' | 'popular' | 'fresh';
+export type SectionId = PluginCategory | 'featured' | 'popular' | 'fresh';
 
 /**
  * Wo man innerhalb der Plugins steht. Der Zustand liegt bewusst *außen*, in
@@ -63,53 +65,11 @@ export function PluginsView({
   onView: (next: PluginView) => void;
   onPrompt?: (text: string) => void;
 }) {
-  const [host, setHost] = useState<Plugins>();
-  const [templates, setTemplates] = useState<Templates>();
   const [tab, setTab] = useState<'plugins' | 'vorlagen'>('plugins');
-  const [scope, setScope] = useState<PluginScope>();
   const [query, setQuery] = useState('');
-  const [busy, setBusy] = useState<string>();
-  const [toast, setToast] = useState<Progress>();
-  const [syncing, setSyncing] = useState(false);
   const [menu, setMenu] = useState<string>();
   const menuRef = useDismissiblePopup<HTMLDivElement>(menu !== undefined, () => setMenu(undefined));
-
-  useEffect(() => {
-    const listen = (event: MessageEvent<HostToWebview>) => {
-      const msg = event.data;
-      if (msg?.kind === 'plugins') {
-        setHost(msg);
-        setSyncing(false);
-        setBusy(undefined);
-        // Der Ort richtet sich nach der Wirklichkeit: bringt das Projekt eine
-        // eigene mcp.json mit, ist sie gemeint — sonst die persönliche.
-        const preferred = (msg.scopes.find((s) => s.exists) ?? msg.scopes[0])?.id ?? 'persoenlich';
-        setScope((prev: PluginScope | undefined) => prev ?? preferred);
-      }
-      // Prüfergebnisse und Anmeldungen kommen nach, ohne dass die Seite fragt.
-      if (msg?.kind === 'pluginLive') {
-        const { kind: _kind, ...live } = msg as Live;
-        setHost((prev) => (prev ? { ...prev, ...live } : prev));
-      }
-      if (msg?.kind === 'templates') setTemplates(msg);
-      if (msg?.kind === 'pluginProgress') {
-        setToast(msg);
-        setBusy(undefined);
-      }
-    };
-    window.addEventListener('message', listen);
-    vscode.postMessage({ kind: 'getPlugins' });
-    vscode.postMessage({ kind: 'getTemplates' });
-    return () => window.removeEventListener('message', listen);
-  }, []);
-
-  useEffect(() => {
-    // Eine Meldung mit Knopf bleibt stehen, bis man ihn benutzt oder sie schließt.
-    if (!toast || toast.action) return;
-    const timer = setTimeout(() => setToast(undefined), 5200);
-    return () => clearTimeout(timer);
-  }, [toast]);
-
+  const { host, templates, scope, setScope, busy, setBusy, toast, setToast, syncing, setSyncing } = usePluginsHost();
   const { effective, servers, stateOf, variantsOf, statusOf, leadOf, cards, installedCards, ownServers: own, serverStatus } = pluginOverview(host);
   const active: PluginScopeState | undefined = host?.scopes.find((s) => s.id === scope) ?? host?.scopes[0];
   const loginOf = (entry: PluginEntry) => host?.logins?.[entry.server];
@@ -131,7 +91,7 @@ export function PluginsView({
    * offen“, nicht hier: erst verbinden, dann erscheint das Zeichen oben. Ein
    * roter Punkt heißt, dass ein verbundenes Plugin nicht mehr antwortet.
    */
-  const installedTiles: Array<{ key: string; icon?: string; name: string; hint: string; dot?: 'gelb' | 'rot'; open: () => void }> = [
+  const installedTiles: InstalledTile[] = [
     ...installedCards.filter((entry) => statusOf(entry).kind !== 'einrichtung').map((entry) => {
       const status = statusOf(entry);
       return {
@@ -375,34 +335,9 @@ export function PluginsView({
   };
 
   /** Ein Abschnitt zeigt sechs Karten; der Rest wandert in die Kategorieseite. */
-  const section = (
-    title: string,
-    id: SectionId,
-    entries: PluginEntry[],
-  ) => {
-    const list = cards(entries);
-    if (!list.length) return null;
-    const shown = list.slice(0, 6);
-    const rest = list.slice(6);
-    return (
-      <section class="cx-plugin-section" key={title}>
-        <div class="cx-plugin-section-head">
-          <h2>{title}</h2>
-        </div>
-        <div class="cx-plugin-grid">{shown.map(row)}</div>
-        {rest.length > 0 && (
-          <button class="cx-plugin-more" onClick={() => onView({ kind: 'category', id })}>
-            <span class="cx-plugin-stack">
-              {rest.slice(0, 3).map((entry) => (
-                <PluginMark key={entry.id} icon={entry.icon} name={entry.name} />
-              ))}
-            </span>
-            Siehe {rest.slice(0, 2).map((e) => e.name).join(', ')} und weitere
-          </button>
-        )}
-      </section>
-    );
-  };
+  const section = (title: string, id: SectionId, entries: PluginEntry[]) => (
+    <CatalogSection key={title} title={title} id={id} list={cards(entries)} row={row} onMore={(more) => onView({ kind: 'category', id: more })} />
+  );
 
   const detail = view.kind === 'detail' ? CATALOG.find((e) => e.id === view.id) : undefined;
   const categoryEntries = (id: SectionId) =>
@@ -419,29 +354,7 @@ export function PluginsView({
           Aktionen stehen deshalb in der Inhaltsspalte — wie bei Konten und
           Einstellungen. */}
       <div class="cx-plugins-scroll">
-        {toast && (
-          <div class={`cx-plugin-toast ${toast.ok ? '' : 'bad'}`} role={toast.ok ? 'status' : 'alert'}>
-            {/* Ein ✕ gibt es nur einmal: zum Schließen. Ein Fehler trägt das Warnzeichen. */}
-            <span class="cx-plugin-toast-mark" aria-hidden="true">
-              <Glyph name={toast.ok ? 'check' : 'warn'} size={15} />
-            </span>
-            <span class="cx-plugin-toast-text">{toast.message}</span>
-            {toast.action && (
-              <button
-                class="cx-plugin-pill"
-                onClick={() => {
-                  onView({ kind: 'detail', id: toast.action!.open });
-                  setToast(undefined);
-                }}
-              >
-                {toast.action.label}
-              </button>
-            )}
-            <button class="cx-icon" aria-label="Meldung schließen" onClick={() => setToast(undefined)}>
-              <Glyph name="close" size={12} />
-            </button>
-          </div>
-        )}
+        {toast && <PluginToast toast={toast} onView={onView} onClose={() => setToast(undefined)} />}
 
         <div class="cx-plugins-col">
           <div class="cx-plugins-bar">
@@ -521,33 +434,7 @@ export function PluginsView({
               <div class="cx-plugin-grid cx-plugin-grid-loose">{categoryEntries(view.id).map(row)}</div>
             </>
           ) : tab === 'vorlagen' ? (
-            <>
-              <div class="cx-plugins-head">
-                <h1>Vorlagen</h1>
-                <p>Bearbeitbare Dokumente, Präsentationen und Tabellen sowie deine eigenen Vorlagen.</p>
-              </div>
-              <section class="cx-plugin-section">
-                <div class="cx-plugin-section-head">
-                  <h2>Vorhanden</h2>
-                  <button onClick={() => vscode.postMessage({ kind: 'editTemplates' })}>Ordner öffnen</button>
-                </div>
-                <div class="cx-plugin-grid">
-                  {(templates?.items ?? []).map((item) => (
-                    <div class="cx-plugin-row" key={item.name}>
-                      <span class="cx-template-library-preview">{item.previewUrl ? <img src={item.previewUrl} alt="" /> : <PluginMark name={item.name} />}</span>
-                      <span class="cx-plugin-text">
-                        <strong>{item.name}</strong>
-                        <small>{item.artifactPath ? item.artifactPath.split('.').pop()?.toUpperCase() + ' · Bearbeitbare Vorlage' : item.body.trim().split('\n')[0]?.slice(0, 90)}</small>
-                      </span>
-                      <span class="cx-plugin-tag">{item.own ? 'eigen' : item.kind}</span>
-                    </div>
-                  ))}
-                </div>
-                {!templates?.items.length && (
-                  <p class="cx-plugin-empty">Noch keine Vorlagen. Dateien in templates/ erscheinen hier.</p>
-                )}
-              </section>
-            </>
+            <TemplatesTab templates={templates} />
           ) : (
             <>
               <div class="cx-plugins-head">
@@ -565,13 +452,10 @@ export function PluginsView({
               </div>
 
               {query.trim() ? (
-                <section class="cx-plugin-section">
-                  <div class="cx-plugin-section-head">
-                    <h2>Treffer</h2>
-                  </div>
+                <PluginSection title="Treffer">
                   <div class="cx-plugin-grid cx-plugin-grid-loose">{hits.map(row)}</div>
                   {!hits.length && <p class="cx-plugin-empty">Kein Plugin passt zu „{query}“.</p>}
-                </section>
+                </PluginSection>
               ) : (
                 <>
                   {/* Eine Reihe, keine Listen: was installiert ist, ist
@@ -579,81 +463,21 @@ export function PluginsView({
                       mcp.json steht oder wie Vektor eingebaut ist.
                       Beschriftungen stehen nicht darunter, sondern im Tooltip;
                       so bleibt die Reihe so ruhig wie in der Vorlage. */}
-                  <section class="cx-plugin-section">
-                    <div class="cx-plugin-section-head">
-                      <h2>Installiert</h2>
-                      <button
-                        class="cx-icon"
-                        title="mcp.json bearbeiten"
-                        aria-label="mcp.json bearbeiten"
-                        onClick={() => vscode.postMessage({ kind: 'editConnectors' })}
-                      >
-                        <Glyph name="gear" size={15} />
-                      </button>
-                    </div>
-                    <div class="cx-plugin-installed">
-                      {installedTiles.map((tile) => (
-                        <button key={tile.key} title={tile.hint} aria-label={tile.hint} onClick={tile.open}>
-                          <PluginMark icon={tile.icon} name={tile.name} size="sm" />
-                          {tile.dot && <i class={`cx-plugin-badge ${tile.dot}`} aria-hidden="true" />}
-                        </button>
-                      ))}
-                      {!installedTiles.length && (
-                        <p class="cx-plugin-empty">
-                          Noch nichts verbunden. Ein „+“ unten meldet ein Plugin an, prüft, ob es antwortet, und stellt es erst dann hierher.
-                        </p>
-                      )}
-                    </div>
-                    {host && (
-                      <div class="cx-plugin-scope" role="tablist" aria-label="Wohin neue Plugins geschrieben werden" title="Wohin „+“ ein neues Plugin schreibt — beide Dateien gelten zusammen">
-                        {host.scopes.map((s) => (
-                          <button
-                            key={s.id}
-                            role="tab"
-                            aria-selected={s.id === scope}
-                            title={s.path}
-                            onClick={() => setScope(s.id)}
-                          >
-                            {s.id === 'projekt' ? 'Projekt' : 'Persönlich'}
-                            {s.exists ? '' : ' · noch keine Datei'}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {host?.scopes.filter((s) => s.error).map((s) => (
-                      <p class="cx-plugin-empty" role="alert" key={s.id}>
-                        {s.path} ist nicht lesbar: {s.error}
-                      </p>
-                    ))}
-                    {effective.shadowed.length > 0 && (
-                      <p class="cx-plugin-empty">
-                        Die Projektdatei überschreibt {effective.shadowed.join(', ')} aus deiner persönlichen mcp.json.
-                      </p>
-                    )}
-                    {active && !active.exists && (
-                      <p class="cx-plugin-empty">Neue Plugins landen in {active.path} — die Datei entsteht beim ersten „+“.</p>
-                    )}
-                  </section>
+                  <InstalledSection tiles={installedTiles} host={host} scope={scope} setScope={setScope} effective={effective} active={active} />
 
                   {/* Ein installiertes Plugin, dem der Schlüssel fehlt, arbeitet
                       nicht — es gehört nach oben und nicht irgendwo in seine
                       Kategorie, wo man es erst suchen müsste. */}
                   {ownServers.length > 0 && (
-                    <section class="cx-plugin-section">
-                      <div class="cx-plugin-section-head">
-                        <h2>Eigene Server</h2>
-                      </div>
+                    <PluginSection title="Eigene Server">
                       <div class="cx-plugin-grid">{ownServers.map(ownRow)}</div>
-                    </section>
+                    </PluginSection>
                   )}
 
                   {needsSetup.length > 0 && (
-                    <section class="cx-plugin-section">
-                      <div class="cx-plugin-section-head">
-                        <h2>Einrichtung offen</h2>
-                      </div>
+                    <PluginSection title="Einrichtung offen">
                       <div class="cx-plugin-grid">{needsSetup.map(row)}</div>
-                    </section>
+                    </PluginSection>
                   )}
 
                   {section('Wichtige Plugins', 'featured', CATALOG.filter((e) => e.featured))}
@@ -664,26 +488,7 @@ export function PluginsView({
                   )}
 
                   {host && host.accounts.length > 0 && (Object.keys(servers).length > 0 || !!builtIn) && (
-                    <section class="cx-plugin-section">
-                      <div class="cx-plugin-section-head">
-                        <h2>In diesen Profilen</h2>
-                      </div>
-                      <div class="cx-plugin-targets">
-                        {host.accounts.map((account) => (
-                          <span
-                            key={`${account.provider}:${account.label}`}
-                            class={account.error ? 'failed' : ''}
-                            title={account.error}
-                          >
-                            <Glyph name={account.error ? 'close' : 'check'} size={12} />
-                            {account.provider}:{account.label}
-                          </span>
-                        ))}
-                      </div>
-                      <p class="cx-plugin-empty">
-                        Eine Definition, die nur bei einem Anbieter ankommt, ist kein halber Erfolg.
-                      </p>
-                    </section>
+                    <ProfilesSection accounts={host.accounts} />
                   )}
                 </>
               )}

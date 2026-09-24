@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { HostToWebview } from '../../src/panel/protocol.js';
+import { useHostMessage } from '../hooks/useHostMessage.js';
 import { vscode } from '../vscodeApi.js';
 import { Glyph } from './CortexIcons.js';
 import { useDismissiblePopup } from '../hooks/useDismissiblePopup.js';
@@ -29,14 +30,8 @@ export function TemplateStrip({ onPick, onClose, initialCategory = 'dokument', c
     const el = rail.current;
     if (el) setEdges({ start: el.scrollLeft <= 1, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 2 });
   };
-  useEffect(() => {
-    const listen = (event: MessageEvent<HostToWebview>) => {
-      if (event.data?.kind === 'templates') { setItems(event.data.items); setLoaded(true); }
-    };
-    window.addEventListener('message', listen);
-    vscode.postMessage({ kind: 'getTemplates' });
-    return () => window.removeEventListener('message', listen);
-  }, []);
+  useHostMessage('templates', msg => { setItems(msg.items); setLoaded(true); });
+  useEffect(() => { vscode.postMessage({ kind: 'getTemplates' }); }, []);
   useLayoutEffect(() => {
     if (!rail.current) return;
     rail.current.scrollLeft = 0;

@@ -1,55 +1,37 @@
 import { MessageQueue, type QueuedMessage } from './messageQueue.js';
 import { ActiveClock } from './activeClock.js';
 import { createForkWorkspace, workspaceRunKey } from './forkWorkspace.js';
-import { NATIVE_SETTINGS, validNativeSetting } from './nativeSettings.js';
-import { readFilePreview } from './filePreview.js';
-import { compactionPlan, validCompactionSummary, workingHistory, type ContextCompaction } from './contextCompaction.js';
-import { searchConversations } from './conversationSearch.js';
-import { duplicateTemplate, readTemplateEntries, renameTemplate, type TemplateEntry } from './templates.js';
+import { NATIVE_SETTINGS } from './nativeSettings.js';
+import { compactionPlan, validCompactionSummary, workingHistory } from './contextCompaction.js';
 import { TeamStore } from '../teams/store.js';
 import { TeamRunner } from '../teams/runner.js';
 import { AutomationRuntime, AutomationSkippedError } from '../automations/runtime.js';
 import type { AutomationSource } from '../automations/types.js';
-import { MAX_TEAM_AGENTS, teamAgentEffort, teamAgentPrompt, validateTeam, type AgentTeam, type TeamAgent, type TeamJob, type TeamResources } from '../teams/types.js';
+import { teamAgentEffort, teamAgentPrompt, type AgentTeam, type TeamAgent, type TeamJob, type TeamResources } from '../teams/types.js';
 import { modelOption } from '../../../core/src/models/catalog.js';
 import * as vscode from 'vscode';
-import { execFile, spawn } from 'node:child_process';
-import { mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
-import { basename, relative, join, extname, dirname, isAbsolute } from 'node:path';
-import { captureBaseline, captureTurnEnd, collectDiff, expandHome, inspectWorkspace, planRevert, projectFile, projectRelative, revertFingerprint, restoreRevertFile, safeRevertPath, validProject, type Baseline } from './workspace.js';
+import { execFile } from 'node:child_process';
+import { mkdir, readFile, stat } from 'node:fs/promises';
+import { basename, relative, join, dirname } from 'node:path';
+import { captureBaseline, captureTurnEnd, inspectWorkspace, projectRelative, validProject, type Baseline } from './workspace.js';
 import { HtmlPreviewServer } from './htmlPreview.js';
-import { IMAGE_FILE, imagePreviewData, saveImageData, stageImage } from './imageAttachments.js';
+import { IMAGE_FILE, imagePreviewData, stageImage } from './imageAttachments.js';
 import { archiveGeneratedImage } from './imageArchive.js';
-import { addAccountWizard, respondToConnection } from '../onboarding/addAccount.js';
-import { installManagedClaude } from '../onboarding/installClaude.js';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import type { OpenRouterCatalog } from '../openrouterCatalog.js';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { asksForCanvas, canvasSections, touchesCanvas, CANVAS_LANG, MCP_TEMPLATE, OAuthError, ownClientRedirect, clientFromFields, parseClientJson, parseMcpFile, pluginFields, usesAgentLogin, usesLogin, spawnLines, syncMcpToProfile, parseCatalog, readSkills, withServer, withoutServer, type McpServerDef, type PluginEntry } from '@cortex/core';
-import {
-  CONNECTOR_NAME,
-  connectorIdentity,
-  currentStudioHost,
-  STUDIO_WANTED_KEY,
-  databaseStudioServer,
-  loadConnectorIdentity,
-  withBuiltInConnectors,
-} from '../database/index.js';
+import { asksForVideo, pluginFields, readSkills, type McpServerDef } from '@cortex/core';
 import type { PluginCredentials } from '../plugins/credentials.js';
 import type { PluginConnections } from '../plugins/connections.js';
-import { loginToServer, loginWithOwnClient, type LoginStep } from '../plugins/oauthLogin.js';
-import { AGENT_LOGIN_PROVIDERS, claudeMcpLogin, claudeMcpSight, codexMcpLogin, grokConnectorSight } from '../plugins/agentLogin.js';
 import { profileServers } from '../plugins/profileServers.js';
-import { effectiveMcp, readScopes } from '../plugins/scopes.js';
 import type { PluginSwitches } from '../plugins/switches.js';
-import { sightInClis, type CliTarget } from '../plugins/cliSight.js';
-import type { CliSight } from '@cortex/core';
+import { openRouterExaSearch, type WebSearchResult, type WebSearchSetup } from '@cortex/core';
+import type { WebSearchBridge } from '../websearch/websearchBridge.js';
 import {
   Orchestrator,
   SessionStore,
   QuotaTracker,
   AdapterRegistry,
-  ClaudeAdapter,
-  getAccountIdentity,
   formatTarget,
   matchSlashCommand,
   parseMention,
@@ -78,7 +60,6 @@ import {
   type ConversationContext,
   type LiveRunHandle,
   type PermissionMode,
-  type ResolvedAccount,
   type Target,
   type TaskMetric,
 } from '@cortex/core';
@@ -91,121 +72,77 @@ import type { RulesManager } from '../rules/rulesFile.js';
 import type {
   AccountStatusDto,
   ConversationMeta,
-  ExokortexAction,
   HostToWebview,
-  Page,
-  PluginLiveState,
-  PluginScope,
-  PluginScopeState,
   ProjectDto,
   WebviewToHost,
-  GalaxieKnoten,
 } from './protocol.js';
 import { compactLog } from './transcript.js';
-import { composerText, latestCheckpoint, rewindPlan } from './rewind.js';
+import { latestCheckpoint, rewindPlan } from './rewind.js';
 
 import { applyPinnedTarget } from './pinnedTarget.js';
-import { XCODE_READINESS, xcodeTarget } from './xcode.js';
-import { checkApp, checkApps } from '../plugins/appChecks.js';
-import { imageAccountOrder, imagePrompt, imageRoots, isGeneratedImage, isImageProvider, sanitizeImageOptions, suggestedImageName, underRoot } from './images.js';
-import { copyGeneratedImage, removeGeneratedImageBackground, resizeGeneratedImage } from './nativeImages.js';
+import { imageAccountOrder, imagePrompt, imageRoots, isGeneratedImage, isImageProvider, underRoot } from './images.js';
+import { removeGeneratedImageBackground } from './nativeImages.js';
 import { ExokortexExport } from '../storage/exokortexExport.js';
-import { leseStatus, profileAufDerPlatte, type ExokortexPfade } from '../exokortex/status.js';
-import { fuehreAus } from '../exokortex/actions.js';
 import { StatusWatch } from '../exokortex/watch.js';
 import { Erinnerung, erinnerungsEinstellungen } from '../memory/host.js';
 import { exokortexAbruf } from '../memory/exokortexAbruf.js';
 import { schreibeMerkliste } from '../memory/merkliste.js';
 import { trefferFuerAnzeige, type Helfer } from '../memory/erinnerung.js';
-import { ComputerHistoryService } from '../history/service.js';
-import { HistoryBridge } from '../history/bridge.js';
+import type { HistoryBridge } from '../history/bridge.js';
 import type { HistorySettings } from '../history/types.js';
+import { tagsOf } from './tags.js';
+import {
+  CONV_KEY,
+  FORK_POINTS_KEY,
+  MAX_BASELINES,
+  MAX_CONVERSATIONS,
+  NATIVE_SESSIONS_KEY,
+  QUEUE_KEY,
+  REPLAYED_KINDS,
+  projectlessDir,
+  SEEN_TURNS_KEY,
+  SYSTEM_BRIEFS_KEY,
+  TASK_BRIEFS_KEY,
+  type ConversationRecord,
+  type Surface,
+} from './panelTypes.js';
+import { bindDomain, combineHandlers, type HandlerTable, type MessageContext } from './host/dispatch.js';
+import { pushAnalytics, pushRules, rulesAnalyticsHandlers, rulesMessage } from './host/rulesAnalytics.js';
+import { shellTable, titlebarContext, type ShellHost } from './host/shell.js';
+import { templateHandlers } from './host/templateHandlers.js';
+import { locationBrief, locationHandlers } from './host/location.js';
+import { RemotionHost, remotionTable, type RemotionPanelHost } from './host/remotion.js';
+import { ExokortexPanel, exokortexPfade, exokortexTable, type ExokortexPanelHost } from './host/exokortex.js';
+import { connectorHandlers, pushConnectors } from './host/connectors.js';
+import { PluginPanel, type PluginPanelHost } from './host/plugins/pluginPanel.js';
+import { PluginSetup } from './host/plugins/pluginSetup.js';
+import { pluginTable } from './host/plugins/pluginHandlers.js';
+import { SettingsHost, modesMessage, settingsTable } from './host/settings.js';
+import { AccountsPanel, accountTable, openRouterCatalogMessage, type AccountsPanelHost } from './host/accounts.js';
+import { fileTable, type FilesHost } from './host/files.js';
+import { SidePanes, sidePaneTable, type SidePaneHost } from './host/sidePanes.js';
+import { imageTable, type ImagesHost } from './host/images.js';
+import { projectTable, type ProjectsHost } from './host/projects.js';
+import { CanvasHost, canvasTable, type CanvasPanelHost } from './host/canvas.js';
+import { historyTable, startHistoryBridge, type HistoryHost } from './host/computerHistory.js';
+import { teamTable, type TeamsHost } from './host/teams.js';
+import { conversationTable, type ConversationsHost } from './host/conversations.js';
+import { rewindTable, type RewindHost } from './host/rewind.js';
+import { queueTable, type QueueHost } from './host/queue.js';
 
-const REPLAYED_KINDS = new Set<HostToWebview['kind']>([
-  'userEcho',
-  'routing',
-  'delta',
-  'image',
-  'toolUse',
-  // A lane's opening and its verdict are worth keeping; the progress ticks in
-  // between are live-only and would bloat every stored conversation.
-  'agentStart',
-  'agentEnd',
-  'downgraded',
-  'notice',
-  'failover',
-  'review',
-  'tasks',
-  'permission',
-  'permissionResolved',
-  'done',
-  'stopped',
-  'error',
-  'rated',
-]);
-
-/** `#hashtags` become routing tags — the same thing the panel derives on send. */
-function tagsOf(text: string): string[] {
-  return [...text.matchAll(/(^|\s)#([\w-]+)/g)].map((m) => m[2]!);
-}
-
-interface ConversationRecord {
-  id: string;
-  title: string;
-  /** Archiviert: bleibt gespeichert, erscheint aber nicht mehr in der Leiste. */
-  archived?: boolean;
-  pinned?: boolean;
-  contextCompaction?: ContextCompaction;
-  projectPath?: string;
-  pinnedTarget?: Target;
-  createdAt: number;
-  updatedAt: number;
-  /** Transcript messages, replayed to hydrate a (re)opened tab. */
-  log: HostToWebview[];
-  /** Plain turns used to seed engine history after a reload. */
-  turns: Array<{ role: 'user' | 'assistant'; text: string; by?: string }>;
-  /** Projektstand vor jedem Auftrag, je Antwort — für „Rückgängig machen“. */
-  baselines?: Record<string, Baseline>;
-  /** Notizzettel: was in diesem Chat feststeht, für jedes Modell, das hier antwortet. */
-  notizen?: string;
-  /** User interactions belong to each concrete widget in this transcript. */
-  widgetStates?: Record<string, unknown>;
-  /** Provider protocols without an in-turn denial message receive these next turn. */
-  pendingPermissionNotes?: string[];
-  /** Team membership is frozen for this conversation, including its tool scope. */
-  teamAgent?: TeamAgent;
-  teamWorkspace?: string;
-}
-
-/** So viele Stände bleiben je Chat; ältere Aufträge lassen sich nicht mehr zurücknehmen. */
-const MAX_BASELINES = 20;
-
-interface Surface {
-  mode: 'sidebar' | 'tab' | 'accounts' | 'rules' | 'analytics' | 'agent';
-  conversationId?: string;
-  /** Erst die Webview bestätigt ihre tatsächlich gerenderte Seite. */
-  page?: Page;
-}
-
-const CONV_KEY = 'cortex.conversations';
-const QUEUE_KEY = 'cortex.messageQueues';
-const NATIVE_SESSIONS_KEY = 'cortex.nativeSessions';
-const FORK_POINTS_KEY = 'cortex.forkPoints';
-/** Wie viele Chatnachrichten jede Sitzung schon gelesen hat — für das Nachreichen nach Modellwechseln. */
-const SEEN_TURNS_KEY = 'cortex.seenTurns';
-const TASK_BRIEFS_KEY = 'cortex.taskBriefs';
-const SYSTEM_BRIEFS_KEY = 'cortex.systemBriefs';
-const PINNED_KEY = 'cortex.pinnedTarget';
-const APP_SETTINGS_KEY = 'cortex.appSettings';
-/** Vorgabe, solange im Modellknopf nichts gewählt ist. */
-const DEFAULT_MODEL = 'claude-opus-5';
-const MAX_CONVERSATIONS = 50;
+/** Alles, was die Bereiche unter host/ vom Provider erreichen. */
+type ProviderBridge = ShellHost & RemotionPanelHost & ExokortexPanelHost & PluginPanelHost & AccountsPanelHost & FilesHost & SidePaneHost & ImagesHost & ProjectsHost & CanvasPanelHost & HistoryHost & TeamsHost & ConversationsHost & RewindHost & QueueHost;
 
 /**
  * Claude-panel style layout: the sidebar webview is a session list only;
  * each conversation opens as its own editor tab (one tab per conversation,
  * revealed if already open). Conversations persist across reloads.
  */
+/** Ein Lauf, der am Nutzungslimit eines Kontos endete — dann lohnt ein anderes Konto. */
+export function isLimitError(message: string | undefined): boolean {
+  return /usage limit|rate.?limit|quota|limit reached|hit limits|kontingent|limit erreicht|insufficient.?credit/i.test(message ?? '');
+}
+
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   static readonly viewType = 'cortex.chat';
   /** Same list, docked in the secondary side bar (top right) instead. */
@@ -239,6 +176,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private terminalDockVisible = false;
   /** Liefert HTML-Dateien für das Dock als Seiten aus — ein Server je Projekt. */
   private htmlPreview = new HtmlPreviewServer();
+  /** Das Video eines Chats (host/remotion.ts) — erst beim ersten Zugriff angelegt. */
+  private remotionHost?: RemotionHost;
+  private get remotion(): RemotionHost {
+    return this.remotionHost ??= new RemotionHost(this.panelHost);
+  }
   private computerHistoryBridge?: HistoryBridge<vscode.Webview>;
   private queues = new MessageQueue(
     (id, message) => this.runQueuedMessage(id, message),
@@ -257,18 +199,48 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   >();
   private persistTimer?: NodeJS.Timeout;
   private disposing = false;
-  private providerInstallation = false;
   /** Durable copy of every chat, outside globalState and outside the cap. */
   private exokortex = new ExokortexExport();
   /** Läuft nur, solange jemand die Exokortex-Seite offen hat. */
   private exokortexWatch = new StatusWatch({
     intervallMinuten: Math.max(1, vscode.workspace.getConfiguration('cortex')
       .get<number>('exokortex.statusIntervalMinutes', 5)),
-    tick: () => this.pushExokortex(),
+    tick: () => this.exokortexPanel.push(),
   });
-  private exokortexLaeuft = new Map<string, AbortController>();
+  /** Die Exokortex-Seite (host/exokortex.ts) — erst beim ersten Zugriff angelegt. */
+  private exokortexPanelInstance?: ExokortexPanel;
+  private get exokortexPanel(): ExokortexPanel {
+    return this.exokortexPanelInstance ??= new ExokortexPanel(this.panelHost);
+  }
+  /** Die Plugin-Seite (host/plugins/) — erst beim ersten Zugriff angelegt, auch vom Schlüsselbund aus. */
+  private pluginSetupInstance?: PluginSetup;
+  private get pluginSetup(): PluginSetup {
+    return this.pluginSetupInstance ??= new PluginSetup(new PluginPanel(this.panelHost));
+  }
+  private get plugins(): PluginPanel {
+    return this.pluginSetup.panel;
+  }
+  /** Einstellungen, Modi und gewähltes Modell (host/settings.ts) — erst beim ersten Zugriff angelegt. */
+  private settingsInstance?: SettingsHost;
+  private get settings(): SettingsHost {
+    return this.settingsInstance ??= new SettingsHost(this.panelHost);
+  }
+  /** Konten und Anbieter (host/accounts.ts) — erst beim ersten Zugriff angelegt. */
+  private accountsHostInstance?: AccountsPanel;
+  private get accountsHost(): AccountsPanel {
+    return this.accountsHostInstance ??= new AccountsPanel(this.panelHost);
+  }
+  /** Browser, Terminal und Datei-Dock (host/sidePanes.ts); ihr Zustand bleibt am Provider. */
+  private panesInstance?: SidePanes;
+  private get panes(): SidePanes {
+    return this.panesInstance ??= new SidePanes(this.panelHost);
+  }
+  /** Die Zeichenfläche (host/canvas.ts); was offen und gespeichert ist, bleibt am Provider. */
+  private canvasInstance?: CanvasHost;
+  private get canvas(): CanvasHost {
+    return this.canvasInstance ??= new CanvasHost(this.panelHost);
+  }
   private onTargetChosen?: (target: Target) => void;
-  private onPinnedChanged?: (target: Target | undefined) => void;
   private authHealth?: Map<string, 'ok' | 'expired' | 'unknown'>;
   private usageRefresher?: (live?: boolean) => Promise<void>;
   private identities = new Map<string, string>();
@@ -307,8 +279,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private crowdedThreads = new Set<string>();
   /** Notizzettel und Exokortex-Abruf — das Gedächtnis über Modellwechsel und Chats hinweg. */
   private erinnerung = new Erinnerung({
-    einstellungen: () => erinnerungsEinstellungen(this.appSettings()),
-    abrufen: (auftrag, signal) => exokortexAbruf(this.exokortexPfade())(auftrag, signal),
+    einstellungen: () => erinnerungsEinstellungen(this.settings.appSettings()),
+    abrufen: (auftrag, signal) => exokortexAbruf(exokortexPfade(this.ctx))(auftrag, signal),
     fragen: (target, prompt, signal) => this.askOffThread(target, prompt, signal),
     helfer: (modus, zuletzt) => this.erinnerungsHelfer(modus, zuletzt),
     notizLesen: id => this.conversations.get(id)?.notizen,
@@ -342,23 +314,23 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const offQuota = quota.onDidChange(() => this.pushAccounts());
     // Wie ein Server Client und Token bekommt, steht im Katalog — die Spiegelung
     // braucht es auch dann, wenn die Plugin-Seite nie geöffnet wurde.
-    pluginCredentials.setDeliveries(server => this.catalog().find(e => e.server === server)?.requires?.client);
-    pluginCredentials.setRequirements(server => { const entry = this.catalog().find(e => e.server === server); return entry ? pluginFields(entry) : []; });
+    pluginCredentials.setDeliveries(server => this.plugins.catalog().find(e => e.server === server)?.requires?.client);
+    pluginCredentials.setRequirements(server => { const entry = this.plugins.catalog().find(e => e.server === server); return entry ? pluginFields(entry) : []; });
     ctx.subscriptions.push(
       // Prüfergebnisse und Anmeldungen kommen, während die Seite offen ist —
       // auch aus anderen Fenstern. Jede Fläche erfährt sie, nicht nur die, auf
       // der geklickt wurde.
-      pluginCredentials.onDidChange(() => this.broadcastPluginLive()),
-      pluginConnections.onDidChange(() => this.broadcastPluginLive()),
+      pluginCredentials.onDidChange(() => this.plugins.broadcastPluginLive()),
+      pluginConnections.onDidChange(() => this.plugins.broadcastPluginLive()),
       // Ein- oder ausgeschaltet: sofort in die Profile, damit der nächste Zug es weiß.
       pluginSwitches.onDidChange(() => {
-        this.resyncProfiles();
-        this.broadcastPluginLive();
+        this.plugins.resyncProfiles();
+        this.plugins.broadcastPluginLive();
       }),
-      { dispose: () => { for (const login of this.pluginLogins.values()) login.abort.abort(); } },
+      { dispose: () => { for (const login of this.pluginSetupInstance?.panel.pluginLogins.values() ?? []) login.abort.abort(); } },
       vscode.workspace.onDidChangeConfiguration(event => {
         if (NATIVE_SETTINGS.some(setting => event.affectsConfiguration(setting.key))) {
-          for (const [webview] of this.surfaces) this.pushNativeSettings(webview);
+          for (const [webview] of this.surfaces) this.settings.pushNativeSettings(webview);
         }
       }),
       vscode.workspace.onDidChangeWorkspaceFolders(() => this.pushProjects()),
@@ -368,22 +340,22 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       accounts.onDidChange(() => {
         this.pushAccounts();
         // A freshly authed account gets its identity/usage without reopening.
-        void this.loadIdentities();
+        void this.accountsHost.loadIdentities();
         void this.usageRefresher?.();
       }),
       rules.onDidChange(() => {
         this.pushAccounts();
-        this.pushRules();
+        pushRules(this.panelHost);
       }),
       // An open analytics tab follows every recorded run live.
-      metrics.onDidChange(() => this.pushAnalytics()),
+      metrics.onDidChange(() => pushAnalytics(this.panelHost)),
       // Closed from the editor's own UI: drop the handle so the toolbar stops
       // offering to close something that is already gone.
       vscode.window.onDidCloseTerminal(terminal => {
         if (terminal !== this.sidePanes.terminal) return;
         this.sidePanes.terminal = undefined;
         this.terminalDockVisible = false;
-        this.pushPanes();
+        this.panes.pushPanes();
       }),
       { dispose: offQuota },
       {
@@ -400,6 +372,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       },
       { dispose: () => this.exokortexWatch.dispose() },
       { dispose: () => this.htmlPreview.dispose() },
+      { dispose: () => this.remotionHost?.dispose() },
       { dispose: () => this.computerHistoryBridge?.dispose() },
       { dispose: () => this.automationRuntime?.dispose() },
     );
@@ -460,74 +433,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   /** Manual, scheduled and webhook runs use exactly the same saved profile. */
-  /**
-   * Macht aus einer Schwarm-Karte ein Team und startet es.
-   *
-   * Der Schwarm wird als gewöhnliches Profil gespeichert: der Runner findet
-   * einen Lauf nur über den Speicher, und so bleibt der Schwarm unter „Aktive
-   * Agenten“ sicht-, stopp- und wiederholbar. Dieselbe Karte schreibt immer
-   * dasselbe Profil, statt bei jedem Start ein neues anzulegen.
-   */
-  private async startSwarm(msg: Extract<WebviewToHost, { kind: 'startSwarm' }>, conversationProject?: string): Promise<void> {
-    const task = msg.task.trim();
-    if (!task) throw new Error('Gib einen Auftrag ein, bevor der Schwarm startet.');
-    if (!/^[a-zA-Z0-9_-]{1,100}$/.test(msg.swarmId)) throw new Error('Ungültige Schwarmkennung.');
-    const count = Math.min(MAX_TEAM_AGENTS, Math.max(1, Math.floor(msg.count)));
-    const store = this.teams();
-    store.refresh();
-    if (store.error) throw new Error(store.error);
-    if (store.runs.some(run => run.teamId === msg.swarmId && run.status === 'running')) throw new Error('Dieser Schwarm arbeitet bereits.');
-    // Dieselbe Prüfung wie im Executor, damit eine automatisch besetzte Rolle
-    // nicht sofort an einem abgelaufenen oder erschöpften Konto scheitert.
-    const usable = this.accounts.all().find(account => !account.disabled
-      && ['claude', 'codex', 'grok', 'copilot'].includes(account.provider)
-      && this.authHealth?.get(account.id) !== 'expired'
-      && this.quota.availability(account.id).available);
-    const chosen = msg.agentIds
-      .map(id => store.teams.find(team => team.id === id && team.kind === 'agent'))
-      .filter((team): team is AgentTeam => !!team);
-    if (chosen.length < count && !usable) throw new Error('Für die automatisch besetzten Rollen ist kein Konto verfügbar.');
-    const agents: TeamAgent[] = [];
-    for (let slot = 0; slot < count; slot++) {
-      const picked = chosen[slot];
-      const role = picked?.agents[0];
-      if (picked && role) {
-        // Eigene Kopie wie bei „Gespeicherten Agenten hinzufügen“: eine spätere
-        // Änderung am Profil soll einen laufenden Schwarm nicht verändern.
-        agents.push({ ...structuredClone(role), id: `swarm-agent-${slot + 1}`, name: picked.name, dependsOn: [] });
-        continue;
-      }
-      const proposed = msg.proposed[slot - chosen.length];
-      agents.push({
-        id: `swarm-agent-${slot + 1}`,
-        name: (proposed?.name?.trim() || `Rolle ${slot + 1}`).slice(0, 80),
-        role: (proposed?.role ?? '').slice(0, 200),
-        instructions: (proposed?.instructions ?? '').slice(0, 20_000),
-        target: { provider: usable!.provider, account: usable!.label },
-        // Automatisch besetzte Rollen arbeiten nur lesend: sie sind ungeprüft,
-        // und nur lesende Rollen dürfen sich den Arbeitsordner teilen.
-        permissionMode: 'safe',
-        skillPaths: [],
-        dependsOn: [],
-      });
-    }
-    const existing = store.teams.find(team => team.id === msg.swarmId);
-    const project = conversationProject && this.projects().some(entry => entry.path === conversationProject)
-      ? conversationProject : existing?.projectPath;
-    const team = validateTeam({
-      id: msg.swarmId,
-      kind: 'team',
-      name: `Schwarm · ${task.replace(/\s+/g, ' ').slice(0, 60)}`,
-      description: 'Aus einer Schwarm-Karte im Chat gestartet.',
-      instructions: '',
-      ...(project ? { projectPath: project } : {}),
-      agents,
-      updatedAt: Date.now(),
-    });
-    store.save(team, store.revision);
-    await this.startTeam(team.id, task);
-  }
-
   private async startTeam(id: string, task: string, source?: AutomationSource) {
     const store = this.teams(); store.refresh();
     if (store.error) throw new Error(store.error);
@@ -554,12 +459,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private teamResources(): TeamResources {
     const skills: TeamResources['skills'] = [];
-    const roots = [...this.skillRoots(), join(homedir(), '.agents', 'skills')];
+    const roots = [...this.plugins.skillRoots(), join(homedir(), '.agents', 'skills')];
     for (const root of [...new Set(roots)]) for (const name of readSkills([root])) {
       const path = join(root, name, 'SKILL.md');
       if (!skills.some(skill => skill.path === path)) skills.push({ name, path });
     }
-    const servers = Object.entries(profileServers(this.definedServers())).map(([name, server]) => ({ name, title: this.catalog().find(entry => entry.server === name)?.name ?? name, providers: server.providers }));
+    const servers = Object.entries(profileServers(this.plugins.definedServers())).map(([name, server]) => ({ name, title: this.plugins.catalog().find(entry => entry.server === name)?.name ?? name, providers: server.providers }));
     return { servers, skills };
   }
 
@@ -578,7 +483,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (agent.mcpServers === undefined) return undefined;
     const unsupported = scopedMcpUnsupportedMessage(agent.target.provider, {});
     if (unsupported) throw new Error(unsupported);
-    const available = profileServers(this.definedServers());
+    const available = profileServers(this.plugins.definedServers());
     return Object.fromEntries(agent.mcpServers.map(name => {
       const definition = available[name];
       if (!definition || (definition.providers && !definition.providers.includes(agent.target.provider))) throw new Error(`Der MCP „${name}“ ist für ${agent.name} nicht verfügbar. Prüfe Verbindung und Anbieterzuordnung.`);
@@ -625,6 +530,26 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (!held.writers && !held.readers) this.projectRuns.delete(key);
   }
 
+  /** Ein Chat, den eine Rolle eines Teams oder Schwarms führt (Hintergrundprozess). */
+  isTeamConversation(id: string | undefined): boolean {
+    return !!(id && this.conversations.get(id)?.teamAgent);
+  }
+
+  /**
+   * Zu welchem Schwarm ein Rollen-Chat gehört: der Lauf kennt den Chat der
+   * Rolle, die Schwarmkennung `swarm-<Ursprungs-Chat>-…` den Chat, der ihn
+   * gestartet hat. So gilt es auch für Rollen, die vor dieser Zuordnung liefen.
+   */
+  private swarmOf(conversationId: string): { origin?: string; shared: boolean } | undefined {
+    if (!this.conversations.get(conversationId)?.teamAgent) return undefined;
+    const store = this.teams();
+    const run = store.runs.find(entry => entry.jobs.some(job => job.conversationId === conversationId));
+    if (!run) return undefined;
+    const team = store.teams.find(entry => entry.id === run.teamId);
+    const origin = /^swarm-([a-zA-Z0-9]+)-/.exec(run.teamId)?.[1];
+    return { ...(origin && this.conversations.has(origin) ? { origin } : {}), shared: !!team?.sharedWorkspace };
+  }
+
   private async runTeamAgent(team: AgentTeam, agent: TeamAgent, task: string, upstream: TeamJob[], signal: AbortSignal, update: (change: Partial<TeamJob>) => void): Promise<string> {
     const effort = teamAgentEffort(agent);
     // Pin the catalog default so a local CLI configuration cannot change the
@@ -645,8 +570,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (!team.projectPath) await mkdir(workspace, { recursive: true });
     else if (!existsSync(workspace)) throw new Error('Der zugewiesene Projektordner fehlt.');
     const lock = await workspaceRunKey(workspace);
-    // Nur lesende Rollen dürfen sich den Ordner teilen; wer schreiben darf, bekommt ihn allein.
-    const writes = agent.permissionMode !== 'safe';
+    // Nur lesende Rollen dürfen sich den Ordner teilen; wer schreiben darf, bekommt ihn allein —
+    // außer im Schwarm, dessen Rollen je ihren eigenen Teil bearbeiten.
+    const writes = agent.permissionMode !== 'safe' && !team.sharedWorkspace;
     while (!this.holdProject(lock, writes)) {
       update({ status: 'waiting', activity: writes ? 'Wartet auf den laufenden Auftrag im Projekt' : 'Wartet auf eine Schreibpause im Projekt' });
       if (signal.aborted) throw new Error('Auftrag angehalten.');
@@ -654,7 +580,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
     if (signal.aborted) { this.releaseProject(lock, writes); throw new Error('Auftrag angehalten.'); }
     const rec: ConversationRecord = {
-      id: shortId(), title: team.kind === 'agent' ? team.name : `${team.name} · ${agent.name}`, projectPath: team.projectPath,
+      // Im Schwarm zählt die Rolle: die Chats stehen unter ihrem Ursprungs-Chat, und der Teamname wäre bei allen gleich.
+      id: shortId(), title: team.kind === 'agent' ? team.name : team.sharedWorkspace ? `${agent.name} · Schwarm` : `${team.name} · ${agent.name}`, projectPath: team.projectPath,
       teamWorkspace: workspace, teamAgent: structuredClone(agent), pinnedTarget: target,
       createdAt: Date.now(), updatedAt: Date.now(), log: [], turns: [],
     };
@@ -668,6 +595,28 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const prompt = teamAgentPrompt(team, agent, task, upstream, skills);
       this.toConversation(rec.id, { kind: 'userEcho', text: prompt, at: Date.now() });
       await this.runTask(rec.id, applyPinnedTarget(prompt, target), [], { target, effort, permissionMode: agent.permissionMode, routingMode: 'manual' });
+      // Im Schwarm weicht eine Rolle, deren Konto mitten im Lauf ins Limit
+      // läuft, auf das nächste freie Konto aus, statt zu scheitern.
+      const tried = new Set([`${agent.target.provider}\n${agent.target.account}`]);
+      for (;;) {
+        if (signal.aborted) throw new Error('Auftrag angehalten.');
+        const last = [...rec.log].reverse().find(message => ['done', 'error', 'stopped'].includes(message.kind));
+        if (!team.sharedWorkspace || last?.kind !== 'error' || !isLimitError(last.message)) break;
+        const next = this.accounts.all().find(account => !account.disabled
+          && ['claude', 'codex', 'grok', 'copilot'].includes(account.provider)
+          && !tried.has(`${account.provider}\n${account.label}`)
+          && this.authHealth?.get(account.id) !== 'expired'
+          && this.quota.availability(account.id).available);
+        if (!next) break;
+        tried.add(`${next.provider}\n${next.label}`);
+        const fallback = this.teamExecutionTarget({ provider: next.provider, account: next.label });
+        rec.pinnedTarget = fallback;
+        if (rec.teamAgent) rec.teamAgent = { ...rec.teamAgent, target: { provider: next.provider, account: next.label }, effort: undefined };
+        update({ activity: `Limit erreicht · weiter mit ${next.label}` });
+        this.toConversation(rec.id, { kind: 'notice', text: `Das Konto hat sein Limit erreicht. ${agent.name} arbeitet mit ${next.label} (${next.provider}) weiter.` });
+        const resume = `Dein vorheriges Konto hat mitten im Auftrag sein Nutzungslimit erreicht. Prüfe zuerst, was im Ordner von deinem Teil schon erledigt ist, und mach dort weiter.\n\n${prompt}`;
+        await this.runTask(rec.id, applyPinnedTarget(resume, fallback), [], { target: fallback, effort: teamAgentEffort({ target: fallback }), permissionMode: agent.permissionMode, routingMode: 'manual' });
+      }
       if (signal.aborted) throw new Error('Auftrag angehalten.');
       const terminal = [...rec.log].reverse().find(message => ['done', 'error', 'stopped'].includes(message.kind));
       if (terminal?.kind === 'error') throw new Error(terminal.message);
@@ -683,45 +632,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /** Der lokale Computerverlauf (host/computerHistory.ts) — erst beim ersten Bedarf gestartet. */
   private historyBridge(): HistoryBridge<vscode.Webview> {
-    if (this.computerHistoryBridge) return this.computerHistoryBridge;
-    const indicator = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 95);
-    indicator.name = 'Cortex Computerverlauf';
-    indicator.command = 'cortex.pauseComputerHistory';
-    let indicatorLive = true;
-    let indicatorPending = false;
-    const updateIndicator = async () => {
-      if (!indicatorLive || indicatorPending) return;
-      indicatorPending = true;
-      try {
-        const state = await service.state();
-        if (!indicatorLive) return;
-        if (!state.settings.enabled) { indicator.hide(); return; }
-        indicator.text = state.running ? '$(record) Verlauf lokal' : '$(history) Verlauf wartet';
-        indicator.tooltip = `${state.status} — Klicken, um die Erfassung zu pausieren.`;
-        indicator.show();
-      } catch { if (indicatorLive) indicator.hide(); }
-      finally { indicatorPending = false; }
-    };
-    const service = new ComputerHistoryService({
-      directory: join(this.ctx.globalStorageUri.fsPath, 'computer-history'),
-      helperPath: join(this.ctx.extensionUri.fsPath, 'dist', 'history-tool'),
-      secrets: this.ctx.secrets,
-      loadSettings: () => this.ctx.globalState.get<HistorySettings>('cortex.computerHistory.v1'),
-      saveSettings: settings => this.ctx.globalState.update('cortex.computerHistory.v1', settings),
-      changed: () => { void this.computerHistoryBridge?.notify(); void updateIndicator(); },
-    });
-    this.ctx.subscriptions.push(
-      { dispose: () => { indicatorLive = false; indicator.dispose(); } },
-      vscode.commands.registerCommand('cortex.pauseComputerHistory', () => service.configure({ enabled: false })),
-    );
-    this.computerHistoryBridge = new HistoryBridge(service,
-      (webview, message) => this.safePost(webview, message), webview => this.surfaces.has(webview));
-    void service.start().then(async () => { await this.computerHistoryBridge?.notify(); await updateIndicator(); }).catch(() => {
-      // No captured content or native-process diagnostics in the general output channel.
-      this.output.appendLine('[computer-history] Lokaler Verlauf konnte nicht gestartet werden.');
-    });
-    return this.computerHistoryBridge;
+    return this.computerHistoryBridge ?? startHistoryBridge(this.panelHost);
   }
 
   setTargetListener(cb: (target: Target) => void): void {
@@ -729,12 +642,53 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   setPinnedListener(cb: (target: Target | undefined) => void): void {
-    this.onPinnedChanged = cb;
+    this.settings.onPinnedChanged = cb;
     cb(this.shownTarget());
   }
 
   setAuthHealth(map: Map<string, 'ok' | 'expired' | 'unknown'>): void {
     this.authHealth = map;
+  }
+
+  private webSearchBridge?: WebSearchBridge;
+  setWebSearchBridge(bridge: WebSearchBridge): void {
+    this.webSearchBridge = bridge;
+  }
+
+  /**
+   * Die Websuche eines Agenten für einen Lauf. Ein Agent sucht immer mit der
+   * Wahl aus seinem Profil (fehlt sie, mit der eigenen Suche des Anbieters);
+   * Exa Instant läuft über OpenRouter und braucht dafür ein OpenRouter-Konto.
+   */
+  private async teamWebSearch(agent: TeamAgent, conversationId: string): Promise<WebSearchSetup> {
+    const mode = agent.webSearch ?? 'standard';
+    if (mode !== 'exa-instant') return { mode };
+    if (!this.openRouterSearchAccount()) throw new Error(`${agent.name} sucht mit Exa Instant über OpenRouter — dafür fehlt ein OpenRouter-Konto mit Schlüssel (Einstellungen → Konto).`);
+    if (!this.webSearchBridge) throw new Error('Die Exa-Suche ist in diesem Fenster nicht verfügbar.');
+    return { mode, server: await this.webSearchBridge.serverFor(conversationId) };
+  }
+
+  /** Das OpenRouter-Konto, über das Exa-Suchen der CLI-Agenten laufen. */
+  private openRouterSearchAccount() {
+    return this.accounts.all().find(account => account.provider === 'openrouter' && !account.disabled && account.hasSecret);
+  }
+
+  /** Eine Exa-Instant-Suche für den Suchserver eines Agenten (websearchBridge.ts). */
+  async webSearchFor(_conversationId: string, query: string, maxResults: number | undefined): Promise<WebSearchResult[]> {
+    const account = this.openRouterSearchAccount();
+    const key = account ? (await this.accounts.getSecret(account.id))?.trim() : undefined;
+    if (!key) throw new Error('Für die Exa-Suche fehlt ein OpenRouter-Konto mit Schlüssel (Einstellungen → Konto).');
+    return (await openRouterExaSearch(key, query, { maxResults, signal: AbortSignal.timeout(40_000) })).results;
+  }
+
+  private openRouter?: OpenRouterCatalog;
+  setOpenRouterCatalog(catalog: OpenRouterCatalog): void {
+    this.openRouter = catalog;
+    // Neue Liste oder andere Favoriten: Modellmenü und Kontoseite ziehen nach.
+    catalog.onDidChange(() => {
+      this.pushAccounts();
+      for (const [webview] of this.surfaces) this.safePost(webview, openRouterCatalogMessage(this.openRouter));
+    });
   }
 
   private visibleConversationId(): string | undefined {
@@ -752,7 +706,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       if (!existsSync(project)) throw new Error('Projektordner nicht gefunden. Weise dem Projekt über die Projektauswahl einen neuen Ordner zu.');
       return project;
     }
-    const directory = join(this.ctx.globalStorageUri.fsPath, 'projectless', id ?? 'scratch');
+    const directory = projectlessDir(this.ctx.globalStorageUri.fsPath, id ?? 'scratch');
     await mkdir(directory, { recursive: true });
     return directory;
   }
@@ -820,45 +774,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     for (const [webview] of this.surfaces) this.safePost(webview, { kind: 'projects', projects });
   }
 
-  /** Werte der Einstellungsseiten ohne eigenen `cortex.*`-Schalter. */
-  private appSettings(): Record<string, unknown> {
-    return this.ctx.globalState.get<Record<string, unknown>>(APP_SETTINGS_KEY, {});
-  }
-
-  private settingsWrites: Promise<void> = Promise.resolve();
-  private settingsRevision = 0;
-
-  private async storeAppSetting(key: string, value: unknown, requestId?: string): Promise<void> {
-    const write = async () => {
-      let error: string | undefined;
-      try {
-        if (!/^[a-zA-Z][\w.:/-]{0,160}$/.test(key)) throw new Error('Ungültiger Einstellungsschlüssel.');
-        const next = { ...this.appSettings() };
-        if (value === undefined || value === null) delete next[key];
-        else {
-          const encoded = JSON.stringify(value);
-          if (encoded === undefined || encoded.length > 64_000) throw new Error('Einstellungswert ist zu groß.');
-          next[key] = JSON.parse(encoded);
-        }
-        await this.ctx.globalState.update(APP_SETTINGS_KEY, next);
-      } catch (failure) { error = String(failure); }
-      const message: HostToWebview = { kind: 'appSettings', values: this.appSettings(), revision: ++this.settingsRevision, ack: requestId ? { key, requestId, error } : undefined };
-      for (const [w] of this.surfaces) this.safePost(w, message);
-      if (error) void vscode.window.showErrorMessage(error);
-    };
-    this.settingsWrites = this.settingsWrites.then(write, write);
-    await this.settingsWrites;
-  }
-
-  private pushNativeSettings(webview: vscode.Webview, error?: string, ack?: { key: string; requestId: string; error?: string }): void {
-    const config = vscode.workspace.getConfiguration();
-    const values = Object.fromEntries(NATIVE_SETTINGS.map(setting => {
-      const inspected = config.inspect(setting.key);
-      return [setting.key, inspected?.globalValue ?? inspected?.defaultValue];
-    }));
-    this.safePost(webview, { kind: 'nativeSettings', values, error, revision: ++this.settingsRevision, ack });
-  }
-
   private async pushWorkspace(webview: vscode.Webview, directory = ''): Promise<void> {
     const id = this.surfaces.get(webview)?.conversationId ?? '';
     const workspace = await inspectWorkspace(this.projectRoot(id), directory);
@@ -866,48 +781,24 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   pinnedTarget(id = this.visibleConversationId()): Target | undefined {
-    const rec = id ? this.conversations.get(id) : undefined;
-    return rec ? rec.pinnedTarget : this.ctx.globalState.get<Target>(PINNED_KEY);
+    return this.settings.pinnedTarget(id);
   }
 
-  /**
-   * Was der Modellknopf zeigt und womit gesendet wird: die eigene Wahl, sonst
-   * Opus 5 auf dem ersten Claude-Konto, das gerade Aufträge annehmen kann. Die
-   * Vorgabe wird nicht gespeichert — `pinnedTarget` bleibt leer, damit eine
-   * zweite Meinung weiter nur dann entfällt, wenn wirklich jemand gewählt hat.
-   * Eine Wahl ohne Modell auf einem Claude-Konto bekommt ebenfalls Opus 5.
-   */
+  /** Was der Modellknopf zeigt und womit gesendet wird — siehe SettingsHost.shownTarget. */
   shownTarget(id = this.visibleConversationId()): Target | undefined {
-    const pinned = this.pinnedTarget(id);
-    if (pinned?.model || (pinned && pinned.provider !== 'claude')) return pinned;
-    const usable = (a: AccountStatusDto) => a.provider === 'claude' && !a.reviewOnly && a.authState !== 'expired';
-    const claude = pinned
-      ? this.accountDtos().find(a => usable(a) && a.label === pinned.account)
-      : this.accountDtos().find(a => usable(a) && a.available) ?? this.accountDtos().find(usable);
-    return claude ? { provider: 'claude', account: claude.label, model: DEFAULT_MODEL } : pinned;
+    return this.settings.shownTarget(id);
   }
 
   private pinnedMessage(id = this.visibleConversationId()): HostToWebview {
-    return { kind: 'pinnedTarget', target: this.shownTarget(id), standard: !this.pinnedTarget(id) };
+    return this.settings.pinnedMessage(id);
   }
 
-  async setPinnedTarget(target: Target | undefined, id = this.visibleConversationId()): Promise<void> {
-    const rec = id ? this.conversations.get(id) : undefined;
-    if (rec) { rec.pinnedTarget = target; this.persistSoon(); }
-    else await this.ctx.globalState.update(PINNED_KEY, target);
-    const shown = this.shownTarget(id);
-    this.onPinnedChanged?.(shown);
-    for (const [webview, surface] of this.surfaces) {
-      if ((surface.mode === 'tab' || surface.mode === 'agent') && (!id || surface.conversationId === id)) {
-        this.safePost(webview, this.pinnedMessage(id));
-      }
-    }
+  setPinnedTarget(target: Target | undefined, id = this.visibleConversationId()): Promise<void> {
+    return this.settings.setPinnedTarget(target, id);
   }
 
   private pushPinned(): void {
-    for (const [webview, surface] of this.surfaces) {
-      if (surface.mode === 'tab' || surface.mode === 'agent') this.safePost(webview, this.pinnedMessage(surface.conversationId));
-    }
+    this.settings.pushPinned();
   }
 
   /** True when this account pays per token, so a reported cost is real money. */
@@ -1046,7 +937,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (surface.mode === 'agent') void this.pushTitlebarContext();
     // Die Eingabeleiste schlägt Konnektoren als Erwähnung vor — dafür muss sie
     // ihre Namen kennen, ohne danach fragen zu müssen.
-    void this.pushConnectors(webview);
+    void pushConnectors(this.panelHost, webview);
   }
 
   /**
@@ -1077,6 +968,22 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /** Ein Editor-Reiter für eine der Cortex-Seiten, mit dem Cortex-Symbol. */
+  private createTab(viewType: string, title: string): vscode.WebviewPanel {
+    const panel = vscode.window.createWebviewPanel(
+      viewType,
+      title,
+      vscode.ViewColumn.Active,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: this.resourceRoots(),
+      },
+    );
+    panel.iconPath = vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'tab-icon.svg');
+    return panel;
+  }
+
   /** Opens (or reveals) the editor tab bound to a conversation. */
   openConversationTab(id: string): void {
     const rec = this.conversations.get(id);
@@ -1086,17 +993,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (this.safeReveal(existing)) return;
     if (existing) this.panels.delete(id);
 
-    const panel = vscode.window.createWebviewPanel(
-      'cortex.chatTab',
-      rec.title || 'New chat',
-      vscode.ViewColumn.Active,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: this.resourceRoots(),
-      },
-    );
-    panel.iconPath = vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'tab-icon.svg');
+    const panel = this.createTab('cortex.chatTab', rec.title || 'New chat');
     this.panels.set(id, panel);
     this.attach(panel.webview, { mode: 'tab', conversationId: id });
     panel.onDidDispose(() => {
@@ -1122,17 +1019,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
     if (this.safeReveal(this.accountsPanel)) return;
     this.accountsPanel = undefined;
-    const panel = vscode.window.createWebviewPanel(
-      'cortex.accountsTab',
-      'cortex · Accounts',
-      vscode.ViewColumn.Active,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: this.resourceRoots(),
-      },
-    );
-    panel.iconPath = vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'tab-icon.svg');
+    const panel = this.createTab('cortex.accountsTab', 'cortex · Accounts');
     this.accountsPanel = panel;
     this.attach(panel.webview, { mode: 'accounts' });
     panel.onDidDispose(() => {
@@ -1145,17 +1032,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   openRulesTab(): void {
     if (this.safeReveal(this.rulesPanel)) return;
     this.rulesPanel = undefined;
-    const panel = vscode.window.createWebviewPanel(
-      'cortex.rulesTab',
-      'cortex · Rules',
-      vscode.ViewColumn.Active,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: this.resourceRoots(),
-      },
-    );
-    panel.iconPath = vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'tab-icon.svg');
+    const panel = this.createTab('cortex.rulesTab', 'cortex · Rules');
     this.rulesPanel = panel;
     this.attach(panel.webview, { mode: 'rules' });
     panel.onDidDispose(() => {
@@ -1168,17 +1045,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   openAnalyticsTab(): void {
     if (this.safeReveal(this.analyticsPanel)) return;
     this.analyticsPanel = undefined;
-    const panel = vscode.window.createWebviewPanel(
-      'cortex.analyticsTab',
-      'cortex · Analytics',
-      vscode.ViewColumn.Active,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: this.resourceRoots(),
-      },
-    );
-    panel.iconPath = vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'tab-icon.svg');
+    const panel = this.createTab('cortex.analyticsTab', 'cortex · Analytics');
     this.analyticsPanel = panel;
     this.attach(panel.webview, { mode: 'analytics' });
     panel.onDidDispose(() => {
@@ -1209,77 +1076,22 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     await this.dispatchMessage({ kind: 'closeBrowser' }, webview);
   }
 
-  /**
-   * Das untere Dock: ein Terminal über die volle Breite rechts der Seitenleiste.
-   *
-   * Neben dem Chat hätte es keine Kopfzeile und keinen Weg heraus; das Panel
-   * bringt beides mit. `cortex.terminalLocation: "beside"` bleibt als
-   * ausdrückliche Ausnahme bestehen — wer sie gesetzt hat, hat sie gemeint.
-   */
-  private openTerminalDock(cwd?: string): void {
-    const beside = vscode.workspace.getConfiguration('cortex').get<string>('terminalLocation', 'panel') === 'beside';
-    const existing = this.sidePanes.terminal;
-    // Ein zweiter Aufruf soll die laufende Sitzung zeigen, nicht ersetzen —
-    // sonst verliert jedes Wiederöffnen den Verlauf der Shell.
-    const terminal = existing ?? vscode.window.createTerminal({
-      name: 'Cortex',
-      cwd,
-      ...(beside ? { location: { viewColumn: vscode.ViewColumn.Beside } } : {}),
-    });
-    terminal.show();
-    this.sidePanes.terminal = terminal;
-    this.terminalDockVisible = true;
-    this.pushPanes();
-    void this.pushDockContexts();
+  /** Excalidraw-Flächen, die gerade im Dock offen sind: Chat → ihr Inhalt als Text. */
+  private readonly canvasSeen = new Map<string, string>();
+  /** Beschreibung der gespeicherten Zeichnung eines Chats; `null` heißt: keine. */
+  private readonly canvasSaved = new Map<string, string | null>();
+
+  /** Der Terminal-Knopf oben rechts — siehe SidePanes.toggleTerminalDock. */
+  toggleTerminalDock(): Promise<void> {
+    return this.panes.toggleTerminalDock();
   }
 
-  /** Verstecken, nicht beenden: `closePanel` lässt die Shell laufen. */
-  private async hidePanel(): Promise<void> {
-    const known = await vscode.commands.getCommands(true);
-    if (known.includes('workbench.action.closePanel')) {
-      await vscode.commands.executeCommand('workbench.action.closePanel');
-    }
-  }
-
-  /**
-   * Der Terminal-Knopf oben rechts. Zweimal drücken heißt auf und wieder zu —
-   * und dazwischen bleibt die Sitzung stehen.
-   */
-  async toggleTerminalDock(): Promise<void> {
-    if (this.sidePanes.terminal && this.terminalDockVisible) {
-      this.terminalDockVisible = false;
-      await this.hidePanel();
-      this.pushPanes();
-      await this.pushDockContexts();
-      return;
-    }
-    const surface = this.agentPanel ? this.surfaces.get(this.agentPanel.webview) : undefined;
-    this.openTerminalDock(await this.conversationCwd(surface?.conversationId));
-  }
-
-  /**
-   * Was die Knöpfe der Titelleiste als aktiv zeichnen dürfen.
-   *
-   * Der Zustand des Datei-Docks liegt in der Webview; er kommt als `dockState`
-   * herein. Browser und Terminal kennt der Provider selbst.
-   */
+  /** Ob das Datei-Dock der Webview offen ist; es meldet sich als `dockState`. */
   private dockOpen = false;
 
-  /**
-   * Diese Werkzeuge bedienen ausschließlich die Hauptfläche im Chatmodus.
-   * Sichtbar statt aktiv: Browser und Terminal dürfen den Fokus übernehmen,
-   * ohne dass dabei ihre Schließen-Schalter aus der Titelleiste verschwinden.
-   */
+  /** Siehe titlebarContext in host/shell.ts. */
   private pushTitlebarContext(): Thenable<unknown> {
-    const panel = this.agentPanel;
-    const chatVisible = Boolean(panel?.visible && this.surfaces.get(panel.webview)?.page === 'chat');
-    return vscode.commands.executeCommand('setContext', 'cortex.chatToolsVisible', chatVisible);
-  }
-
-  private async pushDockContexts(): Promise<void> {
-    await vscode.commands.executeCommand('setContext', 'cortex.filesOpen', this.dockOpen);
-    await vscode.commands.executeCommand('setContext', 'cortex.browserOpen', this.sidePanes.browser);
-    await vscode.commands.executeCommand('setContext', 'cortex.terminalOpen', Boolean(this.sidePanes.terminal) && this.terminalDockVisible);
+    return titlebarContext(this.panelHost);
   }
 
   /**
@@ -1495,11 +1307,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     return { id, echo: plan.echo };
   }
 
-  /** Legt den Text einer Nachricht wieder ins Eingabefeld des Chats. */
-  private seedComposer(id: string, echo: Extract<HostToWebview, { kind: 'userEcho' }>): void {
-    this.toConversation(id, { kind: 'composerSeed', text: composerText(echo.text), attachments: echo.attachments }, { log: false });
-  }
-
   /** Archiviert bleibt der Chat erhalten, verschwindet aber aus der Leiste. */
   async archiveChat(conversationId = this.visibleConversationId()): Promise<void> {
     const rec = conversationId ? this.conversations.get(conversationId) : undefined;
@@ -1612,828 +1419,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     await this.deleteConversation(rec.id);
   }
 
-  toolbarAction(action: 'files' | 'changes' | 'canvas' | 'browser' | 'terminal' | 'sidebar' | 'project'): void {
+  toolbarAction(action: 'files' | 'dock' | 'changes' | 'canvas' | 'video' | 'browser' | 'terminal' | 'sidebar' | 'project' | 'overview'): void {
     if (action === 'terminal') { void this.toggleTerminalDock(); return; }
     if (action === 'browser') { void this.openPreview(); return; }
     if (!this.agentPanel) return;
     this.safeReveal(this.agentPanel);
     this.safePost(this.agentPanel.webview, { kind: 'toolbar', action });
-  }
-
-  /** Real Office templates ship with their previews and instructions; personal text templates still work. */
-  private templateEntries(webview: vscode.Webview): TemplateEntry[] {
-    return readTemplateEntries(
-      join(this.ctx.extensionUri.fsPath, 'templates'),
-      join(homedir(), '.cortex', 'templates'),
-      path => webview.asWebviewUri(vscode.Uri.file(path)).toString(),
-    );
-  }
-
-  private readTemplates(webview: vscode.Webview): Extract<HostToWebview, { kind: 'templates' }>['items'] {
-    return this.templateEntries(webview).map(entry => entry.item);
-  }
-
-  /**
-   * Wo die Konnektoren definiert sind. Ein Projekt darf eine eigene Datei
-   * mitbringen; sonst gilt die persönliche.
-   */
-  private connectorPaths(): string[] {
-    const ws = vscode.workspace.workspaceFolders?.[0];
-    return [
-      ws ? join(ws.uri.fsPath, '.cortex', 'mcp.json') : undefined,
-      join(homedir(), '.cortex', 'mcp.json'),
-    ].filter((p): p is string => !!p);
-  }
-
-  /**
-   * Der ausgelieferte Plugin-Katalog. Er ändert sich nur mit einem Build, wird
-   * also einmal gelesen und behalten. Fällt er aus, bleibt die Seite leer statt
-   * halb gefüllt — ein halber Katalog wäre schlechter als ein sichtbar leerer.
-   */
-  private catalogCache?: PluginEntry[];
-  private catalog(): PluginEntry[] {
-    if (this.catalogCache) return this.catalogCache;
-    try {
-      const file = vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'plugins', 'catalog.json');
-      const parsed = parseCatalog(readFileSync(file.fsPath, 'utf8'));
-      this.catalogCache = parsed.ok ? parsed.catalog.entries : [];
-    } catch {
-      this.catalogCache = [];
-    }
-    return this.catalogCache;
-  }
-
-  /**
-   * Beide möglichen Orte für mcp.json — nicht nur der gerade gewinnende. Wer
-   * einen Server einträgt, muss sehen können, ob er im Projekt landet oder
-   * überall gilt.
-   */
-  private pluginScopes(): PluginScopeState[] {
-    return readScopes();
-  }
-
-  /** Wo Skills wirklich liegen: in den verwalteten Profilen und beim Nutzer selbst. */
-  private skillRoots(): string[] {
-    const roots = [join(homedir(), '.claude', 'skills'), join(homedir(), '.cortex', 'skills')];
-    for (const account of this.accounts.all()) {
-      if (account.homeDir) roots.push(join(account.homeDir, '.claude', 'skills'));
-    }
-    return [...new Set(roots)];
-  }
-
-  /**
-   * Der Zustand der Plugin-Seite. Über die Leitung geht nur, was sich ändern
-   * kann — der Katalog selbst liegt im Bündel des Webviews.
-   */
-  private async pushPlugins(webview: vscode.Webview, sync = false): Promise<void> {
-    const scopes = this.pluginScopes();
-    const effective = effectiveMcp(scopes);
-    const defined = effective.servers;
-    // Gespiegelt wird immer die volle Menge: `syncMcpToProfile` entfernt jeden
-    // Server, der nicht im übergebenen Satz steht — den eingebauten hier
-    // wegzulassen hieße, ihn bei jedem Übertragen aus den Profilen zu werfen.
-    // Die Zugangsdaten gehen dabei mit; ohne sie nähme jede Spiegelung einem
-    // verbundenen Plugin den Zugang.
-    const servers = profileServers(defined);
-    if (sync) void this.ctx.globalState.update(STUDIO_WANTED_KEY, true);
-    const accounts = this.accounts.all().map(account => ({
-      provider: account.provider,
-      label: account.label,
-      error: sync ? syncMcpToProfile(account, servers) : undefined,
-    }));
-    // Beim Öffnen: was lange nicht geprüft wurde, wird es jetzt — vor dem
-    // Senden angestoßen, damit die Seite gleich „Prüfe …“ zeigt statt kurz
-    // „Nicht geprüft“. Das Ergebnis kommt als `pluginLive` nach.
-    if (!sync) this.checkStalePlugins();
-    this.safePost(webview, {
-      kind: 'plugins',
-      scopes,
-      builtIn: await this.builtInConnector(Object.keys(defined)),
-      skills: [...readSkills(this.skillRoots())],
-      accounts,
-      apps: await checkApps(),
-      origin: effective.origin,
-      shadowed: effective.shadowed,
-      ...this.pluginLive(),
-    });
-  }
-
-  private pluginLogChannel?: vscode.OutputChannel;
-
-  private pluginLogins = new Map<string, { step: LoginStep['step']; message: string; url?: string; account?: string; abort: AbortController }>();
-
-  private pluginLive(): PluginLiveState {
-    return {
-      credentials: this.pluginCredentials.state(),
-      connections: this.pluginConnections.all(),
-      logins: Object.fromEntries(
-        [...this.pluginLogins].map(([server, { step, message, url, account }]) => [server, { step, message, url, account }]),
-      ),
-      disabled: this.pluginSwitches.disabled(),
-    };
-  }
-
-  private broadcastPluginLive(): void {
-    const live = { kind: 'pluginLive' as const, ...this.pluginLive() };
-    for (const [w] of this.surfaces) this.safePost(w, live);
-  }
-
-  /** Was aus beiden mcp.json gilt — dieselbe Zusammenführung wie beim Spiegeln. */
-  private definedServers(): Record<string, McpServerDef> {
-    return effectiveMcp().servers;
-  }
-
-  /** Die Profile neu schreiben, ohne dass eine bestimmte Fläche den Bericht braucht. */
-  private resyncProfiles(): void {
-    void this.ctx.globalState.update(STUDIO_WANTED_KEY, true);
-    const servers = profileServers(this.definedServers());
-    for (const account of this.accounts.all()) {
-      const error = syncMcpToProfile(account, servers);
-      if (error) this.output.appendLine(`[cortex] Plugin-Spiegelung (${account.label}): ${error}`);
-    }
-  }
-
-  /**
-   * Ob sich eine Prüfung überhaupt lohnt. Fehlt ein Pflichtwert oder die
-   * Anmeldung, weiß die Seite schon, was zu tun ist — ein Prozess, der ohne
-   * Schlüssel startet und stirbt, sagt nichts Neues.
-   */
-  private readyToCheck(entry: PluginEntry, def: McpServerDef): boolean {
-    const values = this.pluginCredentials.values(entry.server);
-    const missing = pluginFields(entry).some(f => !f.optional && !values[f.env] && !def.env?.[f.env]?.trim());
-    if (missing) return false;
-    if (usesLogin(entry) && !this.pluginCredentials.oauth(entry.server)) return false;
-    if (entry.requires?.kind === 'oauth-client' && !this.pluginCredentials.client(entry.server)) return false;
-    return true;
-  }
-
-  /**
-   * Einen installierten Eintrag prüfen. `force` ist der ausdrückliche Klick:
-   * er prüft auch frische Ergebnisse und auch Einträge, deren Programm beim
-   * Start selbst nachfragt (Xcode) — die prüft das bloße Öffnen der Seite nie.
-   */
-  private async checkPlugin(entry: PluginEntry, force: boolean, def = this.definedServers()[entry.server]): Promise<void> {
-    if (!def || !this.readyToCheck(entry, def) || this.pluginSwitches.isDisabled(entry.server)) return;
-    if (usesAgentLogin(entry)) {
-      await this.checkWithAgents(entry);
-      return;
-    }
-    // Ein Programm, das beim Zugriff selbst nachfragt, spricht Cortex von sich
-    // aus nur an, wenn es ohnehin läuft — gestartet wird es nie.
-    if (!force && entry.requires?.kind === 'app') {
-      const app = await checkApp(entry.requires.check);
-      if (!app?.running) return;
-    }
-    this.pluginConnections.begin(entry.server);
-    // Ein bald ablaufender Token wird vorher aufgefrischt — sonst prüfte die
-    // Seite genau den Token, den der nächste Zug ohnehin nicht mehr benutzt.
-    if (usesLogin(entry) && (await this.pluginCredentials.refresh(entry.server))) {
-      this.resyncProfiles();
-    }
-    // npx lädt beim ersten Mal ein Paket; eine App-Brücke wie Xcode antwortet
-    // sofort oder gar nicht — dort lohnt kein langes Warten.
-    const timeout = def.command === 'npx' || def.command === 'docker' ? 180_000 : entry.requires?.kind === 'app' ? 30_000 : undefined;
-    const readiness = entry.requires?.check === 'xcode' ? XCODE_READINESS : undefined;
-    const result = await this.pluginConnections.check(entry.server, this.pluginCredentials.apply(entry.server, def), timeout, readiness);
-    // Abgelehnt trotz Token: einmal auffrischen und nachprüfen, bevor die Seite
-    // „Neu anmelden“ verlangt. Viele Anbieter widerrufen Tokens früher, als ihre
-    // Laufzeit sagt.
-    if (result.status === 'anmeldung' && this.pluginCredentials.oauth(entry.server)) {
-      if (await this.pluginCredentials.refresh(entry.server, true)) {
-        this.resyncProfiles();
-        if (this.pluginCredentials.oauth(entry.server)) {
-          await this.pluginConnections.check(entry.server, this.pluginCredentials.apply(entry.server, def));
-        }
-      }
-    }
-    if (force) await this.sightInClis(entry.server);
-  }
-
-  /**
-   * Ein Server ohne Katalogeintrag — selbst in mcp.json geschrieben oder der
-   * eingebaute Database-Studio-Konnektor. Er bekommt dieselbe Prüfung wie jedes
-   * Plugin; die CLIs starten ihn in jedem Zug ohnehin.
-   */
-  private async checkServer(name: string, force: boolean): Promise<void> {
-    const entry = this.catalog().find(e => e.server === name);
-    if (entry) return this.checkPlugin(entry, force);
-    if (this.pluginSwitches.isDisabled(name)) return;
-    const def = profileServers(this.definedServers())[name];
-    if (!def) return;
-    this.pluginConnections.begin(name);
-    const timeout = def.command === 'npx' || def.command === 'docker' ? 180_000 : undefined;
-    await this.pluginConnections.check(name, def, timeout);
-    if (force) await this.sightInClis(name);
-  }
-
-  private checkStalePlugins(): void {
-    const defined = profileServers(this.definedServers());
-    const catalogServers = new Set(this.catalog().map(e => e.server));
-    for (const entry of this.catalog()) {
-      if (defined[entry.server] && this.pluginConnections.isStale(entry.server)) void this.checkPlugin(entry, false);
-    }
-    for (const name of Object.keys(defined)) {
-      if (!catalogServers.has(name) && this.pluginConnections.isStale(name)) void this.checkServer(name, false);
-    }
-  }
-
-  /** Die CLIs der Konten, deren Profile Cortex beschreibt — mit genau der Umgebung, mit der Cortex sie startet. */
-  private cliTargets(): CliTarget[] {
-    return this.accounts.all().flatMap(account => {
-      if (account.disabled || !account.homeDir) return [];
-      if (account.provider !== 'claude' && account.provider !== 'codex' && account.provider !== 'grok') return [];
-      if (account.provider === 'claude' && account.authMode !== 'managed-home') return [];
-      const adapter = this.adapters.get(account.provider);
-      if (!adapter) return [];
-      const { command, env } = adapter.interactiveCommand({ ...account, secret: undefined } as ResolvedAccount);
-      return command[0] ? [{ provider: account.provider, label: account.label, account: account.id, command: command[0], env }] : [];
-    });
-  }
-
-  /** Nur nach einer erfolgreichen Prüfung: ein Server, der nicht antwortet, antwortet auch der CLI nicht. */
-  private async sightInClis(server: string): Promise<void> {
-    if (this.pluginConnections.get(server)?.status !== 'verbunden') return;
-    const targets = this.cliTargets();
-    if (!targets.length) return;
-    this.pluginConnections.attachClis(server, targets.map(t => ({ provider: t.provider, label: t.label, state: 'eingetragen', detail: 'Wird gefragt …' })), true);
-    const sights = await sightInClis(server, targets);
-    this.pluginConnections.attachClis(server, sights);
-  }
-
-  /** Die CLIs, die sich selbst bei einem Anbieter anmelden können — auf Wunsch nur ein Konto. */
-  private agentTargets(account?: string): CliTarget[] {
-    return this.cliTargets().filter(t => AGENT_LOGIN_PROVIDERS.includes(t.provider) && (!account || t.account === account));
-  }
-
-  /** Was Grok zuletzt auf ausdrücklichen Klick über seine Konto-Konnektoren gesagt hat — je Server und Konto. */
-  private grokSights = new Map<string, CliSight>();
-
-  /**
-   * Prüfen, wo nur die CLIs an den Server kommen: Cortex hat kein Token und
-   * fragt jedes Konto einzeln. Verbunden heißt, mindestens eines ist es. Grok
-   * wird hier nie gefragt (das kostet einen Modellaufruf) — seine Zeile trägt
-   * das Ergebnis des letzten Klicks auf „Prüfen“.
-   */
-  private async checkWithAgents(entry: PluginEntry): Promise<void> {
-    const targets = this.agentTargets();
-    const groks = this.cliTargets().filter(t => t.provider === 'grok');
-    const previous = this.pluginConnections.get(entry.server)?.clis ?? [];
-    await this.pluginConnections.checkWith(entry.server, async () => {
-      const checkedAt = Date.now();
-      if (!targets.length && !groks.length) {
-        return { status: 'fehler', checkedAt, message: `${entry.name} läuft über Claude Code, Codex oder Grok — dafür fehlt ein Konto.` };
-      }
-      const results = await Promise.all(targets.map(async target => {
-        if (target.provider === 'claude') return claudeMcpSight(target, entry.server);
-        const [sight] = await sightInClis(entry.server, [target]);
-        // Für Codex heißt „angemeldet“ hier verbunden: prüfen kann es erst ein Zug.
-        const loggedIn = sight!.state === 'eingetragen' && /angemeldet/.test(sight!.detail ?? '');
-        return { sight: loggedIn ? { ...sight!, state: 'verbunden' as const, detail: 'In Codex angemeldet.' } : sight!, tools: undefined };
-      }));
-      const grokRows = groks.map(t =>
-        this.grokSights.get(`${entry.server}:${t.account}`)
-        ?? previous.find(c => c.account === t.account && c.provider === 'grok' && c.state !== 'eingetragen')
-        ?? { provider: 'grok', label: t.label, account: t.account, state: 'eingetragen' as const, detail: `Noch nicht geprüft — Grok nutzt den ${entry.name}-Konnektor seines Kontos.` });
-      const clis = [...results.map(r => r.sight), ...grokRows];
-      const tools = results.find(r => r.tools?.length)?.tools;
-      if (clis.some(c => c.state === 'verbunden')) {
-        return { status: 'verbunden', checkedAt, tools: (tools ?? []).map(name => ({ name })), clis };
-      }
-      return { status: 'anmeldung', checkedAt, message: `In keinem Konto bei ${entry.name} angemeldet.`, clis };
-    });
-  }
-
-  /** Grok einzeln fragen, ob der Konnektor in seinem Konto steckt — nur auf Klick. */
-  private async checkGrokAccount(webview: vscode.Webview, entry: PluginEntry, account: string): Promise<void> {
-    const target = this.cliTargets().find(t => t.provider === 'grok' && t.account === account);
-    if (!target || this.pluginLogins.has(entry.server)) return;
-    const login = { step: 'suche' as LoginStep['step'], message: `Grok (${target.label}) wird gefragt …`, account, abort: new AbortController(), url: undefined };
-    this.pluginLogins.set(entry.server, login);
-    this.broadcastPluginLive();
-    try {
-      const { sight } = await grokConnectorSight(target, entry.server);
-      this.grokSights.set(`${entry.server}:${account}`, sight);
-    } finally {
-      if (this.pluginLogins.get(entry.server) === login) this.pluginLogins.delete(entry.server);
-      this.broadcastPluginLive();
-    }
-    await this.checkWithAgents(entry);
-    await this.pushPlugins(webview);
-  }
-
-  /**
-   * Die Anmeldung den CLIs überlassen — nacheinander, damit immer nur ein
-   * Browserfenster auf Bestätigung wartet. Eine gelungene genügt.
-   */
-  private async signInWithAgents(webview: vscode.Webview, entry: PluginEntry, account?: string): Promise<boolean> {
-    const id = entry.id;
-    const targets = this.agentTargets(account);
-    if (!targets.length) {
-      this.safePost(webview, { kind: 'pluginProgress', id, ok: false, message: `${entry.name} meldet sich über Claude Code oder Codex an — lege dafür zuerst ein Konto an.` });
-      return false;
-    }
-    if (this.pluginLogins.has(entry.server)) return false;
-    const abort = new AbortController();
-    const login = { step: 'suche' as LoginStep['step'], message: 'Anmeldung wird vorbereitet …', abort, url: undefined as string | undefined, account: account as string | undefined };
-    this.pluginLogins.set(entry.server, login);
-    this.broadcastPluginLive();
-    const done: string[] = [];
-    const failed: string[] = [];
-    try {
-      for (const target of targets) {
-        if (abort.signal.aborted) break;
-        const who = `${target.provider === 'claude' ? 'Claude Code' : 'Codex'} (${target.label})`;
-        login.account = target.account;
-        login.step = 'suche';
-        login.message = `${who} wird bei ${entry.name} angemeldet …`;
-        login.url = undefined;
-        this.broadcastPluginLive();
-        const deps = {
-          signal: abort.signal,
-          onUrl: (url: string, opensItself: boolean) => {
-            login.step = 'browser';
-            login.message = `Im Browser bei ${entry.name} bestätigen — für ${who}.`;
-            login.url = url;
-            this.broadcastPluginLive();
-            // Codex öffnet den Browser selbst; ein zweites Fenster verwirrt nur.
-            if (!opensItself) void vscode.env.openExternal(url as unknown as vscode.Uri);
-          },
-        };
-        const result = target.provider === 'claude'
-          ? await claudeMcpLogin(target, entry.server, deps)
-          : await codexMcpLogin(target, entry.server, deps);
-        if (result.ok) done.push(who);
-        else if (!result.cancelled) {
-          failed.push(`${who}: ${result.message}`);
-          this.output.appendLine(`[cortex] Plugin-Anmeldung ${entry.server} über ${who}: ${result.message}`);
-        }
-      }
-    } finally {
-      if (this.pluginLogins.get(entry.server) === login) {
-        this.pluginLogins.delete(entry.server);
-        this.broadcastPluginLive();
-      }
-    }
-    if (!done.length) {
-      const message = abort.signal.aborted ? `Anmeldung bei ${entry.name} abgebrochen.` : `Anmeldung bei ${entry.name} nicht möglich — ${failed.join(' · ')}`;
-      this.safePost(webview, { kind: 'pluginProgress', id, ok: abort.signal.aborted, message });
-      return false;
-    }
-    if (failed.length) {
-      this.safePost(webview, { kind: 'pluginProgress', id, ok: false, message: `${entry.name}: angemeldet für ${done.join(', ')} — nicht für ${failed.join(' · ')}` });
-    }
-    return true;
-  }
-
-  /**
-   * Database Studio ist kein Eintrag in mcp.json, sondern die Integration
-   * selbst: sie wird beim Spiegeln dazugelegt und lässt sich nicht durch
-   * Löschen aus der Datei entfernen, sondern nur über
-   * `cortex.databaseStudio.enabled` abschalten. Genau so steht sie auf der
-   * Seite — sichtbar, aber ohne Installieren-Knopf.
-   *
-   * Name, Beschreibung und Symbol kommen aus `studio-mcp` selbst, damit die
-   * Plugin-Seite und der MCP-Handschlag nicht auseinanderlaufen.
-   */
-  private async builtInConnector(definedNames: string[]): Promise<import('./protocol.js').BuiltInConnectorDto | undefined> {
-    const host = currentStudioHost();
-    const server = databaseStudioServer(host);
-    // Abgeschaltet oder nicht installiert: dann gibt es nichts zu melden.
-    if (!server) return undefined;
-    const identity = (await loadConnectorIdentity()) ?? connectorIdentity();
-    return {
-      name: CONNECTOR_NAME,
-      title: identity?.title ?? 'Vektor',
-      description: identity?.description ?? 'Datenbanken in Cortex öffnen und abfragen.',
-      icon: identity?.icon,
-      target: server.url ?? [server.command, ...(server.args ?? [])].filter(Boolean).join(' '),
-      running: host?.running === true,
-      sessions: host?.sessionCount ?? 0,
-      overridden: definedNames.includes(CONNECTOR_NAME),
-    };
-  }
-
-  /**
-   * Installieren heißt: erst verbinden, dann eintragen. Werte in den
-   * Schlüsselbund, die Anmeldung im Browser, die Prüfung gegen die Definition
-   * aus dem Katalog — und erst wenn der Server wirklich antwortet, die Zeile in
-   * mcp.json und die Spiegelung in die Profile. Was nicht verbunden ist, steht
-   * weder oben unter „Installiert“ noch in einem Profil.
-   *
-   * Nichts wird nur gemerkt: misslingt ein Schritt, sagt die Meldung das, und
-   * mcp.json bleibt, wie sie war.
-   */
-  private async changePlugin(
-    webview: vscode.Webview,
-    id: string,
-    scope: PluginScope,
-    install: boolean,
-    values?: Record<string, string>,
-  ): Promise<void> {
-    const entry = this.catalog().find(e => e.id === id);
-    const place = this.pluginScopes().find(s => s.id === scope);
-    if (!entry || !place) return;
-    const fail = (message: string) =>
-      this.safePost(webview, { kind: 'pluginProgress', id, ok: false, message });
-
-    if (place.error) return fail(`${place.path} ist nicht lesbar: ${place.error}`);
-    if (!install) return this.removePlugin(webview, entry, place.path);
-
-    if (values && Object.keys(values).length) {
-      try {
-        await this.pluginCredentials.setValues(entry.server, values);
-      } catch (e) {
-        return fail(`Der Schlüsselbund hat die Werte nicht angenommen: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-    // Schon eingetragen (etwa von Hand): dann gilt die Zeile in der Datei.
-    const def = this.definedServers()[entry.server] ?? entry.definition;
-    if (entry.requires?.kind === 'oauth-client' && !this.pluginCredentials.client(entry.server)) {
-      return fail(`Für ${entry.name} zuerst deinen OAuth-Client hinterlegen — danach meldet Cortex dich an und trägt es ein.`);
-    }
-    if (!this.readyToCheck(entry, def) && !usesLogin(entry)) {
-      return fail(`${entry.name}: es fehlt noch ${pluginFields(entry).length > 1 ? 'ein Wert' : 'der Schlüssel'}.`);
-    }
-    if (this.pluginSwitches.isDisabled(entry.server)) await this.pluginSwitches.set(entry.server, true);
-
-    if (usesAgentLogin(entry)) return this.installWithAgents(webview, entry, place.path);
-
-    if (usesLogin(entry) && !this.pluginCredentials.oauth(entry.server)) {
-      const signedIn = await this.signIn(webview, entry, def);
-      if (signedIn === false) return;
-    }
-
-    this.safePost(webview, { kind: 'pluginProgress', id, ok: true, message: `${entry.name}: Verbindung wird geprüft …` });
-    await this.checkPlugin(entry, true, def);
-    const result = this.pluginConnections.get(entry.server);
-    if (result?.status !== 'verbunden') {
-      // Kein halber Eintrag: der Beleg einer gescheiterten Probe gehört zu
-      // keinem installierten Plugin und würde beim nächsten Versuch nur stören.
-      if (!this.definedServers()[entry.server]) this.pluginConnections.forget(entry.server);
-      const hint = entry.requires?.kind === 'app' ? ` ${entry.requires.hint}` : '';
-      return fail(`${entry.name} ist nicht verbunden und wurde nicht eingetragen: ${result?.message ?? 'Der Server antwortet nicht.'}${hint}`);
-    }
-
-    try {
-      const before = existsSync(place.path) ? readFileSync(place.path, 'utf8') : MCP_TEMPLATE;
-      await vscode.workspace.fs.createDirectory(vscode.Uri.file(dirname(place.path)));
-      await vscode.workspace.fs.writeFile(vscode.Uri.file(place.path), Buffer.from(withServer(before, entry.server, entry.definition), 'utf8'));
-    } catch (e) {
-      return fail(`${entry.name} ist verbunden, aber ${place.path} ließ sich nicht schreiben: ${e instanceof Error ? e.message : String(e)}`);
-    }
-    // Erst jetzt spiegeln: der Bericht je Konto soll den neuen Stand zeigen.
-    await this.pushPlugins(webview, true);
-    const count = result.tools?.length ?? 0;
-    this.safePost(webview, {
-      kind: 'pluginProgress', id, ok: true,
-      message: `${entry.name} ist verbunden — ${count} ${count === 1 ? 'Werkzeug' : 'Werkzeuge'}. Neue Chats können es benutzen.`,
-    });
-    void this.sightInClis(entry.server);
-  }
-
-  /**
-   * Hier geht es umgekehrt: die CLIs melden sich nur bei einem Server an, der in
-   * ihrem Profil steht. Also erst eintragen und spiegeln, dann anmelden — und
-   * gelingt keine Anmeldung, die Zeile wieder heraus.
-   */
-  private async installWithAgents(webview: vscode.Webview, entry: PluginEntry, path: string): Promise<void> {
-    const write = async (change: (text: string) => string) => {
-      const before = existsSync(path) ? readFileSync(path, 'utf8') : MCP_TEMPLATE;
-      await vscode.workspace.fs.createDirectory(vscode.Uri.file(dirname(path)));
-      await vscode.workspace.fs.writeFile(vscode.Uri.file(path), Buffer.from(change(before), 'utf8'));
-    };
-    try {
-      await write(text => withServer(text, entry.server, entry.definition));
-    } catch (e) {
-      this.safePost(webview, { kind: 'pluginProgress', id: entry.id, ok: false, message: `Konnte ${path} nicht schreiben: ${e instanceof Error ? e.message : String(e)}` });
-      return;
-    }
-    await this.pushPlugins(webview, true);
-    if (!(await this.signInWithAgents(webview, entry))) {
-      await write(text => withoutServer(text, entry.server)).catch(() => undefined);
-      this.pluginConnections.forget(entry.server);
-      await this.pushPlugins(webview, true);
-      return;
-    }
-    await this.reportCheck(webview, entry);
-  }
-
-  private async removePlugin(webview: vscode.Webview, entry: PluginEntry, path: string): Promise<void> {
-    try {
-      const before = existsSync(path) ? readFileSync(path, 'utf8') : MCP_TEMPLATE;
-      await vscode.workspace.fs.createDirectory(vscode.Uri.file(dirname(path)));
-      await vscode.workspace.fs.writeFile(vscode.Uri.file(path), Buffer.from(withoutServer(before, entry.server), 'utf8'));
-    } catch (e) {
-      this.safePost(webview, { kind: 'pluginProgress', id: entry.id, ok: false, message: `Konnte ${path} nicht schreiben: ${e instanceof Error ? e.message : String(e)}` });
-      return;
-    }
-    // Entfernen heißt auch: Schlüssel und Anmeldung weg. Ein Token, der
-    // nirgends mehr gebraucht wird, soll nicht im Schlüsselbund liegen bleiben.
-    this.pluginLogins.get(entry.server)?.abort.abort();
-    await this.pluginCredentials.clear(entry.server);
-    this.pluginConnections.forget(entry.server);
-    await this.pushPlugins(webview, true);
-    this.safePost(webview, { kind: 'pluginProgress', id: entry.id, ok: true, message: `${entry.name} entfernt.` });
-  }
-
-  /** Prüfen und das Ergebnis als Meldung sagen — der Abschluss jeder Einrichtung. */
-  private async reportCheck(webview: vscode.Webview, entry: PluginEntry): Promise<void> {
-    this.safePost(webview, { kind: 'pluginProgress', id: entry.id, ok: true, message: `${entry.name}: Verbindung wird geprüft …` });
-    await this.checkPlugin(entry, true);
-    const result = this.pluginConnections.get(entry.server);
-    if (result?.status === 'verbunden') {
-      const count = result.tools?.length ?? 0;
-      this.safePost(webview, {
-        kind: 'pluginProgress', id: entry.id, ok: true,
-        message: `${entry.name} ist verbunden — ${count} ${count === 1 ? 'Werkzeug' : 'Werkzeuge'}. Neue Chats können es benutzen.`,
-      });
-    } else if (result) {
-      this.safePost(webview, {
-        kind: 'pluginProgress', id: entry.id, ok: false,
-        message: `${entry.name} ist eingetragen, antwortet aber nicht: ${result.message ?? 'unbekannter Fehler'}`,
-      });
-    }
-  }
-
-  private async setPluginValues(webview: vscode.Webview, id: string, values: Record<string, string>): Promise<void> {
-    const entry = this.catalog().find(e => e.id === id);
-    if (!entry) return;
-    try {
-      await this.pluginCredentials.setValues(entry.server, values);
-    } catch (e) {
-      this.safePost(webview, { kind: 'pluginProgress', id, ok: false, message: `Der Schlüsselbund hat die Werte nicht angenommen: ${e instanceof Error ? e.message : String(e)}` });
-      return;
-    }
-    if (!this.definedServers()[entry.server]) return;
-    this.resyncProfiles();
-    await this.reportCheck(webview, entry);
-  }
-
-  /** Neu anmelden bei einem eingetragenen Plugin — danach prüfen. */
-  private async loginPlugin(webview: vscode.Webview, id: string, account?: string): Promise<void> {
-    const entry = this.catalog().find(e => e.id === id);
-    const def = entry && this.definedServers()[entry.server];
-    if (!entry || !def) return;
-    if (account && usesAgentLogin(entry)) {
-      // Grok meldet Cortex nirgends an: dort heißt die Zeile „Prüfen“.
-      if (this.cliTargets().some(t => t.provider === 'grok' && t.account === account)) return this.checkGrokAccount(webview, entry, account);
-      if (!(await this.signInWithAgents(webview, entry, account))) return;
-      await this.reportCheck(webview, entry);
-      return;
-    }
-    const signedIn = await this.signIn(webview, entry, def);
-    if (signedIn === false) return;
-    if (signedIn) {
-      this.resyncProfiles();
-      await this.pushPlugins(webview);
-    }
-    await this.reportCheck(webview, entry);
-  }
-
-  /**
-   * Die Anmeldung im Browser bis zum Token im Schlüsselbund. `true`: angemeldet,
-   * `undefined`: der Server verlangt gar keine, `false`: gescheitert — die
-   * Meldung dazu ist dann schon gesagt.
-   */
-  private async signIn(webview: vscode.Webview, entry: PluginEntry, def: McpServerDef): Promise<boolean | undefined> {
-    if (usesAgentLogin(entry)) return this.signInWithAgents(webview, entry);
-    const id = entry.id;
-    const own = this.pluginCredentials.client(entry.server);
-    // Ohne eigenen Client geht es nur über einen Remote-Server, der Cortex selbst registriert.
-    if (!own && (!def.url || entry.requires?.kind === 'oauth-client')) {
-      this.safePost(webview, { kind: 'pluginProgress', id, ok: false, message: `Für ${entry.name} zuerst Client-ID und Secret hinterlegen.` });
-      return false;
-    }
-    if (this.pluginLogins.has(entry.server)) return false;
-
-    const abort = new AbortController();
-    const login = { step: 'suche' as LoginStep['step'], message: 'Anmeldung wird vorbereitet …', abort, url: undefined as string | undefined };
-    this.pluginLogins.set(entry.server, login);
-    this.broadcastPluginLive();
-    try {
-      const deps = {
-        // Als String, nicht als Uri: ein Uri-Objekt dekodiert VS Code und kodiert
-        // die Query neu — ein `%26` oder `%2B` in einem Wert käme beim Anbieter
-        // als Trennzeichen an. Einen String reicht der Host unverändert weiter,
-        // so wie VS Codes eigene Anmeldung ihn übergibt.
-        openExternal: (url: string) => vscode.env.openExternal(url as unknown as vscode.Uri),
-        signal: abort.signal,
-        onStep: (step: LoginStep) => {
-          login.step = step.step;
-          login.message = step.message;
-          login.url = step.step === 'browser' ? step.url : undefined;
-          this.broadcastPluginLive();
-        },
-      };
-      const stored = own
-        ? await loginWithOwnClient({ url: def.url, client: own, delivery: entry.requires?.client }, deps)
-        : await loginToServer(def.url!, deps);
-      await this.pluginCredentials.setOAuth(entry.server, stored);
-      return true;
-    } catch (e) {
-      const code = e instanceof OAuthError ? e.code : undefined;
-      if (code === 'not_required') return undefined;
-      if (code === 'registration_unsupported') {
-        // Kein Fehler, den man wiederholen könnte: der Anbieter verlangt eine
-        // eigene App. Die Seite bietet ab jetzt die Felder dafür an.
-        await this.pluginCredentials.markClientRequired(entry.server);
-        this.safePost(webview, {
-          kind: 'pluginProgress', id, ok: false,
-          message: `${entry.name} lässt keine automatische Registrierung zu. Lege in der Konsole des Anbieters eine App an und trage Client-ID und Secret ein.`,
-        });
-        return false;
-      }
-      if (code === 'registration_forbidden') {
-        // Auch kein eigener Client hilft: der Anbieter wählt die Programme selbst
-        // aus. Gibt es einen Zugang ohne diese Anmeldung, ist er der Ausweg.
-        const other = this.catalog().find(e => e.service && e.service === entry.service && e.id !== entry.id && !usesLogin(e));
-        this.output.appendLine(`[cortex] Plugin-Anmeldung ${entry.server}: ${e instanceof Error ? e.message : String(e)}`);
-        this.safePost(webview, {
-          kind: 'pluginProgress', id, ok: false,
-          message: `${entry.name} lässt über diesen Zugang nur Programme zu, die es selbst freigegeben hat — Cortex gehört nicht dazu.`,
-          ...(other ? { action: { label: `Zu „${other.variantLabel ?? other.name}“`, open: other.id } } : {}),
-        });
-        return false;
-      }
-      const message = code === 'cancelled'
-        ? `Anmeldung bei ${entry.name} abgebrochen.`
-        : `Anmeldung bei ${entry.name} nicht möglich: ${e instanceof Error ? e.message : String(e)}`;
-      this.output.appendLine(`[cortex] Plugin-Anmeldung ${entry.server}: ${e instanceof Error ? e.message : String(e)}`);
-      this.safePost(webview, { kind: 'pluginProgress', id, ok: code === 'cancelled', message });
-      return false;
-    } finally {
-      if (this.pluginLogins.get(entry.server) === login) {
-        this.pluginLogins.delete(entry.server);
-        this.broadcastPluginLive();
-      }
-    }
-  }
-
-  /** Eine Client-Datei lesen — klein, JSON, sonst nichts. */
-  private async readPluginClientFile(webview: vscode.Webview, id: string, path: string): Promise<void> {
-    const fail = (message: string) => this.safePost(webview, { kind: 'pluginProgress', id, ok: false, message });
-    if (!/\.json$/i.test(path)) return fail('Erwartet wird die JSON-Datei des OAuth-Clients.');
-    try {
-      const info = await stat(path);
-      if (info.size > 64_000) return fail('Die Datei ist zu groß für eine Client-Datei.');
-      const content = await readFile(path, 'utf8');
-      await this.storePluginClient(webview, id, parseClientJson(content), basename(path));
-    } catch (e) {
-      fail(`Die Datei ließ sich nicht lesen: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-
-  /**
-   * Den Client ablegen und — ist das Plugin installiert — gleich anmelden. Wer
-   * Client-ID und Secret einträgt, will verbunden sein, nicht einen weiteren Knopf.
-   */
-  private async storePluginClient(
-    webview: vscode.Webview,
-    id: string,
-    parsed: ReturnType<typeof parseClientJson>,
-    fileName?: string,
-  ): Promise<void> {
-    const entry = this.catalog().find(e => e.id === id);
-    if (!entry) return;
-    if (!parsed.ok) {
-      this.safePost(webview, { kind: 'pluginProgress', id, ok: false, message: parsed.error });
-      return;
-    }
-    if (entry.requires?.client?.provider === 'google' && !/\.apps\.googleusercontent\.com$/.test(parsed.client.clientId)) {
-      this.safePost(webview, { kind: 'pluginProgress', id, ok: false, message: 'Das ist keine Google-Client-ID — sie endet auf „.apps.googleusercontent.com“.' });
-      return;
-    }
-    try {
-      await this.pluginCredentials.setClient(entry.server, parsed.client, fileName);
-    } catch (e) {
-      this.safePost(webview, { kind: 'pluginProgress', id, ok: false, message: `Der Schlüsselbund hat den Client nicht angenommen: ${e instanceof Error ? e.message : String(e)}` });
-      return;
-    }
-    this.safePost(webview, {
-      kind: 'pluginProgress', id, ok: true,
-      message: `OAuth-Client${fileName ? ` aus ${fileName}` : ''} hinterlegt.`,
-    });
-    if (this.definedServers()[entry.server] && !this.pluginCredentials.oauth(entry.server)) {
-      await this.loginPlugin(webview, id);
-    }
-  }
-
-  private async logoutPlugin(webview: vscode.Webview, id: string): Promise<void> {
-    const entry = this.catalog().find(e => e.id === id);
-    if (!entry) return;
-    await this.pluginCredentials.clear(entry.server, 'anmeldung');
-    this.pluginConnections.forget(entry.server);
-    this.resyncProfiles();
-    this.safePost(webview, { kind: 'pluginProgress', id, ok: true, message: `Von ${entry.name} abgemeldet — der Token ist aus Cortex und allen Profilen entfernt.` });
-  }
-
-  /**
-   * Konnektoren sind MCP-Server: einmal beschrieben, in jedes Anbieterprofil
-   * gespiegelt. `sync` schreibt sie neu — sonst wird nur berichtet, was da ist.
-   */
-  private async pushConnectors(webview: vscode.Webview, sync = false): Promise<void> {
-    const path = this.connectorPaths().find(p => existsSync(p));
-    const effective = effectiveMcp();
-    const defined: Record<string, McpServerDef> = effective.servers;
-    const error: string | undefined = effective.errors.length ? effective.errors.join(' · ') : undefined;
-
-    // Database Studio is part of the product, not of anyone's mcp.json — and it
-    // has to be synced together with the rest, because a profile drops every
-    // server missing from the set it is given.
-    const all = error ? defined : withBuiltInConnectors(defined, currentStudioHost());
-
-    // Der eingebaute Konnektor beschreibt sich selbst — mit dem Icon und der
-    // Wortwahl, die auch im MCP-Handshake stehen, damit die Plugin-Seite und
-    // der Agent denselben Konnektor meinen.
-    const studio = currentStudioHost();
-    const identity = connectorIdentity();
-
-    const servers = Object.entries(all).map(([name, def]) => {
-      const server = {
-        name,
-        remote: !!def.url,
-        target: def.url ?? [def.command, ...(def.args ?? [])].filter(Boolean).join(' '),
-        providers: def.providers,
-        kind: def.kind,
-      };
-      if (name !== CONNECTOR_NAME || name in defined) return server;
-
-      const connected = Boolean(studio?.running);
-      return {
-        ...server,
-        builtIn: true,
-        title: identity?.title,
-        description: identity?.description,
-        icon: identity?.icon,
-        connected,
-        detail: connected
-          ? `${studio!.sessionCount === 1 ? 'Eine Quelle' : `${studio!.sessionCount} Quellen`} in Cortex geöffnet`
-          : 'Verbindet sich mit der Vektor-App, bis hier eine Quelle offen ist',
-      };
-    });
-    // Ohne Spiegelung wüsste niemand, ob eine Definition auch ankommt — der
-    // Bericht je Konto ist der eigentliche Wert dieser Ansicht.
-    const accounts = this.accounts.all().map(account => ({
-      provider: account.provider,
-      label: account.label,
-      error: sync ? syncMcpToProfile(account, error ? all : profileServers(defined)) : undefined,
-    }));
-    this.safePost(webview, { kind: 'connectors', path, error, servers, accounts });
-  }
-
-  /** Every open surface learns which side panes are visible. */
-  private pushPanes(): void {
-    const message = { kind: 'panes' as const, browser: this.sidePanes.browser, terminal: this.sidePanes.terminal !== undefined && this.terminalDockVisible };
-    for (const [w] of this.surfaces) this.safePost(w, message);
-    void this.pushDockContexts();
-  }
-
-  private modesMessage(): HostToWebview {
-    const config = vscode.workspace.getConfiguration('cortex');
-    return {
-      kind: 'modes',
-      permissionMode: config.get<string>('permissionMode', 'safe'),
-      routingMode: config.get<'auto' | 'manual'>('routingMode', 'auto'),
-      askPermission: config.get<boolean>('askPermission', false),
-      pollUsage: config.get<boolean>('pollUsage', true),
-    };
-  }
-
-  private rulesMessage(): HostToWebview {
-    const state = this.rules.getState();
-    return {
-      kind: 'rules',
-      rules: state.rules,
-      path: state.path,
-      exists: state.exists,
-      error: state.error,
-      customCommands: this.rules.getCustomCommands(),
-    };
-  }
-
-  private pushRules(): void {
-    const msg = this.rulesMessage();
-    for (const [webview, surface] of this.surfaces) {
-      // Chat tabs consume rules too (tag suggestions in the composer).
-      if (surface.mode === 'rules' || surface.mode === 'tab' || surface.mode === 'agent') {
-        this.safePost(webview, msg);
-      }
-    }
-  }
-
-  private pushAnalytics(webview?: vscode.Webview): void {
-    const msg: HostToWebview = {
-      kind: 'analytics',
-      metrics: this.metrics.all(),
-      accounts: this.accountDtos(),
-    };
-    if (webview) {
-      this.safePost(webview, msg);
-    } else {
-      for (const [w, surface] of this.surfaces) {
-        if (surface.mode === 'analytics') this.safePost(w, msg);
-      }
-    }
   }
 
   // ── conversations ────────────────────────────────────────────────
@@ -2507,28 +1498,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const surface = this.surfaces.get(this.agentPanel.webview);
     const previous = surface?.conversationId;
     if (surface) surface.conversationId = id;
-    if (previous !== id) void this.swapBrowser(id, this.agentPanel.webview);
+    if (previous !== id) void this.panes.swapBrowser(id, this.agentPanel.webview);
     this.replayAgent(this.agentPanel.webview, id);
     this.safePost(this.agentPanel.webview, this.pinnedMessage(id));
+    this.safePost(this.agentPanel.webview, { kind: 'chatLocation', conversationId: id, ...(this.conversations.get(id)?.location ? { location: this.conversations.get(id)!.location } : {}) });
     void this.pushWorkspace(this.agentPanel.webview);
     this.sendConversations();
-  }
-
-  /** Chatwechsel: den fremden Browser schließen, den eigenen wieder öffnen. */
-  private async swapBrowser(id: string, webview: vscode.Webview): Promise<void> {
-    if (this.sidePanes.browser) {
-      const known = await vscode.commands.getCommands(true);
-      if (known.includes('workbench.action.browser.closeAll')) {
-        await vscode.commands.executeCommand('workbench.action.browser.closeAll');
-      }
-      this.sidePanes.browser = false;
-      this.pushPanes();
-    }
-    if (this.browserChats.has(id)) await this.dispatchMessage({ kind: 'openBrowser' }, webview);
-  }
-
-  private previewUrls(): Record<string, string> {
-    return this.ctx.workspaceState.get<Record<string, string>>('cortex.previewUrls') ?? {};
   }
 
   private replayAgent(webview: vscode.Webview, id: string): void {
@@ -2601,10 +1576,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.conversations.delete(id);
     this.sessions.clearConversation(id);
     // Die Zeichnung gehört zum Chat und geht mit ihm.
-    this.canvasSeen.delete(id);
-    this.canvasSaved.delete(id);
-    const canvas = this.canvasFile(id);
-    if (canvas) void rm(canvas, { force: true });
+    this.canvas.forget(id);
     if (this.visibleConversationId() === id) {
       const next = [...this.conversations.values()].find(c => c.projectPath === rec.projectPath);
       if (next) this.bindAgent(next.id); else this.newConversation(rec.projectPath);
@@ -2659,6 +1631,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         target: c.pinnedTarget,
         pinned: c.pinned,
         archived: c.archived,
+        ...(c.teamAgent ? { background: true, ...(this.swarmOf(c.id)?.origin ? { parentId: this.swarmOf(c.id)!.origin } : {}) } : {}),
       }));
   }
 
@@ -2673,87 +1646,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           activeId: surface.conversationId ?? '',
         });
       }
-    }
-  }
-
-  /** Wo das Exokortex-Repo und welches Python. Absolut, nie nach Namen. */
-  private exokortexPfade(): ExokortexPfade {
-    const config = vscode.workspace.getConfiguration('cortex');
-    return {
-      python: config.get<string>('exokortex.pythonPath') || '/usr/bin/python3',
-      repo: config.get<string>('exokortex.repoPath') || join(homedir(), 'dev', 'Exokortex'),
-      // Rückfall-Symbole für Dienste ohne Anwendung auf diesem Rechner. Die
-      // installierten holt `icons.ts` selbst aus ihrem Programmbündel.
-      symbole: join(this.ctx.extensionUri.fsPath, 'media', 'icons'),
-    };
-  }
-
-  /**
-   * Der Zustand des Exokortex, an alle Oberflächen, die ihn zeigen.
-   *
-   * Ohne Argument ein Rundruf — so kommt das Ergebnis eines Wächter-Durchgangs
-   * bei jeder offenen Seite an, nicht nur bei der, die zuletzt gefragt hat.
-   */
-  private async pushExokortex(webview?: vscode.Webview): Promise<void> {
-    const profile = this.accounts.all()
-      .filter(a => a.homeDir)
-      .map(a => ({ provider: a.provider, label: a.label, homeDir: a.homeDir }));
-    const status = await leseStatus(
-      this.exokortexPfade(),
-      profile.length ? profile : profileAufDerPlatte(),
-    );
-    const nachricht: HostToWebview = { kind: 'exokortex', status };
-    if (webview) {
-      this.safePost(webview, nachricht);
-      return;
-    }
-    for (const [ziel, surface] of this.surfaces) {
-      if (surface.mode === 'agent') this.safePost(ziel, nachricht);
-    }
-  }
-
-  /**
-   * Eine Aktion der Exokortex-Seite. Jede läuft für sich und ist abbrechbar;
-   * ein zweiter Klick auf denselben Knopf bricht ab statt doppelt zu starten.
-   */
-  private async exokortexAktion(action: ExokortexAction, webview: vscode.Webview): Promise<void> {
-    const laufend = this.exokortexLaeuft.get(action);
-    if (laufend) {
-      laufend.abort();
-      return;
-    }
-    const melde = (state: 'running' | 'done' | 'error', extra: { output?: string; message?: string } = {}) =>
-      this.safePost(webview, { kind: 'exokortexAktion', action, state, ...extra });
-
-    if (action === 'pruefen') {
-      melde('running');
-      await this.exokortexWatch.jetzt();
-      melde('done');
-      return;
-    }
-    if (action === 'konnektorenSync') {
-      // Der Weg, der die Profile beschreibt, existiert schon — ihn hier zu
-      // wiederholen hieße, zwei Stellen zu haben, die MCP-Profile schreiben.
-      melde('running');
-      await this.pushConnectors(webview, true);
-      await this.pushExokortex();
-      melde('done');
-      return;
-    }
-
-    const abbruch = new AbortController();
-    this.exokortexLaeuft.set(action, abbruch);
-    melde('running');
-    try {
-      const { code, ausgabe } = await fuehreAus(action, this.exokortexPfade(), abbruch.signal,
-        zeile => melde('running', { output: zeile }));
-      melde(code === 0 ? 'done' : 'error',
-        { message: code === 0 ? undefined : `Beendet mit ${code}`, output: ausgabe });
-    } catch (e) {
-      melde('error', { message: (e as Error).message });
-    } finally {
-      this.exokortexLaeuft.delete(action);
-      await this.pushExokortex();
     }
   }
 
@@ -2832,12 +1724,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       } satisfies HostToWebview);
       // Fresh usage + identities on open; results fan out via listeners.
       void this.usageRefresher?.();
-      void this.loadIdentities();
+      void this.accountsHost.loadIdentities();
       return;
     }
     if (surface.mode === 'rules') {
-      this.safePost(webview, this.rulesMessage());
-      this.safePost(webview, this.modesMessage());
+      this.safePost(webview, rulesMessage(this.rules));
+      this.safePost(webview, modesMessage());
       // The rule editor picks targets from the accounts that actually exist.
       this.safePost(webview, {
         kind: 'accounts',
@@ -2846,7 +1738,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       return;
     }
     if (surface.mode === 'analytics') {
-      this.pushAnalytics(webview);
+      pushAnalytics(this.panelHost, webview);
       return;
     }
     if (surface.mode === 'agent') {
@@ -2859,12 +1751,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         activeId: surface.conversationId ?? '',
       });
       this.safePost(webview, { kind: 'accounts', accounts: this.accountDtos() });
-      this.safePost(webview, this.rulesMessage());
-      this.safePost(webview, this.modesMessage());
+      this.safePost(webview, rulesMessage(this.rules));
+      this.safePost(webview, modesMessage());
       this.replayAgent(webview, surface.conversationId ?? '');
       this.safePost(webview, this.pinnedMessage(surface.conversationId));
       void this.usageRefresher?.();
-      void this.loadIdentities();
+      void this.accountsHost.loadIdentities();
       return;
     }
     const rec = surface.conversationId
@@ -2875,8 +1767,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       kind: 'accounts',
       accounts: this.accountDtos(),
     } satisfies HostToWebview);
-    this.safePost(webview, this.rulesMessage());
-    this.safePost(webview, this.modesMessage());
+    this.safePost(webview, rulesMessage(this.rules));
+    this.safePost(webview, modesMessage());
     this.safePost(webview, this.pinnedMessage(surface.conversationId));
     if (rec) {
       void this.pushQueue(rec.id);
@@ -2891,6 +1783,129 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.safePost(webview, { kind: 'conversationReady' } satisfies HostToWebview);
   }
 
+  /** Der Zugang der Bereiche unter host/ — erst beim ersten Zugriff gebaut, siehe PanelHost. */
+  private _panelHost?: ProviderBridge;
+  private get panelHost(): ProviderBridge {
+    if (this._panelHost) return this._panelHost;
+    const provider = this;
+    return this._panelHost = {
+      get ctx() { return provider.ctx; },
+      get output() { return provider.output; },
+      get surfaces() { return provider.surfaces; },
+      get conversations() { return provider.conversations; },
+      get agentPanel() { return provider.agentPanel; },
+      get rules() { return provider.rules; },
+      get metrics() { return provider.metrics; },
+      get htmlPreview() { return provider.htmlPreview; },
+      get accounts() { return provider.accounts; },
+      get exokortexWatch() { return provider.exokortexWatch; },
+      get erinnerung() { return provider.erinnerung; },
+      get adapters() { return provider.adapters; },
+      get pluginCredentials() { return provider.pluginCredentials; },
+      get pluginConnections() { return provider.pluginConnections; },
+      get pluginSwitches() { return provider.pluginSwitches; },
+      get identities() { return provider.identities; },
+      get openRouter() { return provider.openRouter; },
+      get usageRefresher() { return provider.usageRefresher; },
+      openTerminalDock: (...args) => this.panes.openTerminalDock(...args),
+      get sidePanes() { return provider.sidePanes; },
+      get browserChats() { return provider.browserChats; },
+      get terminalDockVisible() { return provider.terminalDockVisible; },
+      set terminalDockVisible(visible) { provider.terminalDockVisible = visible; },
+      get dockOpen() { return provider.dockOpen; },
+      set dockOpen(open) { provider.dockOpen = open; },
+      imageRoots: () => this.imageRoots(),
+      imageArchiveRoot: () => this.imageArchiveRoot(),
+      imageSrc: (...args) => this.imageSrc(...args),
+      attachmentDir: () => this.attachmentDir(),
+      get queues() { return provider.queues; },
+      get exokortex() { return provider.exokortex; },
+      relinkProject: (...args) => this.relinkProject(...args),
+      writeProjects: (...args) => this.writeProjects(...args),
+      newConversation: (...args) => this.newConversation(...args),
+      deleteConversation: (...args) => this.deleteConversation(...args),
+      get canvasSeen() { return provider.canvasSeen; },
+      get canvasSaved() { return provider.canvasSaved; },
+      get sessions() { return provider.sessions; },
+      get computerHistoryBridge() { return provider.computerHistoryBridge; },
+      set computerHistoryBridge(bridge) { provider.computerHistoryBridge = bridge; },
+      historyBridge: () => this.historyBridge(),
+      get quota() { return provider.quota; },
+      get authHealth() { return provider.authHealth; },
+      get automationRuntime() { return provider.automationRuntime; },
+      get teamRunner() { return provider.teamRunner; },
+      teams: () => this.teams(),
+      startAutomations: () => this.startAutomations(),
+      startTeam: (...args) => this.startTeam(...args),
+      pushTeams: (...args) => this.pushTeams(...args),
+      bindAgent: (...args) => this.bindAgent(...args),
+      openConversationTab: (...args) => this.openConversationTab(...args),
+      chatCommand: (...args) => this.chatCommand(...args),
+      restoreConversation: (...args) => this.restoreConversation(...args),
+      rewindConversation: (...args) => this.rewindConversation(...args),
+      get tasks() { return provider.tasks; },
+      get compactingChats() { return provider.compactingChats; },
+      handleSend: (...args) => this.handleSend(...args),
+      shownTarget: (...args) => this.shownTarget(...args),
+      markStopped: (...args) => this.markStopped(...args),
+      steerQueuedMessage: (...args) => this.steerQueuedMessage(...args),
+      retryLast: (...args) => this.retryLast(...args),
+      answerPermission: (...args) => this.answerPermission(...args),
+      pushWorkspace: (...args) => this.pushWorkspace(...args),
+      post: (...args) => this.safePost(...args),
+      broadcast: (msg, only) => {
+        for (const [webview, surface] of this.surfaces) if (!only || only(surface)) this.safePost(webview, msg);
+      },
+      reveal: (...args) => this.safeReveal(...args),
+      toConversation: (...args) => this.toConversation(...args),
+      dispatch: (...args) => this.dispatchMessage(...args),
+      visibleConversationId: () => this.visibleConversationId(),
+      isRunning: id => this.tasks.has(id),
+      persistNow: () => this.persistNow(),
+      persistSoon: () => this.persistSoon(),
+      sendConversations: () => this.sendConversations(),
+      projectRoot: (...args) => this.projectRoot(...args),
+      conversationCwd: (...args) => this.conversationCwd(...args),
+      projects: () => this.projects(),
+      pushProjects: () => this.pushProjects(),
+      pushAccounts: () => this.pushAccounts(),
+      accountDtos: () => this.accountDtos(),
+      hydrate: (...args) => this.hydrate(...args),
+      pushTitlebarContext: () => this.pushTitlebarContext(),
+      openAccountsTab: () => this.openAccountsTab(),
+      openRulesTab: () => this.openRulesTab(),
+      openAnalyticsTab: () => this.openAnalyticsTab(),
+      pushConnectors: (...args) => pushConnectors(this.panelHost, ...args),
+    };
+  }
+
+  /** Die Handler je Nachricht. Erst beim ersten Zugriff gebaut: Tests erzeugen den Provider ohne Konstruktor. */
+  private _handlers?: HandlerTable;
+  private get handlers(): HandlerTable {
+    return this._handlers ??= combineHandlers(
+      rulesAnalyticsHandlers,
+      bindDomain(shellTable, () => this.panelHost),
+      templateHandlers,
+      locationHandlers,
+      bindDomain(remotionTable, () => this.remotion),
+      bindDomain(exokortexTable, () => this.exokortexPanel),
+      connectorHandlers,
+      bindDomain(pluginTable, () => this.pluginSetup),
+      bindDomain(settingsTable, () => this.settings),
+      bindDomain(accountTable, () => this.accountsHost),
+      bindDomain(fileTable, () => this.panelHost),
+      bindDomain(sidePaneTable, () => this.panes),
+      bindDomain(imageTable, () => this.panelHost),
+      bindDomain(projectTable, () => this.panelHost),
+      bindDomain(canvasTable, () => this.canvas),
+      bindDomain(historyTable, () => this.panelHost),
+      bindDomain(teamTable, () => this.panelHost),
+      bindDomain(conversationTable, () => this.panelHost),
+      bindDomain(rewindTable, () => this.panelHost),
+      bindDomain(queueTable, () => this.panelHost),
+    );
+  }
+
   private async onMessage(msg: WebviewToHost, webview: vscode.Webview): Promise<void> {
     try {
       await this.dispatchMessage(msg, webview);
@@ -2903,1020 +1918,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private async dispatchMessage(msg: WebviewToHost, webview: vscode.Webview): Promise<void> {
     const surface = this.surfaces.get(webview);
     if (!surface) return;
-    switch (msg.kind) {
-      case 'pageChanged':
-        // Andere Webviews dürfen den Kontext der Hauptfläche nicht ändern.
-        if (surface.mode !== 'agent' || webview !== this.agentPanel?.webview) break;
-        if (!['chat', 'accounts', 'settings', 'plugins', 'exokortex', 'agents', 'automations'].includes(msg.page)) break;
-        surface.page = msg.page;
-        await this.pushTitlebarContext();
-        break;
-      case 'getTeams':
-        this.pushAccounts(); this.pushProjects();
-        await this.startAutomations();
-        this.pushTeams(webview);
-        break;
-      case 'copyTeamWebhook': {
-        try {
-          await this.startAutomations();
-          await this.automationRuntime!.tick();
-          const { url, token } = this.automationRuntime!.webhookCredentials(msg.teamId);
-          // Credentials go to the clipboard only after this explicit action,
-          // never to every webview in the shared status broadcast.
-          const command = `curl --request POST '${url}' --header 'Authorization: Bearer ${token}' --header 'Content-Type: application/json' --data '{}'`;
-          await vscode.env.clipboard.writeText(command);
-          this.safePost(webview, { kind: 'teamAutomationNotice', message: 'Webhook-Aufruf mit Zugriffsschlüssel kopiert.' });
-        } catch (error) {
-          this.safePost(webview, { kind: 'teamError', message: error instanceof Error ? error.message : String(error) });
-        }
-        break;
-      }
-      case 'saveTeam': case 'deleteTeam': case 'startTeam': case 'startSwarm': case 'stopTeam': case 'importAgentMarkdown': case 'exportAgentMarkdown': {
-        try {
-          const store = this.teams();
-          store.refresh();
-          if (msg.kind === 'saveTeam') {
-            const team = validateTeam(msg.team);
-            if (team.projectPath && !this.projects().some(project => project.path === team.projectPath)) throw new Error('Wähle ein vorhandenes Cortex-Projekt.');
-            store.save(team, msg.revision, msg.baseSignature);
-            this.safePost(webview, { kind: 'teamSaved', id: team.id });
-          } else if (msg.kind === 'deleteTeam') store.remove(msg.id, msg.revision);
-          else if (msg.kind === 'startTeam') await this.startTeam(msg.teamId, msg.task);
-          else if (msg.kind === 'startSwarm') await this.startSwarm(msg, this.conversations.get(surface.conversationId ?? '')?.projectPath);
-          else if (msg.kind === 'stopTeam') this.teamRunner!.stop(msg.runId);
-          else if (msg.kind === 'importAgentMarkdown') {
-            const picked = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { Markdown: ['md', 'markdown', 'txt'] }, openLabel: 'Anweisungen übernehmen' });
-            if (picked?.[0]) {
-              const info = await stat(picked[0].fsPath);
-              if (info.size > 100_000) throw new Error('Die Markdown-Datei darf höchstens 100 KB enthalten.');
-              this.safePost(webview, { kind: 'agentMarkdown', requestId: msg.requestId, text: await readFile(picked[0].fsPath, 'utf8') });
-            }
-          } else {
-            if (typeof msg.text !== 'string' || msg.text.length > 100_000) throw new Error('Ungültige Markdown-Anweisungen.');
-            const name = msg.name.replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 80) || 'Agent';
-            const picked = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(join(homedir(), `${name}.md`)), filters: { Markdown: ['md'] }, saveLabel: 'Markdown speichern' });
-            if (picked) await writeFile(picked.fsPath, msg.text, 'utf8');
-          }
-          if (msg.kind === 'saveTeam' || msg.kind === 'deleteTeam') {
-            await this.startAutomations();
-            await this.automationRuntime!.tick();
-          }
-          this.pushTeams();
-        } catch (error) {
-          this.pushTeams(webview);
-          this.safePost(webview, { kind: 'teamError', message: error instanceof Error ? error.message : String(error) });
-        }
-        break;
-      }
-      case 'computerHistory':
-        await this.historyBridge().handle(msg, webview);
-        break;
-      case 'recoverProvider': {
-        const rec = this.conversations.get(surface.conversationId ?? '');
-        const failure = [...(rec?.log ?? [])].reverse().find(event => event.kind === 'error' && event.messageId === msg.messageId && event.recovery === msg.action);
-        if (failure?.kind !== 'error') break;
-        if (msg.action === 'install-claude') {
-          if (this.providerInstallation) break;
-          this.providerInstallation = true;
-          const progress = (message: string) => {
-            this.toConversation(rec!.id, { kind: 'notice', text: message });
-            this.output.appendLine(`[installation] ${message}`);
-          };
-          try {
-            const installed = await installManagedClaude(progress);
-            await vscode.workspace.getConfiguration('cortex').update('cliPath.claude', installed.path, vscode.ConfigurationTarget.Global);
-            this.adapters.register(new ClaudeAdapter(installed.path));
-            progress(`Claude Code ist bereit (${installed.version}). Du kannst die Nachricht erneut senden.`);
-            this.pushAccounts();
-          } catch (error) { progress(error instanceof Error ? error.message : String(error)); }
-          finally { this.providerInstallation = false; }
-        } else {
-          this.safePost(webview, { kind: 'showPage', page: 'accounts' });
-          const account = this.accounts.all().find(account => account.id === failure.recoveryAccountId && account.provider === 'grok');
-          if (account) await this.dispatchMessage({ kind: 'reconnectAccount', id: account.id }, webview);
-          else this.safePost(webview, { kind: 'connectionProgress', provider: 'grok', state: 'error', message: 'Das betroffene Grok-Konto ist nicht mehr vorhanden. Wähle das gewünschte Konto unter Verbindungen.' });
-        }
-        break;
-      }
-      case 'getWidgetState':
-      case 'setWidgetState': {
-        const rec = this.conversations.get(msg.conversationId);
-        if (!rec || !/^[\w.:/-]{1,240}$/.test(msg.key)) break;
-        if (msg.kind === 'setWidgetState') {
-          const encoded = JSON.stringify(msg.value);
-          if (encoded === undefined || encoded.length > 16_000) break;
-          rec.widgetStates = { ...rec.widgetStates, [msg.key]: JSON.parse(encoded) };
-          await this.persistNow();
-        }
-        this.safePost(webview, { kind: 'widgetState', conversationId: rec.id, key: msg.key, value: rec.widgetStates?.[msg.key] });
-        break;
-      }
-      case 'searchConversations':
-        this.safePost(webview, { kind: 'conversationSearch', requestId: msg.requestId, hits: searchConversations([...this.conversations.values()], msg.query.slice(0, 2000), msg.excludedProjects) });
-        break;
-      case 'relinkProject':
-        if (this.projects().some(p => p.path === msg.path)) await this.relinkProject(msg.path);
-        break;
-      case 'ready':
-        this.hydrate(webview, surface);
-        break;
-      case 'newConversation':
-        this.newConversation(msg.projectPath);
-        break;
-      case 'openConversation':
-        if (surface.mode === 'agent') this.bindAgent(msg.id);
-        else this.openConversationTab(msg.id);
-        break;
-      case 'deleteConversation':
-        this.deleteConversation(msg.id);
-        break;
-      case 'chatCommand':
-        if (surface.conversationId) await this.chatCommand(surface.conversationId, msg.action);
-        break;
-      case 'restoreConversation':
-        await this.restoreConversation(msg.id);
-        break;
-      case 'openAccounts':
-        this.openAccountsTab();
-        break;
-      case 'workbenchAction': {
-        const commands = { split: 'workbench.action.splitEditor', close: 'workbench.action.closeActiveEditor', commands: 'workbench.action.showCommands' };
-        const command = commands[msg.action];
-        if (command) await vscode.commands.executeCommand(command);
-        break;
-      }
-      case 'getNativeSettings':
-        this.pushNativeSettings(webview);
-        break;
-      case 'setNativeSetting': {
-        const write = async () => {
-          let error: string | undefined;
-          try {
-            if (!validNativeSetting(msg.key, msg.value)) throw new Error('Ungültiger Einstellungswert.');
-            await vscode.workspace.getConfiguration().update(msg.key, msg.value, vscode.ConfigurationTarget.Global);
-          } catch (failure) { error = String(failure); }
-          const ack = msg.requestId ? { key: msg.key, requestId: msg.requestId, error } : undefined;
-          for (const [w] of this.surfaces) this.pushNativeSettings(w, error, ack);
-        };
-        this.settingsWrites = this.settingsWrites.then(write, write);
-        await this.settingsWrites;
-        break;
-      }
-      case 'openNativeSettings':
-        if (msg.query === '@extensions') await vscode.commands.executeCommand('workbench.view.extensions');
-        else if (msg.query === '@keybindings') await vscode.commands.executeCommand('workbench.action.openGlobalKeybindings');
-        else if (msg.query === '@json') await vscode.commands.executeCommand('workbench.action.openSettingsJson');
-        else await vscode.commands.executeCommand('workbench.action.openSettings', msg.query ?? '');
-        break;
-      case 'getAppSettings':
-        this.safePost(webview, { kind: 'appSettings', values: this.appSettings(), revision: ++this.settingsRevision });
-        break;
-      case 'setAppSetting':
-        await this.storeAppSetting(msg.key, msg.value, msg.requestId);
-        break;
-      case 'pickAppSettingFolder': {
-        const picked = await vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true, canSelectMany: false, openLabel: 'Auswählen' });
-        if (picked?.[0]) await this.storeAppSetting(msg.key, picked[0].fsPath);
-        break;
-      }
-      case 'openLicenses': {
-        const license = vscode.Uri.joinPath(this.ctx.extensionUri, 'LICENSE');
-        if (existsSync(license.fsPath)) await vscode.commands.executeCommand('vscode.open', license);
-        else void vscode.window.showInformationMessage('Cortex steht unter der MIT-Lizenz. Die Hinweise zu gebündelten Abhängigkeiten liegen im Paket.');
-        break;
-      }
-      case 'detectImports': {
-        // Nur nachsehen, nichts lesen: ob der Ordner eines anderen Werkzeugs da ist.
-        const candidates = [
-          { id: 'claude-code', name: 'Claude Code', path: join(homedir(), '.claude') },
-          { id: 'codex', name: 'Codex', path: join(homedir(), '.codex') },
-          { id: 'cursor', name: 'Cursor', path: join(homedir(), '.cursor') },
-          { id: 'grok', name: 'Grok', path: join(homedir(), '.grok') },
-        ];
-        this.safePost(webview, { kind: 'imports', found: candidates.filter(c => existsSync(c.path)) });
-        break;
-      }
-      case 'getAnalytics':
-        this.safePost(webview, { kind: 'analytics', metrics: this.metrics.all(), accounts: this.accountDtos() });
-        break;
-      case 'openKeybindings':
-        await vscode.commands.executeCommand('workbench.action.openGlobalKeybindings', msg.query ?? '');
-        break;
-      case 'openSettings':
-        if (this.agentPanel) {
-          this.safePost(this.agentPanel.webview, { kind: 'showPage', page: 'settings' });
-          this.safeReveal(this.agentPanel);
-        }
-        break;
-      case 'setSetting': {
-        await vscode.workspace
-          .getConfiguration('cortex')
-          .update(msg.key, msg.value, vscode.ConfigurationTarget.Global);
-        for (const [w] of this.surfaces) this.safePost(w, this.modesMessage());
-        break;
-      }
-      case 'openRules':
-        this.openRulesTab();
-        break;
-      case 'respondToConnection':
-        respondToConnection(msg.provider as Target['provider'], msg.attemptId, msg.accept);
-        break;
-      case 'addAccount':
-      case 'reconnectAccount': {
-        const existing = msg.kind === 'reconnectAccount' ? this.accounts.all().find(a => a.id === msg.id) : undefined;
-        if (msg.kind === 'reconnectAccount' && !existing) break;
-        const provider = existing?.provider ?? (msg.kind === 'addAccount' ? msg.provider : undefined);
-        await addAccountWizard(this.accounts, this.adapters, {
-          provider: provider as Target['provider'],
-          label: msg.kind === 'addAccount' ? msg.label : existing?.label,
-          accountId: existing?.id,
-          email: msg.kind === 'addAccount' ? msg.email : undefined,
-          onProgress: (state, message, detail) => this.safePost(webview, { kind: 'connectionProgress', provider: provider ?? '', state, message, ...detail }),
-        });
-        this.pushAccounts();
-        break;
-      }
-      case 'assignProject': {
-        const rec = this.conversations.get(surface.conversationId ?? '');
-        if (!rec) break;
-        if (this.tasks.has(rec.id)) { void vscode.window.showInformationMessage('Bitte warte, bis die laufende Aufgabe beendet ist.'); break; }
-        const choices = this.projects().map(p => ({ label: p.name, description: p.path, path: p.path }));
-        const picked = await vscode.window.showQuickPick([...choices, { label: 'Ordner auswählen …', description: '', path: '' }], { placeHolder: 'Diesem Chat ein Projekt zuweisen' });
-        if (!picked || this.tasks.has(rec.id)) break;
-        let path = picked.path;
-        if (!path) {
-          const folders = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, canSelectMany: false, openLabel: 'Projekt zuweisen' });
-          if (!folders?.[0] || this.tasks.has(rec.id)) break;
-          path = (await validProject(folders[0].fsPath)).path;
-        }
-        rec.projectPath = path;
-        for (const [w] of this.surfaces) this.safePost(w, { kind: 'projects', projects: this.projects() });
-        this.sendConversations();
-        await this.persistNow();
-        await this.pushWorkspace(webview);
-        break;
-      }
-      /**
-       * Die Wahl aus der Liste über der Eingabe. Anders als `assignProject`
-       * fragt hier nichts mehr nach — der Nutzer hat den Eintrag schon
-       * angeklickt. Ohne Pfad läuft die Aufgabe ohne Projekt weiter.
-       */
-      case 'setConversationProject': {
-        const rec = this.conversations.get(surface.conversationId ?? '');
-        if (!rec) break;
-        if (this.tasks.has(rec.id)) { void vscode.window.showInformationMessage('Bitte warte, bis die laufende Aufgabe beendet ist.'); break; }
-        // Ein Pfad, den die Liste nicht kennt, kam nicht aus der Liste.
-        if (msg.path && !this.projects().some(p => p.path === msg.path)) break;
-        rec.projectPath = msg.path;
-        for (const [w] of this.surfaces) this.safePost(w, { kind: 'projects', projects: this.projects() });
-        this.sendConversations();
-        await this.persistNow();
-        await this.pushWorkspace(webview);
-        break;
-      }
-      /**
-       * „Projekt erstellen“ aus dem Dialog. Die Ordner kommen aus dem
-       * Dateidialog des Systems, deshalb werden sie hier nur noch geprüft —
-       * der erste ist der Kennordner, an dem die Aufgaben hängen.
-       */
-      case 'createProject': {
-        const folders: string[] = [];
-        for (const folder of msg.folders) {
-          try {
-            const valid = await validProject(folder);
-            if (!folders.includes(valid.path)) folders.push(valid.path);
-          } catch {
-            // Ein Ordner, den es nicht mehr gibt, wird nicht zum Projekt.
-          }
-        }
-        const anchor = folders[0];
-        if (!anchor) break;
-        const name = msg.name.trim() || basename(anchor);
-        await this.writeProjects(saved => [...saved.filter(p => p.path !== anchor), { name, path: anchor, folders }]);
-        this.newConversation(anchor);
-        break;
-      }
-      case 'addProject': {
-        const picked = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, canSelectMany: false, openLabel: 'Projekt hinzufügen' });
-        if (!picked?.[0]) break;
-        const project = await validProject(picked[0].fsPath);
-        await this.writeProjects(saved => [...saved.filter(p => p.path !== project.path), project]);
-        this.newConversation(project.path);
-        break;
-      }
-      case 'saveProject': {
-        const name = msg.name.trim();
-        if (!name) break;
-        // Der Kennpfad bleibt Kennpfad: an ihm hängen die bestehenden Chats.
-        const folders = [msg.path, ...msg.folders.filter(f => f !== msg.path)];
-        await this.writeProjects(saved => {
-          const rest = saved.filter(p => p.path !== msg.path);
-          const before = saved.find(p => p.path === msg.path);
-          return [...rest, { ...before, name, path: msg.path, folders }];
-        });
-        break;
-      }
-      case 'removeProject': {
-        const owned = [...this.conversations.values()].filter(c => c.projectPath === msg.path);
-        if (owned.some(c => this.tasks.has(c.id) || this.queues.isWorking(c.id))) {
-          void vscode.window.showInformationMessage('Bitte zuerst die laufenden Aufgaben dieses Projekts beenden.'); break;
-        }
-        let action = 'Archivieren';
-        if (owned.length) {
-          const choice = await vscode.window.showWarningMessage(
-            `„${basename(msg.path)}“ hat ${owned.length === 1 ? 'noch eine Aufgabe' : `noch ${owned.length} Aufgaben`}.`,
-            { modal: true, detail: 'Aufgaben archivieren oder Chatverläufe, Zeichnungen und Cortex-Exporte löschen? Projektdateien bleiben erhalten.' },
-            'Archivieren', 'Verläufe löschen');
-          if (!choice || owned.some(c => this.tasks.has(c.id) || this.queues.isWorking(c.id))) break;
-          action = choice;
-        }
-        if (action === 'Verläufe löschen') {
-          for (const rec of owned) this.exokortex.entferne(rec.id);
-          // Bind an active view to a fresh projectless chat before removing its records.
-          if (owned.some(c => c.id === this.visibleConversationId())) this.newConversation();
-          for (const rec of owned) this.deleteConversation(rec.id);
-        } else for (const rec of owned) { rec.archived = true; this.queues.pause(rec.id); }
-        await this.ctx.globalState.update('cortex.removedProjects', [...new Set([...this.ctx.globalState.get<string[]>('cortex.removedProjects', []), msg.path])]);
-        await this.writeProjects(saved => saved.filter(p => p.path !== msg.path));
-        this.sendConversations(); await this.persistNow();
-        break;
-      }
-      case 'pinProject': {
-        const known = this.projects().find(p => p.path === msg.path);
-        if (!known) break;
-        await this.writeProjects(saved => {
-          const rest = saved.filter(p => p.path !== msg.path);
-          const { missing, ...rest0 } = { ...known, ...saved.find(p => p.path === msg.path) };
-          return [...rest, { ...rest0, pinned: msg.pinned }];
-        });
-        break;
-      }
-      case 'pickProjectFolder': {
-        const picked = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, canSelectMany: false, openLabel: 'Ordner hinzufügen' });
-        if (!picked?.[0]) break;
-        this.safePost(webview, { kind: 'pickedFolder', path: picked[0].fsPath });
-        break;
-      }
-      case 'revealProject':
-        await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(msg.path));
-        break;
-      case 'getDiff': {
-        const root = this.projectRoot(surface.conversationId);
-        const id = surface.conversationId ?? '';
-        try {
-          this.safePost(webview, { kind: 'diff', conversationId: id, files: await collectDiff(root) });
-        } catch (error) {
-          this.safePost(webview, { kind: 'diff', conversationId: id, files: [], error: (error as Error).message });
-        }
-        break;
-      }
-      case 'canvasAnswer':
-        this.canvasRequests.get(msg.reqId)?.(msg);
-        break;
-      case 'canvasLoad':
-      case 'canvasSave':
-      case 'canvasVisible':
-      case 'canvasExport':
-        await this.canvasMessage(webview, msg);
-        break;
-      case 'readFileBody': {
-        // Der Inhalt einer gelesenen Datei, damit die Prüfansicht sie zeigen
-        // kann, ohne dass der Nutzer den Editor öffnen muss. Gedeckelt: eine
-        // 40-MB-Datei gehört nicht durch die Nachrichtenbrücke.
-        const root = this.projectRoot(surface.conversationId);
-        if (!root) { this.safePost(webview, { kind: 'fileBody', path: msg.path, error: 'Kein Projektordner.' }); break; }
-        try {
-          const file = await projectFile(root, msg.path);
-          this.safePost(webview, { kind: 'fileBody', path: msg.path, ...await readFilePreview(file, msg.maxLines) });
-        } catch (error) {
-          this.safePost(webview, { kind: 'fileBody', path: msg.path, error: (error as Error).message });
-        }
-        break;
-      }
-      case 'previewFile': {
-        // Eine HTML-Datei zeigt das Dock als Seite. Sie geht nicht als Text
-        // durch die Nachrichtenbrücke, sondern über den eigenen Server —
-        // warum, steht in htmlPreview.ts.
-        const root = this.projectRoot(surface.conversationId);
-        if (!root) { this.safePost(webview, { kind: 'filePreview', path: msg.path, error: 'Kein Projektordner.' }); break; }
-        try {
-          this.safePost(webview, { kind: 'filePreview', path: msg.path, url: await this.htmlPreview.url(root, msg.path) });
-        } catch (error) {
-          this.safePost(webview, { kind: 'filePreview', path: msg.path, error: (error as Error).message });
-        }
-        break;
-      }
-      case 'fileAction': {
-        // Der geteilte Knopf „Öffnen“ im Dock. Jeder Zweig verlässt Cortex —
-        // deshalb steht der Pfad hier noch einmal durch `projectFile`, statt
-        // dem zu vertrauen, was die Webview geschickt hat.
-        const root = this.projectRoot(surface.conversationId);
-        if (!root) break;
-        let file: string;
-        try { file = await projectFile(root, msg.path); } catch { break; }
-        if (msg.action === 'default') {
-          await vscode.env.openExternal(vscode.Uri.file(file));
-        } else if (msg.action === 'reveal') {
-          await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(file));
-        } else if (msg.action === 'terminal') {
-          this.openTerminalDock(dirname(file));
-        } else if (msg.action === 'xcode') {
-          // Das Projekt über der Datei, nicht die lose Datei: nur so baut Xcode sie auch.
-          execFile('open', ['-a', 'Xcode', xcodeTarget(file, root)], (error) => {
-            if (error) void vscode.window.showErrorMessage('Xcode ließ sich nicht öffnen. Liegt es unter Programme?');
-          });
-        } else {
-          const target = await vscode.window.showSaveDialog({
-            defaultUri: vscode.Uri.file(join(homedir(), 'Downloads', basename(file))),
-            saveLabel: 'Sichern',
-          });
-          if (target) await vscode.workspace.fs.copy(vscode.Uri.file(file), target, { overwrite: true });
-        }
-        break;
-      }
-      case 'openDiffFile': {
-        const root = this.projectRoot(surface.conversationId);
-        if (!root) break;
-        const file = await projectFile(root, msg.path);
-        await vscode.window.showTextDocument(vscode.Uri.file(file), { preview: true });
-        break;
-      }
-      case 'inspectWorkspace':
-        await this.pushWorkspace(webview, msg.directory);
-        break;
-      case 'openWorkspaceFile': {
-        const root = this.projectRoot(surface.conversationId);
-        const record = surface.conversationId ? this.conversations.get(surface.conversationId) : undefined;
-        const path = expandHome(msg.path);
-        const attached = record?.log.some(event => event.kind === 'userEcho' && event.attachments?.includes(msg.path));
-        // Was der Agent in diesem Chat selbst gelesen oder geschrieben hat, geht
-        // auch außerhalb des Projekts auf — etwa ein Bildschirmfoto unter /tmp.
-        const touched = isAbsolute(path) && record?.log.some(event => event.kind === 'toolUse' && event.path === msg.path);
-        const file = attached || touched ? path : root ? await projectFile(root, path) : undefined;
-        if (file) await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(file), { viewColumn: vscode.ViewColumn.Beside, preview: true });
-        break;
-      }
-      case 'openEditor': {
-        await vscode.commands.executeCommand('workbench.action.focusSecondEditorGroup');
-        await vscode.commands.executeCommand('workbench.action.quickOpen');
-        break;
-      }
-      case 'openTerminal':
-        this.openTerminalDock(await this.conversationCwd(surface.conversationId));
-        break;
-      case 'openConnectors':
-        if (this.agentPanel) this.safePost(this.agentPanel.webview, { kind: 'showPage', page: 'settings' });
-        await this.pushConnectors(webview);
-        break;
-      case 'getTemplates':
-        this.safePost(webview, { kind: 'templates', items: this.readTemplates(webview) });
-        break;
-      case 'templateAction': {
-        const own = join(homedir(), '.cortex', 'templates');
-        const found = this.templateEntries(webview).find(entry => msg.id ? entry.item.id === msg.id : entry.item.name === msg.name);
-        if (!found) break;
-        try {
-          if (msg.action === 'duplicate') {
-            duplicateTemplate(found, own);
-          } else if (!found.item.own) {
-            void vscode.window.showInformationMessage('Mitgelieferte Vorlagen lassen sich nicht ändern — dupliziere sie zuerst.');
-          } else if (msg.action === 'delete') {
-            await vscode.workspace.fs.delete(vscode.Uri.file(found.source), { useTrash: true, recursive: !!found.package });
-          } else {
-            const name = await vscode.window.showInputBox({ prompt: 'Neuer Name der Vorlage', value: found.item.name });
-            if (name?.trim()) renameTemplate(found, name.trim());
-          }
-        } catch (error) {
-          void vscode.window.showErrorMessage(`Vorlage konnte nicht geändert werden: ${error instanceof Error ? error.message : String(error)}`);
-        }
-        this.safePost(webview, { kind: 'templates', items: this.readTemplates(webview) });
-        break;
-      }
-      case 'editTemplates': {
-        const dir = join(homedir(), '.cortex', 'templates');
-        await vscode.workspace.fs.createDirectory(vscode.Uri.file(dir));
-        await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(dir));
-        break;
-      }
-      case 'getPlugins':
-        await this.pushPlugins(webview);
-        break;
-      case 'installPlugin':
-        await this.changePlugin(webview, msg.id, msg.scope, true, msg.values);
-        break;
-      case 'uninstallPlugin':
-        await this.changePlugin(webview, msg.id, msg.scope, false);
-        break;
-      case 'setPluginValues':
-        await this.setPluginValues(webview, msg.id, msg.values);
-        break;
-      case 'checkServer':
-        void this.checkServer(msg.server, true);
-        break;
-      case 'setPluginEnabled':
-        await this.pluginSwitches.set(msg.server, msg.enabled);
-        if (msg.enabled) void this.checkServer(msg.server, false);
-        break;
-      case 'showPluginLog': {
-        const result = this.pluginConnections.get(msg.server);
-        const channel = this.pluginLogChannel ??= vscode.window.createOutputChannel('Cortex Plugins');
-        channel.appendLine(`── ${msg.server} · ${result?.checkedAt ? new Date(result.checkedAt).toLocaleString('de-DE') : 'nie geprüft'} ──`);
-        channel.appendLine(result?.message ? `Ergebnis: ${result.message}` : `Ergebnis: ${result?.status ?? 'kein'}`);
-        if (result?.detail) channel.appendLine(result.detail);
-        channel.appendLine(result?.log ? result.log : '(Der Server hat nichts auf stderr geschrieben.)');
-        for (const cli of result?.clis ?? []) channel.appendLine(`${cli.provider}:${cli.label} → ${cli.state}${cli.detail ? ` — ${cli.detail}` : ''}`);
-        channel.appendLine('');
-        channel.show(true);
-        break;
-      }
-      case 'checkPlugin': {
-        const entry = this.catalog().find(e => e.id === msg.id);
-        if (entry) void this.checkPlugin(entry, true);
-        break;
-      }
-      case 'loginPlugin':
-        await this.loginPlugin(webview, msg.id, msg.account);
-        break;
-      case 'cancelPluginLogin': {
-        const entry = this.catalog().find(e => e.id === msg.id);
-        if (entry) this.pluginLogins.get(entry.server)?.abort.abort();
-        break;
-      }
-      case 'logoutPlugin':
-        await this.logoutPlugin(webview, msg.id);
-        break;
-      case 'setPluginClient':
-        await this.storePluginClient(webview, msg.id, clientFromFields(msg.clientId, msg.clientSecret));
-        break;
-      case 'pickPluginClientFile': {
-        const picked = await vscode.window.showOpenDialog({
-          canSelectMany: false,
-          filters: { 'OAuth-Client (JSON)': ['json'] },
-          defaultUri: vscode.Uri.file(join(homedir(), 'Desktop')),
-          openLabel: 'Client-Datei verwenden',
-        });
-        if (picked?.[0]) await this.readPluginClientFile(webview, msg.id, picked[0].fsPath);
-        break;
-      }
-      case 'pluginClientFile':
-        await this.readPluginClientFile(webview, msg.id, msg.path);
-        break;
-      case 'clearPluginClient': {
-        const entry = this.catalog().find(e => e.id === msg.id);
-        if (!entry) break;
-        await this.pluginCredentials.clear(entry.server, 'client');
-        this.pluginConnections.forget(entry.server);
-        this.resyncProfiles();
-        this.safePost(webview, { kind: 'pluginProgress', id: msg.id, ok: true, message: `OAuth-Client für ${entry.name} entfernt — samt Anmeldung.` });
-        break;
-      }
-      case 'copyPluginRedirect': {
-        const redirect = ownClientRedirect(this.catalog().find(e => e.id === msg.id)?.requires?.client?.redirectHost);
-        await vscode.env.clipboard.writeText(redirect);
-        this.safePost(webview, { kind: 'pluginProgress', id: msg.id, ok: true, message: `Rückrufadresse kopiert: ${redirect}` });
-        break;
-      }
-      case 'copyPluginDefinition': {
-        const entry = this.catalog().find(e => e.id === msg.id);
-        if (!entry) break;
-        // Der teilbare Teil eines Plugins ist seine Definition, nicht ein Link
-        // auf einen Marktplatz, den es nicht gibt.
-        await vscode.env.clipboard.writeText(
-          JSON.stringify({ servers: { [entry.server]: entry.definition } }, null, 2),
-        );
-        this.safePost(webview, {
-          kind: 'pluginProgress', id: entry.id, ok: true,
-          message: `Serverdefinition f\u00fcr ${entry.name} kopiert.`,
-        });
-        break;
-      }
-      case 'showDatabaseStudio':
-        await vscode.commands.executeCommand('cortex.databaseStudio.status');
-        break;
-      case 'openExternal':
-        // Nur http(s): eine Katalogangabe darf kein beliebiges Schema öffnen.
-        if (/^https?:\/\//.test(msg.url)) await vscode.env.openExternal(vscode.Uri.parse(msg.url));
-        break;
-      case 'openUrlIn': {
-        if (!/^https?:\/\//.test(msg.url)) break;
-        if (msg.app === 'cortex') { await this.dispatchMessage({ kind: 'openBrowser', url: msg.url }, webview); break; }
-        if (msg.app === 'default') { await vscode.env.openExternal(vscode.Uri.parse(msg.url)); break; }
-        // Ein ausdrücklich gewählter Browser, auf Klick des Nutzers.
-        const app = msg.app === 'chrome' ? 'Google Chrome' : 'Safari';
-        spawn('open', ['-a', app, msg.url], { stdio: 'ignore', detached: true }).on('error', () => {
-          void vscode.window.showWarningMessage(`${app} ließ sich nicht öffnen.`);
-        }).unref();
-        break;
-      }
-      case 'revertTurn':
-        await this.revertTurn(surface.conversationId, msg.messageId, msg.paths);
-        break;
-      case 'getConnectors':
-        await this.pushConnectors(webview);
-        break;
-      case 'getExokortex':
-        await this.pushExokortex(webview);
-        break;
-      case 'exokortexPageOpen':
-        this.exokortexWatch.setOffen(msg.open);
-        break;
-      case 'exokortexAction':
-        await this.exokortexAktion(msg.action, webview);
-        break;
-      case 'exokortexGalaxie': {
-        // Der Ausschnitt kommt fertig gekappt aus Python — welche Nachbarn
-        // wichtig sind, weiss der Graph, nicht die Oberflaeche.
-        const { python, repo } = this.exokortexPfade();
-        const args = [join(repo, 'bruecke', 'galaxie.py')];
-        args.push(...(msg.id ? ['nachbarn', msg.id] : ['start']));
-        const zeilen: string[] = [];
-        for await (const ereignis of spawnLines(python, args, {
-          cwd: repo, env: process.env, signal: new AbortController().signal,
-        })) {
-          if (ereignis.kind === 'line' && ereignis.stream === 'stdout') zeilen.push(ereignis.line);
-        }
-        try {
-          const d = JSON.parse(zeilen.join('\n')) as {
-            knoten: GalaxieKnoten[];
-            kanten: Array<{ von: string; nach: string; typ: string }>;
-            hinweis: string;
-          };
-          this.safePost(webview, { kind: 'exokortexGalaxieDaten', um: msg.id, ...d });
-        } catch {
-          this.safePost(webview, {
-            kind: 'exokortexGalaxieDaten', um: msg.id, knoten: [], kanten: [],
-            hinweis: 'Der Ausschnitt liess sich nicht lesen.',
-          });
-        }
-        break;
-      }
-      case 'exokortexSuche': {
-        // Genau der Weg, den ein Modell nimmt. Eine eigene Suchfassung hier
-        // wäre eine, die irgendwann etwas anderes findet als die KI.
-        const { python, repo } = this.exokortexPfade();
-        const zeilen: string[] = [];
-        for await (const ereignis of spawnLines(
-          python, [join(repo, 'bruecke', 'lesen.py'), '--suche', msg.frage],
-          { cwd: repo, env: process.env, signal: new AbortController().signal })) {
-          if (ereignis.kind === 'line' && ereignis.stream === 'stdout') zeilen.push(ereignis.line);
-          if (ereignis.kind === 'spawn-error') zeilen.push(ereignis.message);
-        }
-        this.safePost(webview, { kind: 'exokortexTreffer', frage: msg.frage, text: zeilen.join('\n') });
-        break;
-      }
-      case 'hideMemory':
-        if (surface.conversationId) this.erinnerung.ausblenden(surface.conversationId, msg.id);
-        break;
-      case 'exokortexOpenPath': {
-        const ziel = vscode.Uri.file(msg.path);
-        const verzeichnis = (await vscode.workspace.fs.stat(ziel)).type === vscode.FileType.Directory;
-        if (verzeichnis) await vscode.env.openExternal(ziel);
-        else await vscode.window.showTextDocument(ziel, { preview: true });
-        break;
-      }
-      case 'exokortexOeffneQuelle': {
-        // App, Ordner oder URL — derselbe Klick wie auf ein Dock-Symbol.
-        // `open` darf scheitern, ohne die Seite zu stören: eine nicht
-        // installierte App (Telegram) ist geplant, kein Fehlerdialog.
-        if (msg.url && /^https?:\/\//.test(msg.url)) {
-          await vscode.env.openExternal(vscode.Uri.parse(msg.url));
-          break;
-        }
-        if (msg.pfad) {
-          await vscode.env.openExternal(vscode.Uri.file(expandHome(msg.pfad)));
-          break;
-        }
-        const args = msg.bundle ? ['-b', msg.bundle] : msg.app ? ['-a', msg.app] : null;
-        if (args) spawn('open', args, { stdio: 'ignore', detached: true }).unref();
-        break;
-      }
-      case 'syncConnectors':
-        await this.pushConnectors(webview, true);
-        break;
-      case 'editConnectors': {
-        const path = this.connectorPaths().find(p => existsSync(p)) ?? this.connectorPaths()[0]!;
-        const uri = vscode.Uri.file(path);
-        // Ohne Datei gibt es nichts zu bearbeiten — die Vorlage erklärt das Format.
-        if (!existsSync(path)) await vscode.workspace.fs.writeFile(uri, Buffer.from(MCP_TEMPLATE, 'utf8'));
-        await vscode.window.showTextDocument(uri);
-        break;
-      }
-      case 'dockState':
-        this.dockOpen = msg.open;
-        await this.pushDockContexts();
-        break;
-      case 'closeTerminal':
-        // Schließen räumt die Fläche frei; laufende Server bleiben erhalten.
-        this.terminalDockVisible = false;
-        await this.hidePanel();
-        this.pushPanes();
-        break;
-      case 'closeBrowser': {
-        const known = await vscode.commands.getCommands(true);
-        if (known.includes('workbench.action.browser.closeAll')) {
-          await vscode.commands.executeCommand('workbench.action.browser.closeAll');
-        }
-        this.sidePanes.browser = false;
-        if (surface?.conversationId) this.browserChats.delete(surface.conversationId);
-        this.pushPanes();
-        break;
-      }
-      case 'openBrowser': {
-        // Die zuletzt geöffnete Seite merkt sich jeder Chat selbst — nie die
-        // eines anderen Chats oder Projekts.
-        const chat = surface?.conversationId;
-        const url = new URL(msg.url || (chat ? this.previewUrls()[chat] : undefined) || 'about:blank');
-        if (url.protocol !== 'http:' && url.protocol !== 'https:' && url.href !== 'about:blank') break;
-        if (chat && url.href !== 'about:blank') {
-          await this.ctx.workspaceState.update('cortex.previewUrls', { ...this.previewUrls(), [chat]: url.href });
-        }
-        if (chat) this.browserChats.add(chat);
-        const commands = await vscode.commands.getCommands(true);
-        if (commands.includes('workbench.action.browser.open')) {
-          // Current Code-OSS has a real integrated browser. Simple Browser redirects
-          // to it but drops viewColumn; use its side-by-side API explicitly.
-          // A preview stays a single pane: close an open browser first instead of
-          // stacking a second one next to the chat.
-          if (commands.includes('workbench.action.browser.closeAll')) await vscode.commands.executeCommand('workbench.action.browser.closeAll');
-          await vscode.commands.executeCommand('workbench.action.browser.open', { url: url.href === 'about:blank' ? undefined : url.href, openToSide: true });
-          this.sidePanes.browser = true;
-          this.pushPanes();
-        } else {
-          await vscode.commands.executeCommand('simpleBrowser.api.open', vscode.Uri.parse(url.toString()), { viewColumn: vscode.ViewColumn.Beside });
-        }
-        break;
-      }
-      case 'removeAccount':
-        void vscode.commands.executeCommand('cortex.removeAccount', msg.id);
-        break;
-      case 'renameAccount':
-        await this.renameAccount(msg.id);
-        break;
-      case 'editRules':
-        void vscode.commands.executeCommand('cortex.editRules');
-        break;
-      case 'saveRule':
-        void this.rules.saveRule(msg.rule, msg.ruleIndex);
-        break;
-      case 'deleteRule':
-        void this.rules.deleteRule(msg.ruleId);
-        break;
-      case 'reorderRules':
-        void this.rules.reorderRules(msg.order);
-        break;
-      case 'saveDefaultChain':
-        void this.rules.saveDefaultChain(msg.chain);
-        break;
-      case 'openAnalytics':
-        this.openAnalyticsTab();
-        break;
-      case 'rateAnswer':
-        // The verdict lives in the metric the router learns from, and in the
-        // conversation log so reopening it still shows what you pressed.
-        await this.metrics.markRatedPoor(msg.messageId, msg.poor);
-        if (surface.conversationId) {
-          this.toConversation(surface.conversationId, { kind: 'rated', messageId: msg.messageId, poor: msg.poor });
-        }
-        return;
-      case 'permissionDecision':
-        // The surface knows which conversation it belongs to; the webview
-        // never has to track it.
-        if (surface.conversationId) {
-          this.answerPermission(surface.conversationId, msg.id, msg.decision);
-        }
-        return;
-      case 'setAskPermission':
-        await vscode.workspace
-          .getConfiguration('cortex')
-          .update('askPermission', msg.ask, vscode.ConfigurationTarget.Global);
-        // Every open surface reflects the switch, not just the one clicked.
-        for (const [w] of this.surfaces) this.safePost(w, this.modesMessage());
-        return;
-      case 'clearAnalytics':
-        void this.metrics.clear();
-        break;
-      case 'refreshUsage':
-        void this.usageRefresher?.(true);
-        break;
-      case 'cancel':
-        if (surface.conversationId) {
-          this.compactingChats.get(surface.conversationId)?.abort();
-          this.queues.pause(surface.conversationId);
-          this.tasks.get(surface.conversationId)?.abort();
-          this.markStopped(surface.conversationId, 'stopped by you');
-          this.toConversation(surface.conversationId, { kind: 'busy', running: false }, { log: false });
-          this.sendConversations();
-        }
-        break;
-      case 'queueAction': {
-        const id = surface.conversationId; if (!id) break;
-        if (msg.action === 'remove') this.queues.remove(id, msg.id);
-        else if (msg.action === 'up' || msg.action === 'down') this.queues.move(id, msg.id, msg.action === 'up' ? -1 : 1);
-        else if (msg.action === 'steer') await this.steerQueuedMessage(id, msg.id);
-        await this.persistNow();
-        break;
-      }
-      case 'editQueuedMessage':
-        if (surface.conversationId) { this.queues.edit(surface.conversationId, msg.id, msg.text, tagsOf(msg.text)); await this.persistNow(); }
-        break;
-      case 'resumeQueue':
-        if (surface.conversationId) this.queues.resume(surface.conversationId);
-        break;
-      case 'clearQueue':
-        if (surface.conversationId) { this.queues.clearPending(surface.conversationId); await this.persistNow(); }
-        break;
-      case 'openCode': {
-        const aliases: Record<string, string> = { ts: 'typescript', tsx: 'typescriptreact', js: 'javascript', jsx: 'javascriptreact', py: 'python', sh: 'shellscript', bash: 'shellscript', yml: 'yaml', md: 'markdown' };
-        const requested = msg.language ? aliases[msg.language] ?? msg.language : 'plaintext';
-        const language = (await vscode.languages.getLanguages()).includes(requested) ? requested : 'plaintext';
-        const doc = await vscode.workspace.openTextDocument({ content: msg.text, language });
-        await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.Beside, preview: true });
-        break;
-      }
-      case 'retryLast':
-        if (surface.conversationId) void this.retryLast(surface.conversationId);
-        break;
-      case 'rewindTo':
-      case 'forkFrom': {
-        if (!surface.conversationId) break;
-        const done = await this.rewindConversation(surface.conversationId, msg.index, msg.kind === 'forkFrom' ? 'fork' : 'rewind');
-        if (done) this.seedComposer(done.id, done.echo);
-        break;
-      }
-      case 'editMessage': {
-        if (!surface.conversationId || !msg.send.text.trim()) break;
-        const done = await this.rewindConversation(surface.conversationId, msg.index, 'edit');
-        // Die Anhänge der ursprünglichen Nachricht gehen mit, solange die Bearbeitung keine eigenen nennt.
-        if (done) await this.dispatchMessage({ ...msg.send, attachments: msg.send.attachments?.length ? msg.send.attachments : done.echo.attachments }, webview);
-        break;
-      }
-      case 'send':
-        if (surface.conversationId) {
-          await this.handleSend(surface.conversationId, msg.text, msg.tags, {
-            permissionMode: msg.permissionMode as PermissionMode | undefined,
-            askPermission: msg.askPermission,
-            effort: msg.effort,
-            routingMode: msg.routingMode,
-            attachments: msg.attachments,
-            image: sanitizeImageOptions(msg.image),
-            imageProvider: msg.image && isImageProvider(msg.imageProvider) ? msg.imageProvider : undefined,
-            target: msg.image ? undefined : msg.target
-              ? {
-                  provider: msg.target.provider as Target['provider'],
-                  account: msg.target.account,
-                  model: msg.target.model,
-                }
-              : this.shownTarget(surface.conversationId),
-          });
-        }
-        break;
-      case 'setImageAccountOrder': {
-        if (!isImageProvider(msg.provider) || !Array.isArray(msg.accounts)) break;
-        const known = new Set(this.accounts.all().filter(a => a.provider === msg.provider).map(a => a.label));
-        const config = vscode.workspace.getConfiguration('cortex');
-        const current = config.get<Record<string, string[]>>('imageAccountOrder', {});
-        await config.update('imageAccountOrder', { ...current, [msg.provider]: msg.accounts.filter(l => typeof l === 'string' && known.has(l)) }, vscode.ConfigurationTarget.Global);
-        this.pushAccounts();
-        break;
-      }
-      case 'resizeImage': {
-        const id = surface.conversationId;
-        if (!id || !isGeneratedImage(msg.path, this.imageRoots()) || !existsSync(msg.path)) break;
-        const rec = this.conversations.get(id);
-        const original = rec?.log.find((event): event is Extract<HostToWebview, { kind: 'image' }> => event.kind === 'image' && event.path === msg.path);
-        if (!original) break;
-        try {
-          const resized = await resizeGeneratedImage(msg.path, msg.width, msg.height);
-          const path = await archiveGeneratedImage(resized, this.imageArchiveRoot(), id);
-          const src = await this.imageSrc(path);
-          if (!src || !this.conversations.has(id)) break;
-          const messageId = shortId();
-          const target = rec?.log.find(event => event.kind === 'routing' && event.messageId === original.messageId);
-          const text = `Bildgröße auf ${msg.width} × ${msg.height} Pixel ändern.`;
-          this.toConversation(id, { kind: 'userEcho', text, attachments: [msg.path], at: Date.now() });
-          if (target?.kind === 'routing') this.toConversation(id, { ...target, messageId });
-          this.toConversation(id, { kind: 'image', messageId, path, src, prompt: original.prompt, edited: true });
-          this.toConversation(id, { kind: 'delta', messageId, text: `${msg.width} × ${msg.height} Pixel.` });
-          this.toConversation(id, { kind: 'done', messageId, at: Date.now(), durationMs: 0, turn: false });
-          await this.persistNow();
-        } catch (error) {
-          this.toConversation(id, { kind: 'notice', text: `Bildgröße konnte nicht geändert werden: ${error instanceof Error ? error.message : String(error)}` });
-        }
-        break;
-      }
-      case 'imageAction': {
-        // Der Pfad kommt aus der Webview: nur Bilder aus den Ordnern der
-        // Bildwerkzeuge verlassen sie in Richtung Finder oder Projekt.
-        if (!isGeneratedImage(msg.path, this.imageRoots()) || !existsSync(msg.path)) break;
-        const source = vscode.Uri.file(msg.path);
-        if (msg.action === 'copy') {
-          try { await copyGeneratedImage(msg.path); }
-          catch (error) { void vscode.window.showErrorMessage(`Bild konnte nicht kopiert werden: ${error instanceof Error ? error.message : String(error)}`); }
-        } else if (msg.action === 'reveal') {
-          await vscode.commands.executeCommand('revealFileInOS', source);
-        } else if (msg.action === 'open') {
-          await vscode.env.openExternal(source);
-        } else if (msg.action === 'saveAll') {
-          const roots = this.imageRoots();
-          const paths = [...new Set([msg.path, ...(msg.paths ?? [])])].filter(p => isGeneratedImage(p, roots) && existsSync(p));
-          const root = this.projectRoot(surface.conversationId);
-          const picked = await vscode.window.showOpenDialog({
-            canSelectFiles: false, canSelectFolders: true, canSelectMany: false,
-            defaultUri: vscode.Uri.file(root ?? join(homedir(), 'Downloads')),
-            openLabel: `${paths.length} Bilder hier speichern`,
-          });
-          const folder = picked?.[0];
-          if (!folder) break;
-          const base = suggestedImageName(msg.prompt, msg.path).replace(/\.[a-z]+$/i, '');
-          let n = 0;
-          for (const path of paths) {
-            n++;
-            let name = `${base}-${n}${extname(path).toLowerCase()}`;
-            for (let k = 2; existsSync(join(folder.fsPath, name)); k++) name = `${base}-${n}-${k}${extname(path).toLowerCase()}`;
-            await vscode.workspace.fs.copy(vscode.Uri.file(path), vscode.Uri.joinPath(folder, name), { overwrite: false });
-          }
-          void vscode.window.showInformationMessage(`${paths.length} Bilder gespeichert in ${root && !relative(root, folder.fsPath).startsWith('..') ? relative(root, folder.fsPath) || basename(root) : folder.fsPath}`);
-        } else {
-          const root = this.projectRoot(surface.conversationId);
-          const name = suggestedImageName(msg.prompt, msg.path);
-          const target = await vscode.window.showSaveDialog({
-            defaultUri: vscode.Uri.file(join(root ?? join(homedir(), 'Downloads'), name)),
-            filters: { Bilder: [extname(msg.path).slice(1) || 'png'] },
-            saveLabel: 'Speichern',
-          });
-          if (!target) break;
-          await vscode.workspace.fs.copy(source, target, { overwrite: true });
-          const shown = root && !relative(root, target.fsPath).startsWith('..') ? relative(root, target.fsPath) : target.fsPath;
-          void vscode.window.showInformationMessage(`Bild gespeichert: ${shown}`);
-        }
-        break;
-      }
-      case 'saveAttachmentData': {
-        // Ein Bild ohne Datei: aus der Zwischenablage oder aus macOS'
-        // Screenshot-Vorschau gezogen. Es wird zur Datei in Cortex' Ablage.
-        const path = typeof msg.dataUrl === 'string' ? await saveImageData(msg.dataUrl, String(msg.name ?? 'Bild.png'), this.attachmentDir()).catch(() => undefined) : undefined;
-        this.output.appendLine(`[anhang] ${msg.name ?? 'Bild'} ohne Pfad → ${path ?? 'nicht gespeichert'}`);
-        if (path) this.safePost(webview, { kind: 'attachments', paths: [path] });
-        else void vscode.window.showWarningMessage('Das Bild konnte nicht übernommen werden (leer oder größer als 40 MB).');
-        break;
-      }
-      case 'attachmentFailed': {
-        this.output.appendLine(`[anhang] Ablegen ohne Ergebnis: ${msg.reason}`);
-        void vscode.window.showWarningMessage(msg.reason === 'promise'
-          ? 'Dieses Bildschirmfoto ist noch keine Datei. Warte, bis es auf dem Schreibtisch liegt, oder kopiere es (⌘C) und füge es mit ⌘V ein.'
-          : 'Die abgelegte Datei konnte nicht übernommen werden.');
-        break;
-      }
-      case 'pickAttachments': {
-        const picked = await vscode.window.showOpenDialog({
-          canSelectMany: true,
-          openLabel: 'Attach',
-          defaultUri: this.projectRoot(surface.conversationId) ? vscode.Uri.file(this.projectRoot(surface.conversationId)!) : undefined,
-        });
-        this.safePost(webview, {
-          kind: 'attachments',
-          paths: (picked ?? []).map((uri) => uri.fsPath),
-        });
-        break;
-      }
-      case 'attachmentPreview': {
-        // Nur für die Vorschau im Eingabefeld. Sehr große Dateien bleiben
-        // Textzeile, statt als Data-URI durch postMessage zu gehen.
-        const size = await stat(msg.path).then(s => s.size, () => Infinity);
-        const src = size <= 25 * 1024 * 1024 ? await this.imageSrc(msg.path) : undefined;
-        this.safePost(webview, { kind: 'attachmentPreview', path: msg.path, src });
-        break;
-      }
-      case 'setModes': {
-        const config = vscode.workspace.getConfiguration('cortex');
-        if (msg.permissionMode) {
-          await config.update('permissionMode', msg.permissionMode, vscode.ConfigurationTarget.Global);
-        }
-        if (msg.routingMode) {
-          await config.update('routingMode', msg.routingMode, vscode.ConfigurationTarget.Global);
-        }
-        // Stufe und Nachfragen kommen aus einem Menüpunkt, also in einer
-        // Nachricht. Als zwei Nachrichten meldete die erste den Stand zurück,
-        // bevor die zweite gespeichert war — das Menü sprang auf den alten
-        // Modus, und man musste zweimal wählen.
-        if (msg.ask !== undefined) {
-          await config.update('askPermission', msg.ask, vscode.ConfigurationTarget.Global);
-          for (const [w] of this.surfaces) this.safePost(w, this.modesMessage());
-        }
-        break;
-      }
-      case 'setPinnedTarget': {
-        const next = msg.target
-          ? {
-              provider: msg.target.provider as Target['provider'],
-              account: msg.target.account,
-              model: msg.target.model,
-            }
-          : undefined;
-        await this.setPinnedTarget(next, surface.conversationId);
-        break;
-      }
-    }
+    // Die einzige Umwandlung: jede Nachricht trifft genau ihren Handler.
+    const handle = this.handlers[msg.kind] as ((msg: WebviewToHost, cx: MessageContext) => unknown) | undefined;
+    // Eine Art, die keiner kennt, bleibt folgenlos — wie zuvor in der Weiche.
+    if (!handle) return;
+    // Ein Handler ohne Promise bleibt synchron, wie zuvor der Zweig der Weiche.
+    const done = handle(msg, { host: this.panelHost, webview, surface });
+    if (done instanceof Promise) await done;
   }
 
   // ── task lifecycle ───────────────────────────────────────────────
@@ -3959,63 +1967,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.sendConversations();
   }
 
-  /**
-   * „Rückgängig machen“ an der Änderungskarte: die Dateien dieses Auftrags auf
-   * den Stand davor. Nur was der Auftrag selbst geschrieben hat, und erst nach
-   * Rückfrage — ein Klick darf keine Arbeit wegwerfen, die man nicht sieht.
-   * Neu angelegte Dateien gehen in den Papierkorb, nicht ins Nichts.
-   */
-  private async revertTurn(conversationId: string | undefined, messageId: string, paths: string[]): Promise<void> {
-    const rec = conversationId ? this.conversations.get(conversationId) : undefined;
-    if (!rec || !conversationId) return;
-    const notice = (text: string) => this.toConversation(conversationId, { kind: 'notice', text });
-    if (this.tasks.has(conversationId)) { notice('Rückgängig geht erst, wenn der Auftrag fertig ist.'); return; }
-    const baseline = rec.baselines?.[messageId];
-    if (!baseline) { notice('Für diesen Auftrag gibt es keinen gemerkten Stand — rückgängig machen geht nur in Git-Projekten und für die letzten Aufträge.'); return; }
-    const root = await this.conversationCwd(conversationId);
-    let plan: Awaited<ReturnType<typeof planRevert>>;
-    try { plan = await planRevert(root, baseline, paths); }
-    catch (error) { notice(`Der gespeicherte Stand ist nicht lesbar. Keine Datei wurde geändert: ${String(error)}`); return; }
-    const count = plan.restore.length + plan.remove.length;
-    if (!count) { notice('Keine der Dateien lässt sich zurücksetzen.'); return; }
-    const detail = [
-      plan.restore.length ? `${plan.restore.length} ${plan.restore.length === 1 ? 'Datei bekommt' : 'Dateien bekommen'} ihren alten Inhalt zurück.` : '',
-      plan.remove.length ? `${plan.remove.length} neu angelegte ${plan.remove.length === 1 ? 'Datei geht' : 'Dateien gehen'} in den Papierkorb.` : '',
-      plan.skipped.length ? `Unverändert bleiben: ${plan.skipped.join(', ')}` : '',
-      plan.conflicts.length ? `Seit dem Auftrag verändert oder für ältere Aufträge nicht prüfbar: ${plan.conflicts.join(', ')}. Diese späteren Änderungen würden überschrieben.` : '',
-    ].filter(Boolean).join('\n');
-    const confirm = plan.conflicts.length ? 'Spätere Änderungen überschreiben' : 'Rückgängig machen';
-    const choice = await vscode.window.showWarningMessage('Änderungen dieses Auftrags rückgängig machen?', { modal: true, detail }, confirm);
-    if (choice !== confirm) return;
-    if (this.tasks.has(conversationId)) { notice('Inzwischen läuft wieder ein Auftrag. Keine Datei wurde geändert.'); return; }
-    // Recheck after the dialog, before changing anything. A newer edit needs a new decision.
-    for (const rel of [...plan.restore.map(file => file.path), ...plan.remove]) {
-      try {
-        if (await revertFingerprint(root, rel) !== plan.expected[rel]) throw new Error('Inhalt geändert');
-      } catch { notice(`„${rel}“ wurde während der Rückfrage verändert. Keine Datei wurde geändert.`); return; }
-    }
-    let changed = 0;
-    try {
-    for (const file of plan.restore) {
-      const target = await safeRevertPath(root, file.path);
-      await mkdir(dirname(target), { recursive: true });
-      await restoreRevertFile(root, file.path, file.content, plan.expected[file.path]!);
-      changed++;
-    }
-    for (const rel of plan.remove) {
-      if (await revertFingerprint(root, rel) !== plan.expected[rel]) throw new Error(`„${rel}“ wurde inzwischen geändert`);
-      await vscode.workspace.fs.delete(vscode.Uri.file(await safeRevertPath(root, rel)), { useTrash: true });
-      changed++;
-    }
-    } catch (error) { notice(`${changed} von ${count} Dateien zurückgesetzt. Angehalten: ${String(error)}`); return; }
-    this.toConversation(conversationId, { kind: 'reverted', messageId });
-    notice(`${count} ${count === 1 ? 'Datei' : 'Dateien'} auf den Stand vor dem Auftrag zurückgesetzt.`);
-    this.persistSoon();
-    for (const [webview, surface] of this.surfaces) {
-      if (surface.conversationId === conversationId) void this.dispatchMessage({ kind: 'getDiff' }, webview);
-    }
-  }
-
   private async previewFor(path: string): Promise<string | undefined> {
     if (this.queuePreviews.size >= 24 && !this.queuePreviews.has(path)) this.queuePreviews.delete(this.queuePreviews.keys().next().value!);
     if (!this.queuePreviews.has(path)) this.queuePreviews.set(path, imagePreviewData(path, 2 * 1024 * 1024));
@@ -4045,13 +1996,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         ? `Der laufende Auftrag (${live.lastTarget.provider}) nimmt unterwegs keine Nachrichten an. ${warten}`
         : `Der laufende Auftrag nimmt noch keine Nachrichten an. ${warten}`;
     }
+    // Modell und Reasoning-Stärke aus der Auswahl unten zählen hier nicht: wer
+    // steuert, gibt die Nachricht dem laufenden Agenten, mit dessen Einstellungen.
+    // Andere Berechtigungen dagegen schon — eine Nachricht mit engeren Rechten
+    // darf nicht in einem Lauf mit weiteren landen.
     const abweichung = ([
-      ['effort', 'eine andere Reasoning-Stärke'],
       ['permissionMode', 'andere Berechtigungen'],
       ['askPermission', 'ein anderes Nachfragen bei Berechtigungen'],
     ] as const).find(([key]) => item.modes[key] !== undefined && item.modes[key] !== live.modes[key]);
     if (abweichung) return `Diese Nachricht hat ${abweichung[1]} als der laufende Auftrag. ${warten}`;
-    const target = parseMention(item.text).mention ?? item.modes.target;
+    // Nur ein im Text genanntes Ziel (@codex …) ist eine Absicht, die Auswahl unten nicht.
+    const target = parseMention(item.text).mention;
     if (target && target.provider !== live.lastTarget?.provider) return `Diese Nachricht ist an ${target.provider} gerichtet, es läuft aber ${live.lastTarget?.provider ?? 'ein anderer Anbieter'}. ${warten}`;
     if (target?.account && target.account !== live.lastTarget?.account) return `Diese Nachricht ist an das Konto „${target.account}“ gerichtet, es läuft „${live.lastTarget?.account ?? 'ein anderes'}“. ${warten}`;
     if (target?.model && target.model !== live.lastTarget?.model) return `Diese Nachricht ist an ${target.model} gerichtet, es läuft ${live.lastTarget?.model ?? 'ein anderes Modell'}. ${warten}`;
@@ -4085,6 +2040,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (slash?.cmd.kind === 'action' && slash.cmd.action) {
       await this.performAction(id, slash.cmd.action); return;
     }
+    // `/remotion`: das Projekt entsteht jetzt, der Lauf wartet darauf (RemotionHost.prepare).
+    if (!modes.image && asksForVideo(text)) this.remotion.prepare(id, modes.attachments ?? []);
     if (!this.queues.isWorking(id) && !this.queues.items(id).length) this.queues.resume(id);
     const config = vscode.workspace.getConfiguration('cortex');
     this.queues.enqueue(id, { id: shortId(), text: text.trim(), tags: [...tags], modes: { ...modes, permissionMode: modes.permissionMode ?? config.get<PermissionMode>('permissionMode', 'safe'), askPermission: modes.askPermission ?? config.get<boolean>('askPermission', false), routingMode: modes.routingMode ?? config.get<'auto' | 'manual'>('routingMode', 'auto'), target: modes.target && { ...modes.target }, attachments: modes.attachments && [...modes.attachments], ...(modes.image ? { image: { ...modes.image }, imageProvider: modes.imageProvider, target: undefined, permissionMode: 'safe' as PermissionMode } : {}) } });
@@ -4141,9 +2098,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (!this.conversations.has(id)) return;
     if (this.queues.isPaused(id)) return false;
     // Ein Chatauftrag darf jede Datei ändern — er bekommt den Ordner allein.
-    if (!this.holdProject(key, true)) return false;
+    // Nur der Chat einer Schwarm-Rolle teilt ihn mit den anderen Rollen:
+    // allein bekäme er ihn nie, solange sie arbeiten.
+    const writes = !(this.conversations.get(id)?.teamAgent && this.swarmOf(id)?.shared);
+    if (!this.holdProject(key, writes)) return false;
     try { await this.executeQueuedMessage(id, queued); }
-    finally { this.releaseProject(key, true); this.queues.retryBlockedProjects(); }
+    finally { this.releaseProject(key, writes); this.queues.retryBlockedProjects(); }
   }
 
   private async executeQueuedMessage(id: string, queued: QueuedMessage): Promise<void> {
@@ -4183,6 +2143,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
     this.toConversation(id, { kind: 'userEcho', text, attachments: item.modes.attachments, at: Date.now(), ...(image ? { image } : {}) });
     this.detectRetry(id, text);
+    // `/remotion`: erst wenn Vorlage, Pakete und Material liegen, bekommt der Agent den Auftrag.
+    const preparing = this.remotionHost?.pending(id);
+    if (preparing) {
+      this.toConversation(id, { kind: 'activity', text: 'Videoprojekt wird eingerichtet …' });
+      await preparing;
+      this.toConversation(id, { kind: 'activity' });
+    }
     if (image && isImageProvider(provider)) {
       // Nur der Anbieter wird genannt; welches Konto zuerst drankommt, sagt die Folge.
       const accountOrder = this.imageOrder(provider);
@@ -4290,7 +2257,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       text = applyPinnedTarget(parsed.mention ? parsed.cleaned : text, target);
     }
 
-    const taskRoot = rec.projectPath ?? rec.teamWorkspace ?? join(this.ctx.globalStorageUri.fsPath, 'projectless', conversationId);
+    const taskRoot = rec.projectPath ?? rec.teamWorkspace ?? projectlessDir(this.ctx.globalStorageUri.fsPath, conversationId);
     const editorSnapshot = this.workspaceContext.forRoot(taskRoot).editorContext();
     const workspaceFolders = [...this.projectFolders(conversationId)];
     const permissionNotes = [...(rec.pendingPermissionNotes ?? [])];
@@ -4395,6 +2362,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           conversationId,
           prompt: text,
           mcpServers: rec.teamAgent ? this.teamMcpServers(rec.teamAgent) : undefined,
+          webSearch: rec.teamAgent ? await this.teamWebSearch(rec.teamAgent, conversationId) : undefined,
           permissionNotes,
           // Bilder gehen als Bild mit, nicht nur als Pfad im Text — und das
           // Bild der Zeichenfläche, wenn sie sich seit dem letzten verändert hat:
@@ -4938,10 +2906,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const policy = config.get<'never' | 'hard' | 'always'>('secondOpinion', 'hard');
     if (policy === 'never' || args.signal.aborted || this.pinnedTarget(args.conversationId)) return outcome;
 
-    const headroom: Record<string, number> = {};
-    for (const account of this.accounts.all()) {
-      headroom[`${account.provider}:${account.label}`] = accountHeadroom(account.id, this.quota);
-    }
+    const headroom = this.headroomByAccount();
     const candidates: Target[] = this.accounts
       .all()
       .filter((a) => !a.disabled)
@@ -4963,8 +2928,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     args.post({ kind: 'notice', text: reviewer.reason });
     const diff = touched.length > 0 ? await this.diffFor(touched, args.conversationId) : undefined;
+    // Die Zweitmeinung über OpenRouter bleibt kostenlos — auch wenn in den
+    // Einstellungen ein bezahltes Standardmodell gewählt ist.
+    const freeReviewer = reviewer.target.provider === 'openrouter'
+      ? (this.adapters.get('openrouter') as { freeChain?: Array<{ id: string }> } | undefined)?.freeChain?.[0]?.id
+      : undefined;
     const review = await this.askOffThread(
-      reviewer.target,
+      freeReviewer ? { ...reviewer.target, model: freeReviewer } : reviewer.target,
       reviewPrompt({
         task: args.task,
         answer: args.answer,
@@ -5006,10 +2976,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const plan = parsePlan(planText);
     if (!plan.executable) return;
 
-    const headroom: Record<string, number> = {};
-    for (const account of this.accounts.all()) {
-      headroom[`${account.provider}:${account.label}`] = accountHeadroom(account.id, this.quota);
-    }
+    const headroom = this.headroomByAccount();
     const candidates: Target[] = this.accounts
       .all()
       .filter((a) => !a.disabled)
@@ -5042,6 +3009,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           .get<PermissionMode>('permissionMode', 'edits'),
       },
     );
+  }
+
+  /** Wie viel Luft jedes Konto noch hat, unter `anbieter:konto` — für Zweitmeinung und Planausführung. */
+  private headroomByAccount(): Record<string, number> {
+    const headroom: Record<string, number> = {};
+    for (const account of this.accounts.all()) {
+      headroom[`${account.provider}:${account.label}`] = accountHeadroom(account.id, this.quota);
+    }
+    return headroom;
   }
 
   /** `git diff` for the files a run touched, budgeted for a prompt. */
@@ -5080,154 +3056,45 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     return this.erinnerung.abschnitte(conversationId);
   }
 
-  /** Excalidraw-Flächen, die gerade im Dock offen sind: Chat → ihr Inhalt als Text. */
-  private readonly canvasSeen = new Map<string, string>();
+  /**
+   * Das Video im Brief: wenn der Auftrag mit `/remotion` beginnt, der Reiter
+   * „Video“ offen ist, oder der Chat schon ein Videoprojekt hat und die
+   * Nachricht davon handelt.
+   */
+  remotionAbschnitte(conversationId: string, prompt: string): import('@cortex/core').BriefSection[] {
+    return this.remotion.brief(conversationId, prompt);
+  }
+
+  /** Der Standort-Kontext des Chats im Brief — solange er am Chat hängt. */
+  locationAbschnitte(conversationId: string): import('@cortex/core').BriefSection[] {
+    return locationBrief(this.conversations.get(conversationId));
+  }
 
   /**
    * Die Zeichenfläche im Brief: nur solange sie offen ist, oder wenn der
-   * Auftrag mit `/excalidraw` beginnt — dann geht sie gerade erst auf.
+   * Auftrag mit `/excalidraw` beginnt — siehe CanvasHost.canvasAbschnitte.
    */
   canvasAbschnitte(conversationId: string, prompt: string): import('@cortex/core').BriefSection[] {
-    const seen = this.canvasSeen.get(conversationId);
-    if (seen !== undefined) return canvasSections(seen, true);
-    // Zu, aber mit Zeichnung: die Fläche gehört weiter zum Chat. Sonst baute
-    // das Modell nach dem Schließen des Reiters (oder nach einem Neustart)
-    // die nächste Ergänzung als HTML-Datei statt auf der Fläche.
-    // Die Elementliste einer geschlossenen Fläche aber nur, wenn es um sie
-    // geht — die Nachricht davon spricht oder die letzte Antwort gezeichnet hat.
-    const saved = this.savedCanvasDescription(conversationId);
-    if (saved !== undefined) {
-      const lastAnswer = this.sessions.getHistory(conversationId).filter(t => t.role === 'assistant').at(-1)?.text ?? '';
-      const onTopic = touchesCanvas(prompt) || lastAnswer.includes('```' + CANVAS_LANG);
-      return canvasSections(saved, false, { noteOnly: !onTopic });
-    }
-    return asksForCanvas(prompt) ? canvasSections(undefined) : [];
+    return this.canvas.canvasAbschnitte(conversationId, prompt);
   }
-
-  /** Beschreibung der gespeicherten Zeichnung eines Chats, oder nichts, wenn er keine hat. */
-  private readonly canvasSaved = new Map<string, string | null>();
-  private savedCanvasDescription(conversationId: string): string | undefined {
-    if (!this.canvasSaved.has(conversationId)) {
-      const file = this.canvasFile(conversationId);
-      let description: string | null = null;
-      try {
-        const stored = JSON.parse(readFileSync(file!, 'utf8')) as { description?: string; scene?: string };
-        if (typeof stored.description === 'string') description = stored.description;
-        // Ältere Ablagen ohne Beschreibung: dass es eine Zeichnung gibt, zählt.
-        else if (typeof stored.scene === 'string' && /"elements":\s*\[\s*\{/.test(stored.scene)) description = '(drawing saved before Cortex kept a description — ask the user to open the canvas if you need its details)';
-      } catch { /* keine Zeichnung */ }
-      this.canvasSaved.set(conversationId, description);
-    }
-    return this.canvasSaved.get(conversationId) ?? undefined;
-  }
-
-  /** Eine Datei je Chat im Speicher der Erweiterung; die Kennung wird nie ungeprüft ein Pfad. */
-  private canvasFile(conversationId: string): string | undefined {
-    if (!/^[\w-]{1,80}$/.test(conversationId)) return undefined;
-    return join(this.ctx.globalStorageUri.fsPath, 'canvas', `${conversationId}.json`);
-  }
-
-  /* ── Die Fläche für das Modell sichtbar ─────────────────────────────── */
-
-  private readonly canvasRequests = new Map<string, (answer: Extract<WebviewToHost, { kind: 'canvasAnswer' }>) => void>();
-  /** Beschreibung der Fläche, deren Bild zuletzt mit einer Nachricht ging — unverändert geht es nicht noch einmal mit. */
-  private readonly canvasSentView = new Map<string, string>();
 
   /** Hat dieser Chat eine Zeichenfläche (offen oder gespeichert)? */
   canvasBelongs(conversationId: string): boolean {
-    return this.canvasSeen.has(conversationId) || this.savedCanvasDescription(conversationId) !== undefined;
+    return this.canvas.canvasBelongs(conversationId);
   }
 
-  /**
-   * Bild der Fläche, optional nachdem ein Block gezeichnet wurde — für die
-   * Werkzeuge canvas_view / canvas_draw und für das Bild, das mit der
-   * nächsten Nachricht geht. Die Webview zeichnet (offen im Dock oder im
-   * Hintergrund); was im Hintergrund gezeichnet wurde, legt der Host ab.
-   */
-  async askCanvas(conversationId: string, code: string | undefined, timeoutMs = 60_000): Promise<{ png?: string; text: string; error?: string }> {
-    const webview = this.agentPanel?.webview;
-    if (!webview) return { text: '', error: 'Das Cortex-Fenster ist nicht offen — die Zeichenfläche kann gerade nicht gezeichnet werden.' };
-    const file = this.canvasFile(conversationId);
-    let scene: string | undefined;
-    try { scene = file ? (JSON.parse(readFileSync(file, 'utf8')) as { scene?: string }).scene : undefined; } catch { /* noch keine */ }
-    const reqId = shortId();
-    const answer = await new Promise<Extract<WebviewToHost, { kind: 'canvasAnswer' }> | undefined>(resolve => {
-      const timer = setTimeout(() => { this.canvasRequests.delete(reqId); resolve(undefined); }, timeoutMs);
-      this.canvasRequests.set(reqId, a => { clearTimeout(timer); this.canvasRequests.delete(reqId); resolve(a); });
-      this.safePost(webview, { kind: 'canvasRequest', reqId, conversationId, code, scene });
-    });
-    if (!answer) return { text: '', error: 'Die Zeichenfläche hat nicht rechtzeitig geantwortet.' };
-    if (answer.error) return { text: answer.description, error: answer.error };
-    if (answer.headless && code && answer.json && file && this.conversations.has(conversationId)) {
-      await mkdir(dirname(file), { recursive: true });
-      let applied: string[] = [];
-      try { applied = (JSON.parse(readFileSync(file, 'utf8')) as { applied?: string[] }).applied ?? []; } catch { /* neu */ }
-      await writeFile(file, JSON.stringify({ scene: answer.json, applied, description: answer.description }), 'utf8');
-      this.canvasSaved.set(conversationId, answer.description.trim() ? answer.description : null);
-    }
-    if (this.canvasSeen.has(conversationId)) this.canvasSeen.set(conversationId, answer.description.slice(0, 20000));
-    this.output.appendLine(`[zeichenflaeche] ${code ? 'gezeichnet' : 'angesehen'}${answer.headless ? ' (im Hintergrund)' : ''}, Bild ${answer.png ? `${Math.round(answer.png.length / 1024)} KB` : 'leer'}`);
-    return { png: answer.png || undefined, text: answer.description };
+  /** Bild der Fläche, optional nachdem ein Block gezeichnet wurde — siehe CanvasHost.askCanvas. */
+  askCanvas(conversationId: string, code: string | undefined, timeoutMs = 60_000): Promise<{ png?: string; text: string; error?: string }> {
+    return this.canvas.askCanvas(conversationId, code, timeoutMs);
   }
 
-  /**
-   * Das Bild der Fläche für die nächste Nachricht — nur, wenn der Chat eine
-   * hat und sie sich seit dem letzten mitgeschickten Bild verändert hat.
-   */
-  private async canvasViewForTurn(conversationId: string): Promise<string | undefined> {
-    if (!this.canvasBelongs(conversationId)) return undefined;
-    const view = await this.askCanvas(conversationId, undefined, 6000).catch(() => undefined);
-    if (!view?.png || this.canvasSentView.get(conversationId) === view.text) return undefined;
-    const path = await saveImageData(view.png, 'Zeichenflaeche.png', this.attachmentDir()).catch(() => undefined);
-    if (path) this.canvasSentView.set(conversationId, view.text);
-    return path;
-  }
-
-  private async canvasMessage(webview: vscode.Webview, msg: Exclude<Extract<WebviewToHost, { kind: `canvas${string}` }>, { kind: 'canvasAnswer' }>): Promise<void> {
-    const file = this.canvasFile(msg.conversationId);
-    if (!file) return;
-    switch (msg.kind) {
-      case 'canvasLoad': {
-        let stored: { scene?: string; applied?: string[] } = {};
-        try { stored = JSON.parse(await readFile(file, 'utf8')) as typeof stored; } catch { /* noch keine Zeichnung */ }
-        this.safePost(webview, { kind: 'canvasScene', conversationId: msg.conversationId, scene: typeof stored.scene === 'string' ? stored.scene : undefined, applied: Array.isArray(stored.applied) ? stored.applied.filter(k => typeof k === 'string') : [] });
-        return;
-      }
-      case 'canvasVisible':
-        if (msg.description === null) this.canvasSeen.delete(msg.conversationId);
-        else this.canvasSeen.set(msg.conversationId, String(msg.description).slice(0, 20000));
-        return;
-      case 'canvasSave':
-        // Erst der Text, dann die Platte: die nächste Nachricht soll den neuen
-        // Stand sehen, auch wenn das Schreiben noch läuft.
-        if (this.canvasSeen.has(msg.conversationId)) this.canvasSeen.set(msg.conversationId, String(msg.description ?? '').slice(0, 20000));
-        if (!this.conversations.has(msg.conversationId) || typeof msg.scene !== 'string' || msg.scene.length > 30_000_000) return;
-        await mkdir(dirname(file), { recursive: true });
-        {
-          const description = String(msg.description ?? '').slice(0, 20000);
-          this.canvasSaved.set(msg.conversationId, description.trim() ? description : null);
-          await writeFile(file, JSON.stringify({ scene: msg.scene, applied: (msg.applied ?? []).slice(-200), description }), 'utf8');
-        }
-        return;
-      case 'canvasExport': {
-        const title = (this.conversations.get(msg.conversationId)?.title || 'Zeichnung').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'Zeichnung';
-        const folder = this.projectRoot(msg.conversationId) ?? homedir();
-        const target = await vscode.window.showSaveDialog({
-          defaultUri: vscode.Uri.file(join(folder, `${title}.${msg.format}`)),
-          filters: msg.format === 'svg' ? { SVG: ['svg'] } : { Excalidraw: ['excalidraw'] },
-          saveLabel: 'Sichern',
-        });
-        if (!target) return;
-        await writeFile(target.fsPath, msg.content, 'utf8');
-        void vscode.window.showInformationMessage(`Zeichnung gesichert: ${basename(target.fsPath)}`);
-        return;
-      }
-    }
+  private canvasViewForTurn(conversationId: string): Promise<string | undefined> {
+    return this.canvas.canvasViewForTurn(conversationId);
   }
 
   /** Die Zeile für den Systemprompt: wann das Modell selbst im Exokortex suchen soll. */
   erinnerungsHinweis(): string {
-    const e = erinnerungsEinstellungen(this.appSettings());
+    const e = erinnerungsEinstellungen(this.settings.appSettings());
     return e.abruf === 'nie' ? '' : e.promptSuche;
   }
 
@@ -5282,6 +3149,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           effort: teamAgent ? this.teamConversationEffort(teamAgent, target) : undefined,
           resumeSessionId,
           mcpServers: teamAgent ? this.teamMcpServers(teamAgent) : undefined,
+          webSearch: teamAgent && conversationId ? await this.teamWebSearch(teamAgent, conversationId) : undefined,
           // A reviewer must never edit; a repair runs under the user's own mode.
           permissionMode: !conversationId ? 'safe' : teamAgent ? teamAgent.permissionMode : conversationId
             ? vscode.workspace
@@ -5375,53 +3243,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   // ── accounts ─────────────────────────────────────────────────────
 
-  private async renameAccount(id: string): Promise<void> {
-    const account = this.accounts.all().find((a) => a.id === id);
-    if (!account) return;
-    const label = await vscode.window.showInputBox({
-      title: `cortex: rename ${account.provider}:${account.label}`,
-      value: account.label,
-      prompt: 'Label used in rules and @mentions',
-      validateInput: (value) => {
-        const trimmed = value.trim();
-        if (!trimmed) return 'Label is required';
-        if (!/^[a-zA-Z0-9][\w-]*$/.test(trimmed)) {
-          return 'Use letters, numbers, - or _ only';
-        }
-        if (
-          this.accounts
-            .all()
-            .some((a) => a.id !== id && a.provider === account.provider && a.label === trimmed)
-        ) {
-          return `A ${account.provider} account labeled "${trimmed}" already exists`;
-        }
-        return undefined;
-      },
-    });
-    if (!label || label.trim() === account.label) return;
-    const oldLabel = account.label;
-    await this.accounts.upsert({ ...account, label: label.trim() });
-    void vscode.window.showInformationMessage(
-      `cortex: renamed to ${account.provider}:${label.trim()}. If your rules reference "${oldLabel}", update them.`,
-    );
-  }
-
-  private async loadIdentities(): Promise<void> {
-    const cliPath = vscode.workspace
-      .getConfiguration('cortex')
-      .get<string>('cliPath.claude', 'claude');
-    let changed = false;
-    for (const account of this.accounts.all()) {
-      if (this.identities.has(account.id)) continue;
-      const identity = await getAccountIdentity(account, cliPath);
-      if (identity) {
-        this.identities.set(account.id, identity);
-        changed = true;
-      }
-    }
-    if (changed) this.pushAccounts();
-  }
-
   /** Tightest window fill for the account a thread last used, if known. */
   private usagePctForTarget(target: Target): number | undefined {
     const account = this.accounts
@@ -5464,6 +3285,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           identity: a.identity ?? this.identities.get(a.id),
           homeDir: a.homeDir,
           reviewOnly: isReviewOnly(a.provider),
+          defaultModel: a.provider === 'openrouter' ? this.openRouter?.defaultModel() : undefined,
           authState: this.authHealth?.get(a.id) ?? 'unknown',
           imageRank: imageRanks.get(`${a.provider}:${a.label}`),
         };
@@ -5475,7 +3297,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     for (const [webview, surface] of this.surfaces) {
       if (ChatViewProvider.ACCOUNT_MODES.has(surface.mode)) this.safePost(webview, msg);
     }
-    // Die Vorgabe Opus 5 hängt an den Konten: kommen sie später an oder
+    // Die Opus-Vorgabe hängt an den Konten: kommen sie später an oder
     // ändert sich eins, muss der Modellknopf nachziehen.
     this.pushPinned();
   }
@@ -5491,6 +3313,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const composerStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'codex-composer.css'));
     const commandsStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'codex-commands.css'));
     const menusStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'cortex-menus.css'));
+    const lookStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'cortex-look.css'));
     const teamsStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'agent-teams.css'));
     const settingsStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'settings.css'));
     // Die Plugin-Logos sind Dateien, keine eingebetteten Pfade: die CSP lässt
@@ -5509,7 +3332,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: blob:; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource} data:; connect-src ${webview.cspSource}; worker-src ${webview.cspSource} blob:; script-src 'nonce-${nonce}'; frame-src http://127.0.0.1:*;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: blob:; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource} data:; connect-src ${webview.cspSource}; worker-src ${webview.cspSource} blob:; script-src 'nonce-${nonce}'; frame-src http://127.0.0.1:*; media-src http://127.0.0.1:*;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="${styleUri}" rel="stylesheet">
   <link href="${cortexStyleUri}" rel="stylesheet">
@@ -5518,6 +3341,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   <link href="${teamsStyleUri}" rel="stylesheet">
   <link href="${settingsStyleUri}" rel="stylesheet">
   <link href="${menusStyleUri}" rel="stylesheet">
+  <link href="${lookStyleUri}" rel="stylesheet">
   <title>Cortex</title>
 </head>
 <body>
@@ -5528,3 +3352,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 </html>`;
   }
 }
+
+/** Lag früher hier; attachmentStill.test.ts importiert es weiter von hier. */
+export { quickLookStill } from './host/images.js';

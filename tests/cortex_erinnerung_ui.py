@@ -32,7 +32,7 @@ with headless_browser() as browser:
     page.locator('#harness').evaluate('(e) => e.remove()')
     page.evaluate(HOST_LOG)
 
-    page.locator('.cx-nav', has_text='Einstellungen').click()
+    page.locator('.cx-settings-btn').click()
     nav = page.locator('.cxs-nav')
     nav.locator('.cxs-nav-search input').fill('Erinnerung')
     expect(nav.locator('.cxs-nav-item')).to_have_text(['Personalisierung'])

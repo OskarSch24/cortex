@@ -25,6 +25,8 @@ const paths = await packager({
     CFBundleDisplayName: 'Cortex',
     NSMicrophoneUsageDescription: 'Cortex verwendet das Mikrofon für von dir gestartete Spracheingaben.',
     NSAppleEventsUsageDescription: 'Cortex verbindet sich auf deinen Auftrag mit lokalen Anwendungen.',
+    NSLocationUsageDescription: 'Cortex verwendet deinen Standort nur, wenn du im Chat „Mein Standort“ wählst — als Mittelpunkt für Fragen zu Orten in der Nähe.',
+    NSLocationWhenInUseUsageDescription: 'Cortex verwendet deinen Standort nur, wenn du im Chat „Mein Standort“ wählst — als Mittelpunkt für Fragen zu Orten in der Nähe.',
     CFBundleURLTypes: [{ CFBundleURLName: brand.darwinBundleIdentifier, CFBundleURLSchemes: [brand.urlProtocol] }],
   },
 });

@@ -1,4 +1,3 @@
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ProviderId, ResolvedAccount } from '../types.js';
 
@@ -71,7 +70,7 @@ export function buildChildEnv(
       break;
     case 'grok':
       if (account.homeDir) {
-        env.GROK_HOME = `${account.homeDir}/.grok`;
+        env.GROK_HOME = join(account.homeDir, '.grok');
         env.HOME = account.homeDir;
         env.USERPROFILE = account.homeDir;
       }

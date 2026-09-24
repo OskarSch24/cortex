@@ -10,11 +10,12 @@ import {
 } from '../../../core/src/plugins/installed.js';
 import { effectiveServers } from '../../../core/src/plugins/scopes.js';
 import type { HostToWebview } from '../../src/panel/protocol.js';
+import { clockTime } from '../format/time.js';
 import { CATALOG } from './pluginCatalog.js';
 
 type Plugins = Extract<HostToWebview, { kind: 'plugins' }>;
 
-export const EMPTY_STATE: PluginState = {
+const EMPTY_STATE: PluginState = {
   installed: false,
   needsSecret: false,
   missing: [],
@@ -66,11 +67,24 @@ export function pluginOverview(host: Partial<Plugins> | undefined) {
         .map((v) => ({ id: v.id, label: v.variantLabel ?? v.name, status: pluginStatus(v, stateOf(v.id)) })),
     );
 
-  /** Der Zugang, für den eine Karte steht: der verbundene, sonst ein eingerichteter, sonst ein installierter, sonst der erste. */
+  /** Ob für diesen Zugang schon etwas hinterlegt ist — eine Anmeldung, ein Client, ein Schlüssel. */
+  const begun = (v: PluginEntry) => {
+    const state = stateOf(v.id);
+    return !!state.oauth || !!state.client || state.provided.length > 0;
+  };
+
+  /**
+   * Der Zugang, für den eine Karte steht: der verbundene, sonst einer, für den
+   * schon etwas hinterlegt ist, sonst ein eingerichteter, sonst ein
+   * installierter, sonst der erste. Ohne die zweite Stufe fragte YouTube nach
+   * einem nie eingetragenen API-Schlüssel, während die abgelaufene Google-
+   * Anmeldung — der Zugang, den du wirklich nutzt — nur „Neu anmelden“ braucht.
+   */
   const leadOf = (entry: PluginEntry) => {
     const variants = variantsOf(entry);
     return (
       variants.find((v) => statusOf(v).kind === 'verbunden') ??
+      variants.find((v) => stateOf(v.id).installed && begun(v) && statusOf(v).kind !== 'ersetzt') ??
       variants.find((v) => stateOf(v.id).installed && statusOf(v).kind !== 'ersetzt') ??
       variants.find((v) => stateOf(v.id).installed) ??
       variants[0]!
@@ -135,7 +149,7 @@ export function statusHint(status: PluginStatus, state?: PluginState): string {
   switch (status.kind) {
     case 'verbunden': {
       const at = state?.connection?.checkedAt;
-      const time = at ? ` · geprüft ${new Date(at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : '';
+      const time = at ? ` · geprüft ${clockTime(at)}` : '';
       return `Verbunden · ${status.tools} ${status.tools === 1 ? 'Werkzeug' : 'Werkzeuge'}${time}`;
     }
     case 'fehler':

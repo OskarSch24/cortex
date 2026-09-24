@@ -203,7 +203,7 @@
       },
       "requires": {
         "kind": "oauth-client",
-        "hint": "In der Google Cloud Console: „YouTube Data API v3“ und „YouTube Analytics API“ aktivieren, im OAuth-Zustimmungsbildschirm dich als Testnutzer eintragen, dann unter „Anmeldedaten“ eine OAuth-Client-ID vom Typ „Desktop-App“ anlegen und ihre JSON hier ablegen.",
+        "hint": "In der Google Cloud Console: „YouTube Data API v3“ und „YouTube Analytics API“ aktivieren, im OAuth-Zustimmungsbildschirm dich als Testnutzer eintragen, dann unter „Anmeldedaten“ eine OAuth-Client-ID vom Typ „Desktop-App“ anlegen und ihre JSON hier ablegen. Den Veröffentlichungsstatus der App auf „In Produktion“ stellen: im Testmodus verfällt die Google-Anmeldung nach sieben Tagen.",
         "url": "https://console.cloud.google.com/apis/credentials",
         "client": {
           "provider": "google",
@@ -240,7 +240,7 @@
       "definition": {
         "command": "/usr/bin/python3",
         "args": [
-          "/path/to/omnigrab/engine/omnigrab-mcp.py"
+          "/Users/x/dev/omnimedia-downloader/engine/omnigrab-mcp.py"
         ],
         "providers": [
           "grok",
@@ -279,6 +279,45 @@
         "Zeichne aus dieser Tabelle ein Balkendiagramm nach Monat.",
         "Stell die Umsätze der letzten vier Quartale als Linie dar.",
         "Erzeuge ein Sankey-Diagramm für diesen Nutzerfluss."
+      ]
+    },
+    {
+      "id": "remotion",
+      "name": "Remotion",
+      "tagline": "Videos in React programmieren",
+      "description": "Durchsucht die offizielle Remotion-Dokumentation, damit die Agenten Kompositionen, Animationen, Untertitel und Renderbefehle nach dem aktuellen Stand schreiben statt aus dem Gedächtnis. Läuft lokal über npx, ohne Konto und ohne Schlüssel. Remotion selbst ist für Einzelne und kleine Teams frei; Firmen brauchen eine Lizenz.",
+      "category": "kreativitaet",
+      "developer": "Remotion",
+      "server": "remotion",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@remotion/mcp@latest"
+        ]
+      },
+      "icon": "remotion.svg",
+      "version": "4.0.527",
+      "website": "https://www.remotion.dev/docs/ai/mcp",
+      "fresh": true,
+      "skills": [
+        "remotion-best-practices",
+        "remotion-captions",
+        "remotion-create",
+        "remotion-docs",
+        "remotion-interactivity",
+        "remotion-maps",
+        "remotion-markup",
+        "remotion-multimedia",
+        "remotion-render",
+        "remotion-saas",
+        "remotion-studio",
+        "remotion-upgrade"
+      ],
+      "prompts": [
+        "Leg ein neues Remotion-Projekt für ein 30-Sekunden-Video im Hochformat an.",
+        "Animier diesen Titel mit spring() und blend ihn nach zwei Sekunden aus.",
+        "Wie rendere ich diese Komposition als MP4 mit Untertiteln?"
       ]
     },
     {
@@ -1229,6 +1268,49 @@
         "url": "https://console.aws.amazon.com/iam/home#/security_credentials"
       },
       "icon": "aws-kb.svg"
+    },
+    {
+      "id": "apify",
+      "name": "Apify",
+      "tagline": "Daten aus dem Web holen — über tausende fertige Scraper",
+      "description": "Verbindet die Agenten mit Apify: Sie finden im Apify Store passende Actors, starten sie mit deinem Konto und lesen die Ergebnisse. Fest eingebaut ist der Google-Maps-Scraper (Orte, Bewertungen, Öffnungszeiten rund um einen Standort) und ein Web-Browser für Suchen und Seiteninhalte. Actors laufen in der Apify-Cloud und werden über dein Apify-Guthaben abgerechnet.",
+      "category": "daten",
+      "developer": "Apify",
+      "server": "apify",
+      "definition": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@apify/actors-mcp-server@0.16.0",
+          "--tools",
+          "actors,docs,compass/crawler-google-places,apify/rag-web-browser",
+          "--telemetry-enabled=false"
+        ],
+        "env": {
+          "APIFY_TOKEN": ""
+        }
+      },
+      "icon": "apify.svg",
+      "version": "0.16.0",
+      "website": "https://mcp.apify.com",
+      "fresh": true,
+      "prompts": [
+        "Welche Cafés mit mindestens 4,5 Sternen liegen im Umkreis von einem Kilometer um die Adresse?",
+        "Such im Apify Store einen Scraper für Instagram-Profile und hol die letzten Beiträge dieses Kontos.",
+        "Lies diese drei Webseiten aus und fasse die Preise in einer Tabelle zusammen."
+      ],
+      "requires": {
+        "kind": "secret",
+        "env": "APIFY_TOKEN",
+        "fields": [
+          {
+            "env": "APIFY_TOKEN",
+            "label": "API-Token"
+          }
+        ],
+        "hint": "Den Token findest du in der Apify-Konsole unter Settings › API & Integrations.",
+        "url": "https://console.apify.com/settings/integrations"
+      }
     },
     {
       "id": "stripe",

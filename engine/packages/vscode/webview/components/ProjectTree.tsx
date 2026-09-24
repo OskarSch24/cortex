@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { nestBackground } from './backgroundTasks.js';
 import type { ConversationMeta, ProjectDto } from '../../src/panel/protocol.js';
+import { tildePath } from '../format/path.js';
 import { Glyph } from './CortexIcons.js';
 
 /**
@@ -29,18 +31,22 @@ export interface ProjectTreeProps {
   onPinProject: (project: ProjectDto) => void;
   /** Blendet ein Projekt aus der Leiste aus — oder holt es zurück. */
   onArchiveProject: (project: ProjectDto) => void;
+  /** Neues Projekt: das Plus neben der Überschrift. */
+  onAddProject?: () => void;
 }
 
-export function ProjectTree({ projects, ...rest }: ProjectTreeProps) {
+export function ProjectTree({ projects, onAddProject, ...rest }: ProjectTreeProps) {
   const pinned = projects.filter(p => p.pinned);
   const loose = projects.filter(p => !p.pinned);
+  // Das Plus sitzt an „Projekte“; ist alles angeheftet, an „Angeheftet“ —
+  // so gibt es immer genau einen Weg zu einem neuen Projekt.
   return <>
-    {pinned.length > 0 && <Section label="Angeheftet" list={pinned} {...rest} />}
-    {loose.length > 0 && <Section label="Projekte" list={loose} {...rest} />}
+    {pinned.length > 0 && <Section label="Angeheftet" list={pinned} onAdd={loose.length ? undefined : onAddProject} {...rest} />}
+    {loose.length > 0 && <Section label="Projekte" list={loose} onAdd={onAddProject} {...rest} />}
   </>;
 }
 
-type NodeProps = Omit<ProjectTreeProps, 'projects'>;
+type NodeProps = Omit<ProjectTreeProps, 'projects' | 'onAddProject'>;
 
 /**
  * Archivierte Projekte, direkt über der Kontozeile.
@@ -69,10 +75,39 @@ export function ArchivedProjects({ projects, expanded, onExpand, ...rest }: Proj
   </section>;
 }
 
-function Section({ label, list, ...props }: NodeProps & { label: string; list: ProjectDto[] }) {
-  return <section class="cx-tree-section" aria-label={label}>
-    <h2 class="cx-tree-heading">{label}</h2>
-    {list.map(project => <ProjectNode key={project.path} project={project} {...props} />)}
+/** Ob ein Abschnitt der Leiste offen ist, bleibt über Neustarts gemerkt. */
+function useSectionOpen(key: string): [boolean, () => void] {
+  const storage = `cortex.leiste.${key}`;
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem(storage) !== 'zu'; } catch { return true; } });
+  const toggle = () => setOpen(value => {
+    try { localStorage.setItem(storage, value ? 'zu' : 'auf'); } catch { /* ohne Speicher gilt der Zustand nur bis zum Neuladen */ }
+    return !value;
+  });
+  return [open, toggle];
+}
+
+/**
+ * Ein Abschnitt der Leiste, der sich an seiner Überschrift einklappen lässt.
+ * Zu zeigt er nur noch, wie viele Projekte darunter liegen.
+ */
+function Section({ label, list, onAdd, ...props }: NodeProps & { label: string; list: ProjectDto[]; onAdd?: () => void }) {
+  const [open, toggle] = useSectionOpen(label);
+  return <section class={`cx-tree-section cx-fold ${open ? 'open' : ''}`} aria-label={label}>
+    <div class="cx-tree-head">
+      <button class="cx-tree-heading cx-fold-toggle" aria-expanded={open} onClick={toggle}>
+        <span class="cx-fold-chevron"><Glyph name="chevron" size={11} /></span>
+        <h2>{label}</h2>
+        {!open && <span class="cx-fold-count" aria-hidden="true">{list.length}</span>}
+      </button>
+      {onAdd && <button class="cx-icon cx-tree-add" aria-label="Projekt hinzufügen" title="Projekt hinzufügen" onClick={onAdd}><Glyph name="plus" size={13} /></button>}
+    </div>
+    <div class="cx-tree-children" aria-hidden={!open}>
+      <div>
+        <div class="cx-tree-children-inner">
+          {list.map(project => <ProjectNode key={project.path} project={project} reachable={open} {...props} />)}
+        </div>
+      </div>
+    </div>
   </section>;
 }
 
@@ -111,6 +146,7 @@ function ProjectNode({ project, archived = false, reachable = true, ...props }: 
       <button class="cx-tree-open" title={project.path} aria-expanded={open} tabIndex={tab} onClick={() => props.onToggle(project.path)}>
         <Glyph name={open ? 'folderOpen' : 'folder'} size={15} />
         <span>{project.name}</span>
+        {!open && tasks.length > 0 && <span class="cx-tree-count" aria-hidden="true" title={tasks.length === 1 ? '1 Aufgabe' : `${tasks.length} Aufgaben`}>{tasks.length}</span>}
       </button>
       {/* Erst die Aktion, dann „Mehr“: der Stift liegt nie unter dem Kärtchen. */}
       {archived
@@ -127,16 +163,16 @@ function ProjectNode({ project, archived = false, reachable = true, ...props }: 
         <button class="cx-icon" aria-label={archived ? 'Aus dem Archiv holen' : 'Archivieren'} title={archived ? 'Aus dem Archiv holen' : 'Archivieren — nur aus der Leiste, nichts wird geschlossen'} onClick={() => { setMenu(false); props.onArchiveProject(project); }}><Glyph name={archived ? 'unarchive' : 'archive'} size={14} /></button>
       </div>
       <p class="cx-tree-card-count"><Glyph name="chat" size={13} />{tasks.length === 1 ? '1 Aufgabe' : `${tasks.length} Aufgaben`}</p>
-      <p class="cx-tree-card-path"><Glyph name="folder" size={14} /><span>{(project.folders?.length ? project.folders : [project.path]).map(f => short(f)).join(' · ')}</span></p>
+      <p class="cx-tree-card-path"><Glyph name="folder" size={14} /><span>{(project.folders?.length ? project.folders : [project.path]).map(f => tildePath(f)).join(' · ')}</span></p>
       <button class="cx-tree-card-edit" onClick={() => { setMenu(false); props.onEditProject(project); }}><Glyph name="gear" size={14} />Projekt bearbeiten</button>
     </div>}
 
     <div class="cx-tree-children" aria-hidden={!open}>
       <div>
         <div class="cx-tree-children-inner">
-          {tasks.map(task => <div key={task.id} class={`cx-tree-task ${props.activeId === task.id ? 'active' : ''}`}>
-            <button class="cx-tree-task-open" title={task.title} onClick={() => props.onOpenTask(task.id)} tabIndex={taskTab}>
-              <span>{task.title === 'New chat' || !task.title ? 'Neue Aufgabe' : task.title}</span>
+          {nestBackground(tasks).map(task => <div key={task.id} class={`cx-tree-task ${props.activeId === task.id ? 'active' : ''} ${task.nested ? 'nested' : ''}`}>
+            <button class="cx-tree-task-open" title={task.background ? `Hintergrundprozess · ${task.title}` : task.title} onClick={() => props.onOpenTask(task.id)} tabIndex={taskTab}>
+              {task.background && <Glyph name="swarm" size={12} />}<span>{task.title === 'New chat' || !task.title ? 'Neue Aufgabe' : task.title}</span>
             </button>
             {task.running
               ? <span class="cx-tree-task-run" title="Läuft"><span class="cx-dot" /></span>
@@ -147,10 +183,4 @@ function ProjectNode({ project, archived = false, reachable = true, ...props }: 
       </div>
     </div>
   </div>;
-}
-
-/** Der Heimatpfad ist auf diesem Mac immer derselbe — er kostet nur Breite. */
-function short(path: string) {
-  const home = /^\/Users\/[^/]+/.exec(path);
-  return home ? '~' + path.slice(home[0].length) : path;
 }

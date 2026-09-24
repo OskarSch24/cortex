@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import type { McpServerDef } from '@cortex/core';
 
 import type { StudioHost } from './studioHost.js';
+import { databaseStudioRoot } from './studioRoot.js';
 
 /**
  * Database Studio as a connector every account carries.
@@ -49,7 +50,7 @@ let identity: ConnectorIdentity | undefined;
 export async function loadConnectorIdentity(): Promise<ConnectorIdentity | undefined> {
   if (identity) return identity;
 
-  const entry = join(studioRoot(), 'studio-mcp', 'src', 'identity.js');
+  const entry = join(databaseStudioRoot(), 'studio-mcp', 'src', 'identity.js');
   if (!existsSync(entry)) return undefined;
 
   try {
@@ -89,14 +90,6 @@ function connectorEntry(root: string): string | undefined {
   return existsSync(entry) ? entry : undefined;
 }
 
-function studioRoot(): string {
-  const configured = vscode.workspace
-    .getConfiguration('cortex')
-    .get<string>('databaseStudio.path', '')
-    .trim();
-  return configured || join(homedir(), 'dev', 'Database System');
-}
-
 /**
  * The connector definition, or undefined when the integration is off or
  * Database Studio is not installed where Cortex was told to look.
@@ -105,7 +98,7 @@ export function databaseStudioServer(host: StudioHost | undefined): McpServerDef
   const config = vscode.workspace.getConfiguration('cortex');
   if (!config.get<boolean>('databaseStudio.enabled', true)) return undefined;
 
-  const entry = connectorEntry(studioRoot());
+  const entry = connectorEntry(databaseStudioRoot());
   if (!entry) return undefined;
 
   const env: Record<string, string> = {};
@@ -166,7 +159,7 @@ export function currentStudioHost(): StudioHost | undefined {
  * (beobachtet am 13.09.2026: 26 von 27 Funktionen „API nicht eingeschaltet“).
  */
 export const STUDIO_API_DIR = join(homedir(), 'Library', 'Application Support', 'Database Studio');
-export const STUDIO_API_FILE = join(STUDIO_API_DIR, 'api.json');
+const STUDIO_API_FILE = join(STUDIO_API_DIR, 'api.json');
 
 export function studioReachable(host: StudioHost | undefined): boolean {
   return Boolean(host?.running) || existsSync(STUDIO_API_FILE);

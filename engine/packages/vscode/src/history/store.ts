@@ -2,11 +2,13 @@ import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { HistoryEntry } from './types.js';
+import type { SecretBackend } from '../storage/secrets.js';
+import { alive } from '../util/process.js';
+import { SerialQueue } from '../util/serialQueue.js';
+import { writeFileAtomicAsync } from '../util/atomicWrite.js';
 
-export interface HistorySecrets {
-  get(key: string): PromiseLike<string | undefined>;
-  store(key: string, value: string): PromiseLike<void>;
-}
+/** Der Verlauf liest und legt nur seinen eigenen Schlüssel ab. */
+export type HistorySecrets = Pick<SecretBackend, 'get' | 'store'>;
 
 const MAGIC = Buffer.from('CRTXHST1');
 const KEY_ID = 'cortex.computerHistory.encryption.v1';
@@ -37,7 +39,7 @@ export class HistoryStore {
   private entries: HistoryEntry[] = [];
   private initialized = false;
   private closed = false;
-  private chain: Promise<unknown> = Promise.resolve();
+  private readonly queue = new SerialQueue();
 
   constructor(private readonly directory: string, private readonly secrets: HistorySecrets) {
     this.file = path.join(directory, 'history.enc');
@@ -45,9 +47,7 @@ export class HistoryStore {
   }
 
   private serialize<T>(work: () => Promise<T>): Promise<T> {
-    const next = this.chain.then(work, work);
-    this.chain = next.catch(() => undefined);
-    return next;
+    return this.queue.run(work);
   }
 
   private async acquireLock(): Promise<void> {
@@ -63,10 +63,7 @@ export class HistoryStore {
         const target = await fs.readlink(this.lock).catch(() => '');
         const pid = Number(target.split(':')[0]);
         if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error(HISTORY_BUSY);
-        try { process.kill(pid, 0); throw new Error(HISTORY_BUSY); }
-        catch (probeError) {
-          if ((probeError as NodeJS.ErrnoException).code !== 'ESRCH') throw new Error(HISTORY_BUSY);
-        }
+        if (alive(pid)) throw new Error(HISTORY_BUSY);
         // Serialize stale-owner cleanup too: two reclaimers must never unlink a
         // fresh owner's lock between the check and unlink. A crashed reaper is
         // deliberately fail-closed rather than risking concurrent writers.
@@ -143,24 +140,11 @@ export class HistoryStore {
     const ciphertext = Buffer.concat([cipher.update(plain), cipher.final()]);
     plain.fill(0);
     const packed = Buffer.concat([MAGIC, iv, cipher.getAuthTag(), ciphertext]);
-    const temporary = path.join(this.directory, `.history-${randomUUID()}.tmp`);
-    let handle: fs.FileHandle | undefined;
     try {
-      handle = await fs.open(temporary, 'wx', 0o600);
-      await handle.writeFile(packed);
-      await handle.sync();
-      await handle.close();
-      handle = undefined;
-      await fs.rename(temporary, this.file);
       // Sync the rename as well as the encrypted file before reporting success.
-      const directoryHandle = await fs.open(this.directory, 'r');
-      try { await directoryHandle.sync(); } finally { await directoryHandle.close(); }
+      await writeFileAtomicAsync(this.file, packed, { mode: 0o600, fsync: true, syncDir: true, temporary: path.join(this.directory, `.history-${randomUUID()}.tmp`) });
       this.entries = bounded;
     } catch { throw new Error(STORE_ERROR); }
-    finally {
-      await handle?.close().catch(() => undefined);
-      await fs.unlink(temporary).catch(() => undefined);
-    }
   }
 
   async read(retentionDays: number, now: number): Promise<HistoryEntry[]> {

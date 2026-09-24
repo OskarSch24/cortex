@@ -1,10 +1,7 @@
 import * as vscode from 'vscode';
 import { createServer, type Server } from 'node:net';
-import { randomBytes } from 'node:crypto';
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { claudeToolKind, describeToolUse, type PermissionDecision, type PermissionRequest } from '@cortex/core';
+import { newSessionToken, nodeMcpServer, writeMcpConfig } from '../mcp/loopbackBridge.js';
 
 /**
  * Host side of Claude's permission bridge.
@@ -98,14 +95,9 @@ export class PermissionBridge implements vscode.Disposable {
     if (!this.server || !this.port) return undefined;
     let configPath = this.configPaths.get(conversationId);
     if (!configPath) {
-      const token = randomBytes(24).toString('hex');
+      const token = newSessionToken();
       this.conversationTokens.set(token, { conversationId, cwd });
-      const dir = mkdtempSync(join(tmpdir(), 'cortex-perm-'));
-      configPath = join(dir, 'mcp.json');
-      writeFileSync(configPath, JSON.stringify({ mcpServers: { cortex: {
-        command: process.execPath, args: [this.serverScript],
-        env: { CORTEX_PERMISSION_PORT: String(this.port), CORTEX_PERMISSION_TOKEN: token, ELECTRON_RUN_AS_NODE: '1' },
-      } } }), { mode: 0o600 });
+      configPath = writeMcpConfig('cortex-perm-', 'cortex', nodeMcpServer(this.serverScript, { CORTEX_PERMISSION_PORT: String(this.port), CORTEX_PERMISSION_TOKEN: token }));
       this.configPaths.set(conversationId, configPath);
     }
     return { args: ['--mcp-config', configPath, '--permission-prompt-tool', 'mcp__cortex__approve'], env: {} };

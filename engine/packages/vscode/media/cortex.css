@@ -1,24 +1,47 @@
 /* Cortex agent workspace. Deliberately scoped: native editor and legacy utility views remain host themed. */
+/* Schriften liegen in media/fonts (SIL Open Font License, siehe dort). Die
+   Webview darf keine Schriften aus dem Netz laden. */
+@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 200 800; font-display: swap; src: url('fonts/Manrope-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 200 800; font-display: swap; src: url('fonts/Manrope-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 100 800; font-display: swap; src: url('fonts/JetBrainsMono-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 100 800; font-display: swap; src: url('fonts/JetBrainsMono-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 :root {
-  /* Sampled from the supplied Codex captures, converted from Display to sRGB.
-     These surfaces are flat; the conversation fade remains a separate mask. */
-  --cx-bg: #181818;
-  --cx-rail: #353030;
-  --cx-raised: #1f1f1f;
-  --cx-hover: #2d2d2d;
-  --cx-composer: #353535;
-  --cx-composer-border: #414141;
-  --cx-composer-placeholder: #686868;
-  --cx-context: #1f1f1f;
-  --cx-template-panel: #2d2d2d;
+  /* Cortex-Palette: kühles Graphit. Die Flächen liegen als abgerundete Inseln
+     auf einem dunkleren Grund (--cx-ground); die Maße der Inseln stehen in
+     cortex-look.css. Die Seitenleiste ist eine Stufe heller als die Mitte. */
+  --cx-ground: #0a0b0d;
+  --cx-bg: #111316;
+  --cx-rail: #15171a;
+  --cx-raised: #16181c;
+  --cx-hover: #1f2227;
+  --cx-composer: #1b1e22;
+  --cx-composer-border: #2a2e33;
+  --cx-composer-placeholder: #737982;
+  --cx-context: #16181c;
+  --cx-template-panel: #1f2227;
   --cx-line: #ffffff0e;
   --cx-strong-line: #ffffff18;
-  --cx-text: #ededee;
-  --cx-muted: #999a9d;
-  --cx-dim: #707277;
-  --cx-accent: #ededee;
-  --cx-green: #88b99b;
-  --cx-body-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  --cx-text: #ecedef;
+  --cx-muted: #9a9fa8;
+  --cx-dim: #7b818a;
+  --cx-accent: #f2f3f5;
+  --cx-green: #5bc592;
+  --cx-amber: #e2ae55;
+  /* Tönungen folgen der Textfarbe: rgb(var(--cx-ink) / .08) ist im Dunkeln
+     ein heller, im Hellen ein dunkler Schleier (store.ts setzt sie um). */
+  --cx-ink: 236 237 239;
+  --cx-soft: #c3c7cd;
+  --cx-popover: #1d2024;
+  --cx-code-bg: #0d0f11;
+  --cx-body-font: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --cx-code-font: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  /* Radien: Zeile 9, Insel 14, Karte 16, Eingabe 22, Knöpfe ganz rund. */
+  --cx-r-row: 9px;
+  --cx-r-island: 14px;
+  --cx-r-card: 16px;
+  --cx-r-input: 22px;
+  /* Abstand zwischen den Inseln und zum Fensterrand. */
+  --cx-gap: 8px;
   /* Höhe des Bands oben, das jede Fläche frei hält: links liegen darin die
      Ampelknöpfe (Electron mittet sie: 16 px hoch ab y = 14), rechts die
      Werkzeug-Icons der Fenstertitelzeile. Dieselbe Zahl steht als TITLE in
@@ -75,7 +98,12 @@
 
 .cx-rail-tree { overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0; margin: 0 -4px; padding: 0 4px 8px; }
 .cx-tree-section { margin-top: 16px; }
+/* Überschrift und Plus in einer Zeile; die Überschrift behält ihren Abstand nach unten. */
+.cx-tree-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+.cx-tree-head .cx-tree-heading { margin-bottom: 0; }
 .cx-tree-heading { margin: 0 0 3px 8px; color: var(--cx-dim); font-size: 11px; font-weight: 480; letter-spacing: 0; }
+.cx-tree-add { width: 22px; height: 22px; margin-right: 2px; color: var(--cx-dim); }
+.cx-tree-add:hover { color: var(--cx-text); }
 
 /* Eine Projektzeile. Die beiden Aktionen rechts liegen im Fluss, nicht darüber:
    so kürzt der Name selbst, statt unter den Knöpfen zu verschwinden. */
@@ -127,8 +155,6 @@
 .cx-loose .cx-tree-open { gap: 7px; color: var(--cx-dim); }
 .cx-loose-chevron { display: inline-flex; transition: transform 210ms cubic-bezier(.16, 1, .3, 1); }
 .cx-loose.open .cx-loose-chevron { transform: rotate(90deg); }
-.cx-rail-add { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 6px; padding: 0 8px; min-height: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--cx-dim); font-size: 12px; text-align: left; }
-.cx-rail-add:hover { color: var(--cx-muted); background: #ffffff08; }
 
 /* Das Kärtchen am Zeiger: was dieses Projekt ist, und der Weg zum Bearbeiten. */
 .cx-tree-card { position: fixed; left: 254px; z-index: 40; width: 268px; padding: 10px 4px 4px; border: 1px solid var(--cx-strong-line); border-radius: 12px; background: var(--popover); box-shadow: 0 16px 44px #0009; animation: cx-card-in 130ms cubic-bezier(.16, 1, .3, 1); }
@@ -805,9 +831,21 @@
 .cx-control-panel button:hover { color: #fff; }
 .cx-control-empty-action { background: transparent; border: 0; padding: 7px 0; color: #a3a3a3; text-align: left; font: 13.5px/1.6 var(--cx-body-font); }
 .cx-control-empty { margin: 8px 0 0; color: #949494; font: 12.5px/1.65 var(--cx-body-font); }
+/* Wie viele Hintergrundprozesse gerade laufen; Rollen eines Schwarms eingerückt darunter. */
+.cx-control-count { font: 11px var(--mono); color: var(--cx-muted); background: #ffffff10; border-radius: 4px; padding: 1px 6px; }
+.cx-shell .cx-control-row.cx-control-sub { padding: 4px 0 4px 29px; gap: 9px; font-size: 12.5px; color: #a8a8a8; }
+.cx-control-sub > small { margin-left: auto; color: #7d7d7d; font-size: 11.5px; white-space: nowrap; }
+.cx-control-sub.is-running > svg { color: var(--cx-accent, #c9a0ff); }
+.cx-control-sub.is-completed > svg { color: #7fbf8f; }
+.cx-control-sub.is-failed > svg, .cx-control-sub.is-blocked > svg { color: #d98080; }
+.cx-control-sub:disabled { opacity: .6; }
+.cx-tree-task-open > svg { flex-shrink: 0; margin-right: 6px; color: #8d8d8d; vertical-align: -1px; }
+/* Rollen-Chats eines Schwarms eingerückt unter ihrem Ursprungs-Chat. */
+.cx-tree-task.nested .cx-tree-task-open { padding-left: 48px; }
+.cx-control-group + .cx-control-group, .cx-control-group + .cx-control-row { border-top: 1px solid #ffffff0a; }
 .cx-control-close { width: 22px; }
 .cx-control-more { color: #999; }
-.cx-control-panel ~ * { min-width: 0; }
+.cx-control-panel ~ *, .cx-chat-island:has(> .cx-control-panel) ~ * { min-width: 0; }
 @media (max-width: 1150px) { .cx-control-panel { flex-basis: 300px; padding: 18px; margin-right: 12px; } }
 @media (max-width: 1000px) { .cx-control-panel { position: absolute; z-index: 15; right: 0; top: 0; width: 320px; box-shadow: 0 12px 40px #0006; } }
 
@@ -2330,3 +2368,169 @@ button.cx-exo-instanz:hover .cx-exo-instanz-name.geplant { color: var(--cx-text)
 
 .cx-template-library-preview { flex: 0 0 48px; height: 44px; display: grid; place-items: center; overflow: hidden; border-radius: 5px; }
 .cx-template-library-preview img { width: 48px; height: 44px; object-fit: cover; object-position: top; }
+
+/* ── OpenRouter: Modelle im Modellmenü (Kontodetails) ──────────────────────── */
+.cx-or-models { margin-top: 14px; padding-top: 14px; border-top: 1px solid #ffffff0e; display: flex; flex-direction: column; gap: 8px; }
+.cx-or-head { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--cx-muted); }
+.cx-or-head small { margin-left: auto; font-size: 11px; color: var(--cx-muted); }
+.cx-or-list { list-style: none; margin: 0; padding: 0; border: 1px solid #ffffff0e; border-radius: 12px; background: #1f1f1f; overflow: hidden; }
+.cx-or-list:empty { display: none; }
+.cx-or-list > li { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; color: #b7b7b9; }
+.cx-or-list > li + li { border-top: 1px solid #ffffff0a; }
+.cx-or-list > li > span, .cx-or-list button > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; text-align: left; }
+.cx-or-list b { font-weight: 500; font-size: 12px; color: var(--cx-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-or-list small { font-size: 10.5px; color: var(--cx-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-or-list.hits > li { padding: 0; }
+.cx-or-list.hits button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; background: transparent; border: 0; color: #b7b7b9; cursor: pointer; font: inherit; }
+.cx-or-list.hits button:hover, .cx-or-list.hits button:focus-visible { background: #ffffff08; }
+.cx-or-search { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: 34px; border: 1px solid #ffffff1c; border-radius: 8px; background: #18191b; color: var(--cx-muted); }
+.cx-or-search input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--cx-text); font: 12px var(--cx-body-font); }
+.cx-or-note { display: flex; align-items: center; gap: 6px; margin: 2px 0 0; font-size: 10.5px; color: var(--cx-muted); }
+.cx-login-explainer a { color: var(--cx-text); text-decoration: underline; text-underline-offset: 2px; }
+.cx-or-default > li { padding-top: 10px; padding-bottom: 10px; }
+.cx-or-select { position: relative; display: inline-flex; align-items: center; flex-shrink: 0; color: var(--cx-muted); }
+.cx-or-select select { appearance: none; -webkit-appearance: none; max-width: 240px; min-height: 30px; padding: 5px 28px 5px 10px; background: #18191b; color: var(--cx-text); border: 1px solid #ffffff1c; border-radius: 8px; font: 12px var(--cx-body-font); cursor: pointer; }
+.cx-or-select > svg { position: absolute; right: 9px; pointer-events: none; }
+.cx-or-tag { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; font-style: normal; font-weight: 400; font-size: 10.5px; color: var(--cx-muted); vertical-align: 1px; }
+.cx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ── Rechte Seitenleiste nach Codex (Video 22.09.2026, docs/CODEX_SEITENLEISTE_ANALYSE.md) ──
+   Gleiche Fläche wie der Chat, nur die 1-pt-Linie trennt. Sie schiebt den
+   Chat beim Öffnen zur Seite (0,40 s, ease-out) und fährt beim Schließen in
+   0,30 s hinaus; ihr Inhalt behält dabei seine Breite und wird an der Kante
+   abgeschnitten, statt sich zu stauchen. */
+.cx-dock { background: var(--cx-bg); }
+.cx-dock.enter, .cx-dock.leave { overflow: hidden; }
+.cx-dock.enter > :not(.cx-pane-resize), .cx-dock.leave > :not(.cx-pane-resize) { min-width: var(--cx-dock-w, 320px); }
+.cx-dock.enter { animation: cx-dock-in 400ms cubic-bezier(.2, .8, .2, 1); }
+.cx-dock.leave { animation: cx-dock-out 300ms cubic-bezier(.2, .8, .2, 1) forwards; pointer-events: none; }
+@keyframes cx-dock-in { from { width: 0; min-width: 0; } }
+@keyframes cx-dock-out { to { width: 0; min-width: 0; border-left-color: transparent; } }
+/* Die Übersichtskarte kommt weich zurück, sobald wieder Platz ist. */
+.cx-control-panel { animation: cx-card-in 180ms ease-out; }
+@keyframes cx-card-in { from { opacity: 0; } }
+.cx-control-panel button.cx-control-row { cursor: default; }
+
+/* Vollbild: der Chat tritt ganz zurück, seine Eingabe schwebt unten mittig
+   über dem Dock (~720 pt breit), der Inhalt darunter läuft hinter ihr durch. */
+.cx-workspace.dock-full > .cx-chat-island > .cx-conversation { position: absolute; inset: 0; z-index: 14; min-width: 0; background: transparent; pointer-events: none; }
+.cx-workspace.dock-full > .cx-chat-island > .cx-conversation > :not(.cx-compose-area) { display: none; }
+.cx-workspace.dock-full > .cx-chat-island > .cx-conversation > .cx-compose-area { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: min(720px, calc(100% - 48px)); max-width: none; margin: 0; padding-bottom: 16px; pointer-events: none; }
+.cx-workspace.dock-full > .cx-chat-island > .cx-conversation > .cx-compose-area > * { pointer-events: auto; }
+.cx-workspace.dock-full > .cx-chat-island > .cx-conversation .cx-jump { display: none; }
+.cx-workspace.dock-full .cx-dock-main { padding-bottom: 150px; }
+.cx-workspace.dock-full .cx-dock-empty { padding-bottom: 150px; }
+
+/* Reiter „Subagenten“: Aktiv / Fertig, eine Zeile je Subagent. */
+.cx-agents { padding: 14px 18px 40px; }
+.cx-agents section + section { margin-top: 18px; }
+.cx-agents-heading { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; color: var(--cx-dim); font-size: 11.5px; font-weight: 450; }
+.cx-agents-empty { margin: 0 0 4px; padding: 6px 0; color: var(--cx-dim); font-size: 12.5px; }
+.cx-agent-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 36px; padding: 0 8px; margin: 0 -8px; box-sizing: content-box; border: 0; border-radius: 8px; background: transparent; color: var(--cx-text); font: 13px var(--cx-body-font); text-align: left; }
+.cx-agent-row:hover, .cx-agent-row:focus-visible { background: #ffffff08; }
+.cx-agent-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-agent-when { display: flex; align-items: center; gap: 6px; flex-shrink: 0; max-width: 45%; color: var(--cx-dim); font-size: 11.5px; }
+.cx-agent-now { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-agent-emblem { flex-shrink: 0; color: #9a9ca1; }
+.cx-agent-emblem.running { color: #4ec27a; }
+.cx-agents-more { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 7px 0 7px 2px; border: 0; background: transparent; color: var(--cx-dim); font: 12.5px var(--cx-body-font); }
+.cx-agents-more:hover { color: var(--cx-text); }
+
+/* Protokoll eines Subagenten: Zurück, Zeichen, Name, rechts seine Art. */
+.cx-agent-detail { display: flex; flex-direction: column; min-height: 0; }
+.cx-agent-detail-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 9px; padding: 8px 14px 8px 8px; background: var(--cx-bg); border-bottom: 1px solid var(--cx-line); }
+.cx-agent-detail-head strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
+.cx-agent-detail-kind { flex-shrink: 0; color: var(--cx-dim); font-size: 11.5px; }
+.cx-agent-detail-body { padding: 16px 22px 40px; font-size: 13px; line-height: 1.6; }
+.cx-agent-prompt { margin-left: auto; max-width: 85%; width: fit-content; padding: 10px 14px; border-radius: 16px; background: var(--cx-hover); }
+.cx-agent-prompt .markdown > :first-child { margin-top: 0; }
+.cx-agent-prompt .markdown > :last-child { margin-bottom: 0; }
+.cx-agent-steps { margin: 16px 0; }
+.cx-agent-live { display: flex; align-items: center; gap: 8px; color: var(--cx-dim); font-size: 12px; }
+.cx-agent-report { margin-top: 12px; }
+.cx-agent-meta { display: flex; align-items: center; gap: 6px; margin-top: 18px; color: var(--cx-dim); font-size: 11.5px; }
+
+/* Fließende Übergänge beim Ziehen und Umschalten: die Kante folgt der Maus über
+   die Grenzen hinaus; was keinen Platz mehr hat, wird angeschnitten statt
+   gestaucht, bis die Bewegung weich zu Ende läuft (Dock.tsx › morph). */
+.cx-dock.narrow, .cx-dock.morphing { overflow: hidden; flex-shrink: 0; }
+.cx-dock.narrow > :not(.cx-pane-resize), .cx-dock.morphing > :not(.cx-pane-resize) { min-width: var(--cx-dock-inner, 320px); }
+.cx-workspace:has(> .cx-dock.overwide, > .cx-dock.morphing) > .cx-chat-island > .cx-conversation { min-width: 0; overflow: hidden; }
+.cx-workspace:has(> .cx-dock.overwide, > .cx-dock.morphing) > .cx-chat-island > .cx-conversation > * { min-width: 300px; }
+.cx-workspace.dock-full > .cx-chat-island > .cx-conversation > .cx-compose-area { animation: cx-card-in 180ms ease-out; }
+/* Ohne Platz neben dem Dock fährt die Übersichtskarte weich auf null zusammen
+   und kommt ebenso zurück — der Chat daneben springt dabei nicht. */
+.cx-control-panel { transition: flex-basis 220ms cubic-bezier(.2, .8, .2, 1), margin 220ms cubic-bezier(.2, .8, .2, 1), padding 220ms cubic-bezier(.2, .8, .2, 1), opacity 160ms ease-out, border-color 160ms ease-out; }
+.cx-control-panel > * { min-width: 280px; }
+.cx-control-panel.fitting { flex-basis: calc(348px * var(--cx-card-k)); margin-right: calc(20px * var(--cx-card-k)); padding-left: calc(26px * var(--cx-card-k)); padding-right: calc(26px * var(--cx-card-k)); opacity: var(--cx-card-k); overflow: hidden; }
+.cx-control-panel.has-images.fitting { flex-basis: calc(302px * var(--cx-card-k)); margin-right: calc(16px * var(--cx-card-k)); padding-left: calc(14px * var(--cx-card-k)); padding-right: calc(14px * var(--cx-card-k)); }
+.cx-control-panel.squeezed { border-color: transparent; pointer-events: none; }
+/* Beim Ziehen folgt die Karte der Maus unmittelbar; weich wird sie nur beim Einrasten. */
+.cx-resizing-pane .cx-control-panel { transition: none; }
+
+/* Reiter „Video“ (Remotion): Live-Vorschau über Studio, fertige Dateien als Player. */
+.cx-video { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.cx-video-head { gap: 6px; }
+.cx-video-switch { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff08; flex-shrink: 0; }
+.cx-video-switch button { display: flex; align-items: center; gap: 6px; border: 0; border-radius: 6px; background: transparent; color: var(--cx-dim); padding: 4px 9px; font: 11px var(--cx-body-font); }
+.cx-video-switch button[aria-selected="true"] { background: var(--cx-hover); color: var(--cx-text); }
+.cx-video-status { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cx-dim); font-size: 11px; }
+.cx-video-head .cx-dock-text-btn { display: flex; align-items: center; gap: 5px; }
+.cx-video-body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.cx-video-live { flex: 1; }
+.cx-video-live iframe { background: #000; color-scheme: dark; }
+.cx-video-done { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.cx-video-player { position: relative; flex: 1; min-height: 180px; background: #000; }
+.cx-video-player video, .cx-video-player img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+.cx-video-list { max-height: 40%; overflow-y: auto; padding: 8px 10px 12px; border-top: 1px solid var(--cx-line); }
+.cx-video-row { display: flex; align-items: center; gap: 2px; border-radius: 8px; }
+.cx-video-row:hover, .cx-video-row.selected { background: #ffffff08; }
+.cx-video-pick { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 7px 8px; border: 0; background: transparent; color: var(--cx-text); font: 12.5px var(--cx-body-font); text-align: left; }
+.cx-video-pick span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-video-pick small { color: var(--cx-dim); font-size: 11px; }
+.cx-video-pick svg { color: var(--cx-dim); flex-shrink: 0; }
+
+/* Standort als Kontext (Plus › Standort): Kachel über dem Eingabefeld und Chip. */
+.cx-loc { margin: 0 0 10px; padding: 12px 14px 14px; border: 1px solid #ffffff12; border-radius: 16px; background: #1f1f1f; color: var(--cx-text); font-size: 12.5px; }
+.cx-loc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: var(--cx-muted); }
+.cx-loc-head strong { color: var(--cx-text); font-size: 13px; font-weight: 500; }
+.cx-loc-gap { flex: 1; }
+.cx-loc-search { display: flex; gap: 6px; align-items: stretch; }
+.cx-loc-field { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 0 10px; border: 1px solid #ffffff14; border-radius: 9px; background: #161616; color: var(--cx-dim); }
+.cx-loc-field input { flex: 1; min-width: 0; height: 32px; border: 0; outline: 0; background: transparent; color: var(--cx-text); font: 12.5px var(--cx-body-font); }
+.cx-loc-btn, .cx-loc-apply { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 0 11px; min-height: 32px; border: 1px solid #ffffff14; border-radius: 9px; background: transparent; color: var(--cx-muted); font: 12px var(--cx-body-font); white-space: nowrap; }
+.cx-loc-btn:hover:not(:disabled) { color: var(--cx-text); background: #ffffff0a; }
+.cx-loc-btn:disabled { opacity: .45; }
+.cx-loc-apply { border-color: transparent; background: #f2f2f2; color: #141414; font-weight: 500; }
+.cx-loc-apply:hover { background: #fff; }
+.cx-loc-error { display: flex; align-items: flex-start; gap: 7px; margin: 9px 0 0; color: #e0b15a; line-height: 1.45; }
+.cx-loc-error svg { flex-shrink: 0; margin-top: 2px; }
+.cx-loc-results { list-style: none; margin: 8px 0 0; padding: 0; }
+.cx-loc-results button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--cx-text); font: 12.5px var(--cx-body-font); text-align: left; }
+.cx-loc-results button:hover, .cx-loc-results button:focus-visible { background: #ffffff0a; }
+.cx-loc-results svg { color: var(--cx-dim); flex-shrink: 0; }
+.cx-loc-map { position: relative; height: 200px; margin-top: 10px; overflow: hidden; border-radius: 12px; background: #2a2a2a; }
+.cx-loc-map.loading { display: grid; place-items: center; color: var(--cx-dim); }
+.cx-loc-tiles { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.cx-loc-tiles img { position: absolute; left: 0; top: 0; width: 256px; height: 256px; max-width: none; filter: grayscale(.35) brightness(.82) contrast(1.05); }
+.cx-loc-ring { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 2px solid #4ec27a; border-radius: 50%; background: #4ec27a1f; pointer-events: none; }
+.cx-loc-dot { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; background: #4ec27a; box-shadow: 0 1px 4px #0008; }
+.cx-loc-credit { position: absolute; right: 6px; bottom: 5px; padding: 1px 6px; border-radius: 5px; background: #000000a0; color: #d0d0d0; font-size: 10px; }
+.cx-loc-radius { display: flex; align-items: center; gap: 9px; margin-top: 11px; color: var(--cx-muted); }
+.cx-loc-radius input { flex: 1; accent-color: #d8d8d8; }
+.cx-loc-radius b { min-width: 52px; text-align: right; color: var(--cx-text); font-weight: 500; }
+.cx-loc-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--cx-dim); }
+.cx-loc-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cx-muted); }
+.cx-loc-chip { display: flex; align-items: center; gap: 6px; max-width: 100%; margin: 0 0 8px; padding: 6px; border: 1px solid #ffffff14; border-radius: 14px; background: #1f1f1f; }
+.cx-loc-chip-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--cx-text); font: 12.5px var(--cx-body-font); text-align: left; }
+.cx-loc-chip-main:hover .cx-loc-map { box-shadow: 0 0 0 1px #ffffff30; }
+.cx-loc-map.compact { flex: 0 0 180px; width: 180px; height: 96px; margin: 0; border-radius: 10px; }
+.cx-loc-map.compact .cx-loc-credit { font-size: 8.5px; padding: 0 4px; right: 4px; bottom: 3px; }
+.cx-loc-chip-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cx-loc-chip-name { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.cx-loc-chip-name span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-loc-chip-name svg { color: #4ec27a; flex-shrink: 0; }
+.cx-loc-chip-text small { color: var(--cx-dim); font-size: 11.5px; padding-left: 20px; }
+.cx-loc-chip-x { display: grid; place-items: center; align-self: flex-start; width: 24px; height: 24px; flex-shrink: 0; border: 0; border-radius: 50%; background: transparent; color: var(--cx-dim); }
+.cx-loc-chip-x:hover { background: #ffffff10; color: var(--cx-text); }
+.cx-loc-radius input:focus-visible { outline: 1px solid #ffffff38; outline-offset: 3px; border-radius: 6px; }

@@ -7,9 +7,9 @@ import { limitLabel } from '../../components/AccountLimits.js';
 import { Glyph } from '../../components/CortexIcons.js';
 import { vscode } from '../../vscodeApi.js';
 import type { SettingsContext } from '../SettingsApp.js';
-import { useHost } from '../SettingsApp.js';
+import { useHost } from '../../hooks/useHostMessage.js';
 import { useNative } from '../store.js';
-import { Button, Card, Empty, Link, Page, Row, Section, Toggle } from '../ui.js';
+import { Button, Card, Empty, Link, Page, PlainTabs, Row, Section, Toggle } from '../ui.js';
 
 /* ── Nutzung und Abrechnung ────────────────────────────────────────────────── */
 
@@ -53,10 +53,7 @@ export function NutzungPage({ ctx }: { ctx: SettingsContext }) {
     <Section title="Zurücksetzungen der Nutzungslimits">
       <Card>
         <div class="cxs-card-tabs">
-          <div class="cxs-plain-tabs pill">
-            <button type="button" class={tab === 'verfuegbar' ? 'on' : ''} onClick={() => setTab('verfuegbar')}>Verfügbar <b>{ctx.accounts.filter(a => a.available).length}</b></button>
-            <button type="button" class={tab === 'verlauf' ? 'on' : ''} onClick={() => setTab('verlauf')}>Verlauf</button>
-          </div>
+          <PlainTabs class="pill" value={tab} onChange={setTab} options={[{ value: 'verfuegbar', label: <>Verfügbar <b>{ctx.accounts.filter(a => a.available).length}</b></> }, { value: 'verlauf', label: 'Verlauf' }]} />
           <span class="cxs-dim">{tab === 'verlauf' ? 'Letzte Ereignisse' : 'Jetzt nutzbar'}</span>
         </div>
         {tab === 'verlauf' && !data.metrics && <div class="cxs-loading"><span class="cxs-spinner" /><span>Zurücksetzungen des Nutzungslimits werden geladen…</span></div>}
@@ -88,12 +85,12 @@ export function AnalysenPage() {
   return <Page title="Analysen">
     <Section big title="Nutzungsverlauf" subtitle={<>Sieh dir an, wie deine Abos von Cortex-Aufgaben beansprucht wurden.<br />Gezählt werden Token aus Läufen; Gespräche außerhalb von Cortex sind nicht enthalten.</>} actions={<Range value={range1} onChange={setRange1} />}>
       <div class="cxs-chart-card">
-        <div class="cxs-chart-head"><span>Tarifnutzung</span>{!metrics ? <span class="cxs-spinner" /> : <div class="cxs-plain-tabs pill small"><button type="button" class={by1 === 'produkt' ? 'on' : ''} onClick={() => setBy1('produkt')}>Nach Anbieter</button><button type="button" class={by1 === 'modell' ? 'on' : ''} onClick={() => setBy1('modell')}>Nach Modell</button></div>}</div>
+        <div class="cxs-chart-head"><span>Tarifnutzung</span>{!metrics ? <span class="cxs-spinner" /> : <PlainTabs class="pill small" value={by1} onChange={setBy1} options={[{ value: 'produkt', label: 'Nach Anbieter' }, { value: 'modell', label: 'Nach Modell' }]} />}</div>
         {metrics && <Bars metrics={metrics} days={range1} key={by1} group={m => by1 === 'produkt' ? (PROVIDER_NAME[m.provider] ?? m.provider) : (m.model ?? m.provider)} value={m => (m.inputTokens ?? 0) + (m.outputTokens ?? 0)} />}
       </div>
       <p class="cxs-info"><Glyph name="info" size={14} />Nutzungsdaten stammen aus den Meldungen der Anbieter-Clients und können unvollständig sein</p>
     </Section>
-    <Section big title="Produktaktivität" subtitle="Sieh dir an, wie deine Aktivität je nach Anbieter und Modell variiert" actions={<><Range value={range2} onChange={setRange2} /><div class="cxs-plain-tabs"><button type="button" class={by2 === 'modell' ? 'on' : ''} onClick={() => setBy2('modell')}>Nach Modell</button><button type="button" class={by2 === 'oberflaeche' ? 'on' : ''} onClick={() => setBy2('oberflaeche')}>Nach Aufgabenart</button></div></>}>
+    <Section big title="Produktaktivität" subtitle="Sieh dir an, wie deine Aktivität je nach Anbieter und Modell variiert" actions={<><Range value={range2} onChange={setRange2} /><PlainTabs value={by2} onChange={setBy2} options={[{ value: 'modell', label: 'Nach Modell' }, { value: 'oberflaeche', label: 'Nach Aufgabenart' }]} /></>}>
       <div class="cxs-chart-card">
         {!metrics ? <div class="cxs-chart-head"><span>Turns</span><span class="cxs-spinner" /></div> : <Lines title="Turns" metrics={metrics} days={range2} key={by2} group={m => by2 === 'modell' ? (m.model ?? m.provider) : (m.kind ?? 'Allgemein')} />}
       </div>
@@ -108,7 +105,7 @@ export function AnalysenPage() {
 }
 
 function Range({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  return <div class="cxs-plain-tabs">{[7, 30].map(d => <button type="button" key={d} class={value === d ? 'on' : ''} onClick={() => onChange(d)}>{d} T</button>)}</div>;
+  return <PlainTabs value={value} onChange={onChange} options={[7, 30].map(d => ({ value: d, label: <>{d} T</> }))} />;
 }
 
 function daysBack(days: number) {

@@ -1,14 +1,18 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { spawn } from 'node:child_process';
 import type { LoginFlow, ProviderAdapter, RunRequest } from './adapter.js';
 import { runAcp } from './acp.js';
+import { grokWebSearchArgs } from './webSearch.js';
 import { GROK_MODELS } from '../models/catalog.js';
 import { detectGrokLimit } from './limits.js';
 import { buildChildEnv } from '../accounts/env.js';
 import type { AdapterEvent, ResolvedAccount } from '../types.js';
 
-function authPath(profileDir: string): string {
+/**
+ * Wo Grok die Anmeldung eines Profils ablegt: neuere CLIs unter `.grok/`,
+ * ältere direkt im Profil. Liegt keine vor, der flache Pfad.
+ */
+export function grokAuthFile(profileDir: string): string {
   const nested = join(profileDir, '.grok', 'auth.json');
   if (existsSync(nested)) return nested;
   return join(profileDir, 'auth.json');
@@ -37,7 +41,8 @@ export class GrokAdapter implements ProviderAdapter {
     account: ResolvedAccount,
     signal: AbortSignal,
   ): AsyncGenerator<AdapterEvent> {
-    const args = grokAcpArgs(req.model);
+    // Die eigene Suche abzuschalten ist ein globales Flag und steht vor `agent stdio`.
+    const args = [...grokWebSearchArgs(req.webSearch), ...grokAcpArgs()];
     return runAcp({
       command: this.cliPath,
       configureGrokSession: true,
@@ -58,7 +63,7 @@ export class GrokAdapter implements ProviderAdapter {
   loginFlow(profileDir: string): LoginFlow {
     const grokHome = join(profileDir, '.grok');
     mkdirSync(grokHome, { recursive: true });
-    const check = async () => existsSync(authPath(profileDir));
+    const check = async () => existsSync(grokAuthFile(profileDir));
     return {
       terminalCommand: [this.cliPath, 'login', '--oauth'],
       env: { GROK_HOME: grokHome, HOME: profileDir, USERPROFILE: profileDir },
@@ -70,21 +75,10 @@ export class GrokAdapter implements ProviderAdapter {
 }
 
 export function grokAuthOk(profileDir: string): boolean {
-  return existsSync(authPath(profileDir));
-}
-
-export function grokLoginStatus(cliPath: string, profileDir: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const child = spawn(cliPath, ['login', '--help'], {
-      env: { ...process.env, HOME: profileDir, USERPROFILE: profileDir },
-      stdio: 'ignore',
-    });
-    child.on('error', () => resolve(false));
-    child.on('close', () => resolve(grokAuthOk(profileDir)));
-  });
+  return existsSync(grokAuthFile(profileDir));
 }
 
 /** ACP selects the model through session/set_model, never CLI flags. */
-export function grokAcpArgs(model?: string): string[] {
+export function grokAcpArgs(): string[] {
   return ['agent', 'stdio'];
 }

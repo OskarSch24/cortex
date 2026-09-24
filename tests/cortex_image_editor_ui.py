@@ -36,7 +36,9 @@ def continuous_gallery(page):
       gallery.scrollTop = gallery.scrollHeight;
       const reachable = image.getBoundingClientRect().bottom <= composer.top;
       gallery.scrollTop = 0;
-      return { bottom: gallery.getBoundingClientRect().bottom, windowBottom: conversation.bottom, visibleBehind, reachable };
+      // Die Galerie läuft bis an die Innenkante der Chat-Insel (ohne ihren 1-px-Rand).
+      const edge = parseFloat(getComputedStyle(document.querySelector('.cx-conversation')).borderBottomWidth) || 0;
+      return { bottom: gallery.getBoundingClientRect().bottom, windowBottom: conversation.bottom - edge, visibleBehind, reachable };
     }""")
     assert abs(state['bottom'] - state['windowBottom']) < 1, state
     assert state['visibleBehind'], state

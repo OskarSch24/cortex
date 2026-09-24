@@ -31,7 +31,7 @@ export type LoginStep =
   | { step: 'browser'; message: string; url: string }
   | { step: 'tausche'; message: string };
 
-export interface LoginDeps {
+interface LoginDeps {
   openExternal(url: string): Thenable<boolean> | Promise<boolean>;
   doFetch?: typeof fetch;
   onStep?: (step: LoginStep) => void;

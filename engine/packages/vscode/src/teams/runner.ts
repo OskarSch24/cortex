@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { MAX_PARALLEL, MAX_PER_ACCOUNT, teamOrder, type AgentTeam, type TeamAgent, type TeamJob, type TeamRun } from './types.js';
 import type { TeamStore } from './store.js';
 import type { AutomationSource } from '../automations/types.js';
+import { errorMessage } from '../util/errors.js';
 
-export interface TeamExecutor {
+interface TeamExecutor {
   (team: AgentTeam, agent: TeamAgent, task: string, upstream: TeamJob[], signal: AbortSignal, update: (change: Partial<TeamJob>) => void): Promise<string>;
 }
 
@@ -50,7 +51,7 @@ export class TeamRunner {
       controller.abort();
       run.status = 'failed'; run.finishedAt = Date.now();
       for (const job of run.jobs) if (job.status === 'running' || job.status === 'waiting') {
-        job.status = 'failed'; job.error = error instanceof Error ? error.message : String(error); job.finishedAt = run.finishedAt; job.activity = undefined;
+        job.status = 'failed'; job.error = errorMessage(error); job.finishedAt = run.finishedAt; job.activity = undefined;
       }
       try { this.store.persist(); } catch { /* Store exposes the write error and retries on refresh. */ }
       this.publish();
@@ -142,7 +143,7 @@ export class TeamRunner {
                 job.status = controller.signal.aborted ? 'cancelled' : 'completed';
               } catch (error) {
                 job.status = controller.signal.aborted ? 'cancelled' : 'failed';
-                job.error = error instanceof Error ? error.message : String(error);
+                job.error = errorMessage(error);
               }
               job.finishedAt = Date.now(); job.activity = undefined;
               this.store.persist(); this.publish();
@@ -152,7 +153,7 @@ export class TeamRunner {
         // Eine gescheiterte Rolle darf die übrigen nicht mitreißen: sie trägt
         // ihren Fehler selbst ein, damit Promise.all die anderen abwartet.
         settled.set(job.agentId, work.catch(error => {
-          job.status = 'failed'; job.error = error instanceof Error ? error.message : String(error);
+          job.status = 'failed'; job.error = errorMessage(error);
           job.finishedAt = Date.now(); job.activity = undefined;
           try { this.store.persist(); } catch { /* Store meldet den Schreibfehler beim nächsten refresh. */ }
           this.publish();

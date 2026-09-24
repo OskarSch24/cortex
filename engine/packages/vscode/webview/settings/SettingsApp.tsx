@@ -1,8 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import type { AccountStatusDto, ConversationMeta, ProjectDto, WebviewToHost } from '../../src/panel/protocol.js';
+import type { AccountStatusDto, ConversationMeta, ProjectDto } from '../../src/panel/protocol.js';
 import { Glyph } from '../components/CortexIcons.js';
-import { vscode } from '../vscodeApi.js';
 import { startSettingsStore } from './store.js';
 import { AllgemeinPage, DarstellungPage, ImportierenPage, KonfigurationPage, PersonalisierungPage, ProfilPage, StimmePage } from './pages/persoenlich.js';
 import { TastaturPage } from './pages/tastatur.js';
@@ -47,7 +46,7 @@ interface NavItem { id: SectionId; label: string; icon: string; terms: string; e
  * weil Cortex Projekte archiviert. Die Begriffe hinter jedem Eintrag speisen
  * die Suche oben — sie nennen, was auf der Seite steht.
  */
-export const NAV: Array<{ group: string; items: NavItem[] }> = [
+const NAV: Array<{ group: string; items: NavItem[] }> = [
   { group: 'Persönlich', items: [
     { id: 'allgemein', label: 'Allgemein', icon: 'gear', terms: 'Berechtigungen Vollzugriff Ordner Sprache Menüleiste Terminal Tätigkeiten Details Minimal Kompakt Ausführlich Energiesparmodus Geschwindigkeit Lizenzen Composer Senden Folgenachrichten Popout Benachrichtigungen Konfetti' },
     { id: 'importieren', label: 'Importieren', icon: 'download', terms: 'Import Synchronisierung Claude Code Codex Cursor' },
@@ -81,7 +80,7 @@ export const NAV: Array<{ group: string; items: NavItem[] }> = [
 ];
 
 const ALL = NAV.flatMap(g => g.items);
-export const labelOf = (id: SectionId) => ALL.find(i => i.id === id)?.label ?? id;
+const labelOf = (id: SectionId) => ALL.find(i => i.id === id)?.label ?? id;
 
 export function SettingsApp({ initial, onBack, ...rest }: Omit<SettingsContext, 'go' | 'sub'> & { initial?: Route; onBack: () => void }) {
   const [history, setHistory] = useState<Route[]>([initial ?? { id: 'allgemein', sub: [] }]);
@@ -100,6 +99,13 @@ export function SettingsApp({ initial, onBack, ...rest }: Omit<SettingsContext, 
   };
   const ctx: SettingsContext = { ...rest, go, sub: route.sub };
 
+  // Gruppen der Leiste lassen sich zuklappen; die mit der offenen Seite bleibt immer offen.
+  const [closedGroups, setClosedGroups] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('cortex.einstellungen.zu') ?? '[]'); } catch { return []; } });
+  const toggleGroup = (group: string) => setClosedGroups(list => {
+    const next = list.includes(group) ? list.filter(g => g !== group) : [...list, group];
+    try { localStorage.setItem('cortex.einstellungen.zu', JSON.stringify(next)); } catch { /* nur bis zum Neuladen */ }
+    return next;
+  });
   const q = query.trim().toLowerCase();
   const groups = NAV.map(g => ({ ...g, items: g.items.filter(i => !q || i.label.toLowerCase().includes(q) || i.terms.toLowerCase().includes(q)) })).filter(g => g.items.length);
 
@@ -117,14 +123,18 @@ export function SettingsApp({ initial, onBack, ...rest }: Omit<SettingsContext, 
         }} />
       </label>
       <nav class="cxs-nav-scroll">
-        {groups.map(g => <section key={g.group} class="cxs-nav-group">
-          <h3>{g.group}</h3>
-          {g.items.map(item => <button type="button" key={item.id} class={`cxs-nav-item ${route.id === item.id ? 'selected' : ''}`} aria-current={route.id === item.id ? 'page' : undefined} onClick={() => go({ id: item.id, sub: [] })}>
+        {groups.map(g => { const open = !!q || !closedGroups.includes(g.group) || g.items.some(item => item.id === route.id); return <section key={g.group} class={`cxs-nav-group ${open ? 'open' : ''}`}>
+          <button type="button" class="cxs-nav-head" aria-expanded={open} onClick={() => toggleGroup(g.group)}>
+            <span class="cxs-nav-chevron"><Glyph name="chevron" size={11} /></span>
+            <h3>{g.group}</h3>
+            {!open && <span class="cxs-nav-count" aria-hidden="true">{g.items.length}</span>}
+          </button>
+          {open && g.items.map(item => <button type="button" key={item.id} class={`cxs-nav-item ${route.id === item.id ? 'selected' : ''}`} aria-current={route.id === item.id ? 'page' : undefined} onClick={() => go({ id: item.id, sub: [] })}>
             <Glyph name={item.icon} size={16} />
             <span>{item.label}</span>
             {item.external && <span class="cxs-nav-trail"><Glyph name="arrowUpRight" size={14} /></span>}
           </button>)}
-        </section>)}
+        </section>; })}
         {!groups.length && <p class="cxs-nav-none">Keine Einstellung gefunden.</p>}
       </nav>
     </aside>
@@ -181,14 +191,4 @@ function Current({ id, ctx }: { id: SectionId; ctx: SettingsContext }): Componen
   }
 }
 
-/** Für Seiten, die den Host nach eigenen Daten fragen. */
-export function useHost<T>(kind: string, request: object | undefined, initial: T): T {
-  const [value, setValue] = useState<T>(initial);
-  useEffect(() => {
-    const listen = (event: MessageEvent) => { if (event.data?.kind === kind) setValue(event.data as T); };
-    window.addEventListener('message', listen);
-    if (request) vscode.postMessage(request as WebviewToHost);
-    return () => window.removeEventListener('message', listen);
-  }, []);
-  return value;
-}
+export { useHost } from '../hooks/useHostMessage.js';

@@ -110,7 +110,7 @@ function renderInline(text: string, onLink?: LinkHandler, inLink = false): Compo
  * `| a | b |` → die Zellen, ohne die äußeren Trennstriche.
  *
  * Ein `\|` gehört zum Inhalt, nicht zur Spalte — so maskieren Modelle einen
- * Strich im Text („Chapter 06 | Abschluss“). Wer an jedem Strich teilte,
+ * Strich im Text („Chapter 06 | After Sell“). Wer an jedem Strich teilte,
  * schöbe den Rest der Zeile eine Spalte weiter und verlöre die letzte.
  */
 export function tableCells(line: string): string[] | undefined {
@@ -251,16 +251,6 @@ function renderTextBlock(text: string, onLink?: LinkHandler): ComponentChildren[
   flush();
   return out;
 }
-
-const KEYWORDS = new Set(
-  (
-    'const let var function return if else for while class import export from async await new ' +
-    'try catch finally throw type interface extends implements static public private readonly ' +
-    'def elif lambda pass with as in not and or is None True False null undefined true false ' +
-    'fn pub struct impl match enum use mod func package switch case break continue default do ' +
-    'void int string bool number float double select go defer chan map range yield print'
-  ).split(' '),
-);
 
 /** Eine Sprachangabe ist ein Wort. Bei einem Zaun mitten im Satz landet sonst
     der halbe Satz als „Sprache“ im Titel. */

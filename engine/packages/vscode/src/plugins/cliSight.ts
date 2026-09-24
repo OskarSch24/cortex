@@ -62,6 +62,9 @@ export function readClaude(output: string): Pick<CliSight, 'state' | 'detail'> {
 }
 
 export function readGrok(output: string, server: string): Pick<CliSight, 'state' | 'detail'> {
+  // Zu einem Server, den das Profil nicht hat, schreibt `grok mcp doctor` gar
+  // nichts — das ist „nicht eingetragen“, kein Fehler.
+  if (!output.trim()) return { state: 'fehlt', detail: 'Nicht im Profil.' };
   try {
     const doc = JSON.parse(output) as { servers?: Array<{ name: string; healthy?: boolean; checks?: Array<{ label: string; passed: boolean; detail?: string }> }> };
     const found = doc.servers?.find((s) => s.name === server);

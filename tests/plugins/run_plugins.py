@@ -1,4 +1,3 @@
-import os
 """Jede Funktion jedes Plugins einmal aufrufen und das Ergebnis festhalten — nichts reparieren.
 
 Regeln:
@@ -176,7 +175,7 @@ def cases(plugin):
         ]
     if plugin == 'xcode':
         # Alles am Wegwerfprojekt ~/Developer/CortexXcodeTest — nie an einem echten Projekt.
-        proj = os.path.expanduser('~/Developer/CortexXcodeTest/CortexXcodeTest.xcodeproj')
+        proj = '/Users/x/Developer/CortexXcodeTest/CortexXcodeTest.xcodeproj'
         base = 'CortexXcodeTest/CortexXcodeTest'
         ws = lambda c, **kw: {**({'workspaceIdentifier': c['ws']} if c.get('ws') else {}), **kw}
         catalog_json = '{"sourceLanguage":"en","strings":{"Hallo":{"localizations":{"en":{"stringUnit":{"state":"translated","value":"Hello"}}}}},"version":"1.0"}'
@@ -234,7 +233,7 @@ def cases(plugin):
             ('GetTopFieldPerformanceIssues', lambda c: ws(c, diagnostic_type='hang')),
             ('GetFieldPerformanceIssueLogs', lambda c: ws(c, app_version='1.0', signature_name='Test', diagnostic_type='hang')),
             ('XcodeRM', lambda c: ws(c, path=f'{base}/CortexTest', recursive=True, deleteFiles=True)),
-            ('XcodeNewProject', {'templateIdentifier': 'com.apple.dt.unit.multiPlatform.app', 'productName': 'CortexXcodeTest2', 'destinationPath': os.path.expanduser('~/Developer')}),
+            ('XcodeNewProject', {'templateIdentifier': 'com.apple.dt.unit.multiPlatform.app', 'productName': 'CortexXcodeTest2', 'destinationPath': '/Users/x/Developer'}),
             ('XcodeCloseWorkspace', lambda c: ws(c)),
         ]
     if plugin == 'chrome-devtools':

@@ -15,7 +15,7 @@ function host() {
   const rec = { id: 'one', title: 'One', projectPath: '/missing-project-fixture', updatedAt: 1, log: [], turns: [] };
   const other = { ...rec, id: 'two' };
   chat.conversations = new Map([['one', rec], ['two', other]]);
-  chat.tasks = new Map(); chat.settingsWrites = Promise.resolve(); chat.settingsRevision = 0;
+  chat.tasks = new Map();
   chat.queues = { pause: vi.fn(), isWorking: () => false };
   const webview = {}; chat.surfaces = new Map([[webview, { mode: 'agent', conversationId: 'one' }]]);
   chat.safePost = vi.fn(); chat.persistNow = vi.fn(async () => {}); chat.sendConversations = vi.fn(); chat.pushWorkspace = vi.fn(async () => {});
@@ -42,9 +42,10 @@ it('relinks all existing project tasks while retaining the saved name and second
   expect(chat.persistNow).toHaveBeenCalled();
 });
 it('serializes global-setting writes and merges different keys after the prior write completes', async () => {
-  const { chat, data } = host(); let release!: () => void;
+  const { chat, data, webview } = host(); let release!: () => void;
   chat.ctx.globalState.update.mockImplementationOnce(async (key: string, value: unknown) => { await new Promise<void>(resolve => { release = resolve; }); data.set(key, value); });
-  const a = chat.storeAppSetting('a', true, '1'), b = chat.storeAppSetting('b', true, '2');
+  const a = chat.dispatchMessage({ kind: 'setAppSetting', key: 'a', value: true, requestId: '1' }, webview);
+  const b = chat.dispatchMessage({ kind: 'setAppSetting', key: 'b', value: true, requestId: '2' }, webview);
   await vi.waitFor(() => expect(chat.ctx.globalState.update).toHaveBeenCalledTimes(1));
   release(); await Promise.all([a, b]);
   expect(data.get('cortex.appSettings')).toEqual({ a: true, b: true });

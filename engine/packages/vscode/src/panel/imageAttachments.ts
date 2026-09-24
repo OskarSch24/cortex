@@ -20,7 +20,7 @@ const DIRECT = /\.(png|jpe?g|gif|webp)$/i;
 /** Darüber wird verkleinert — Anthropic nimmt höchstens 5 MB, Base64 eingerechnet. */
 const MAX_BYTES = 3_500_000;
 /** Was die Webview als Inhalt schicken darf, wenn es keinen Pfad gibt. */
-export const MAX_PASTED_BYTES = 40 * 1024 * 1024;
+const MAX_PASTED_BYTES = 40 * 1024 * 1024;
 
 const safeName = (name: string) => basename(name).replace(/[^\p{L}\p{N}._ -]+/gu, '_').slice(-120) || 'Bild.png';
 

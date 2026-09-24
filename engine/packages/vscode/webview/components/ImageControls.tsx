@@ -16,7 +16,7 @@ import { Glyph } from './CortexIcons.js';
 export const DEFAULT_IMAGE_OPTIONS: ImageOptions = { ratio: '1:1', count: 1 };
 
 /** Wie der Anbieter im Bildmodus heißt: nach dem Bildmodell, nicht nach dem CLI. */
-export const IMAGE_MODEL_NAME: Record<string, string> = {
+const IMAGE_MODEL_NAME: Record<string, string> = {
   codex: 'ChatGPT · GPT Image',
   grok: 'Grok Imagine',
 };
@@ -24,7 +24,7 @@ export const IMAGE_MODEL_NAME: Record<string, string> = {
 export type ImageProviderId = 'codex' | 'grok';
 
 /** Die Konten eines Anbieters, die im Bildmodus arbeiten können — in der Folge des Hosts. */
-export function imageAccountsOf(accounts: AccountStatusDto[], provider: string): AccountStatusDto[] {
+function imageAccountsOf(accounts: AccountStatusDto[], provider: string): AccountStatusDto[] {
   return accounts
     .filter((a) => a.provider === provider && isImageProvider(a.provider) && !a.reviewOnly && a.authState !== 'expired')
     .sort((a, b) => (a.imageRank ?? 99) - (b.imageRank ?? 99));
@@ -41,7 +41,7 @@ export function defaultImageProvider(accounts: AccountStatusDto[], pinnedProvide
   return usable.find((p) => p === pinnedProvider) ?? usable[0];
 }
 
-export function RatioShape({ ratio, size = 14 }: { ratio: string; size?: number }) {
+function RatioShape({ ratio, size = 14 }: { ratio: string; size?: number }) {
   const [w, h] = ratio.split(':').map(Number) as [number, number];
   const k = size / Math.max(w, h);
   return <span class="cx-img-ratio" style={{ width: `${Math.max(4, Math.round(w * k))}px`, height: `${Math.max(4, Math.round(h * k))}px` }} aria-hidden="true" />;

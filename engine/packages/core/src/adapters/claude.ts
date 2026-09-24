@@ -1,22 +1,29 @@
 import { CLAUDE_MODELS, supportedEffort } from '../models/catalog.js';
 import { claudeContent } from './attachments.js';
-import { spawn } from 'node:child_process';
 import type { LoginFlow, ProviderAdapter, RunRequest } from './adapter.js';
 import { cliSetupError, spawnLines } from './spawn.js';
 import { getNumber, getObject, getString, tryParseJson } from './ndjson.js';
 import { claudeRateLimit, detectClaudeLimit, isTransientFailure } from './limits.js';
-import { describeToolUse } from './toolDetail.js';
-import { sameTasks, tasksFromTodoWrite } from './taskList.js';
+import { describeToolUse, toolUseEvent } from './toolDetail.js';
+import { taskListTracker, tasksFromTodoWrite } from './taskList.js';
+import { WEB_SEARCH_SETUP_FAILED, appendTail, setupFailure, transientError, usageOf } from './outcome.js';
+import { exitsZero } from '../util/process.js';
 import { buildChildEnv } from '../accounts/env.js';
 import { createClaudeMcpConfig, withClaudeMcpSelection, type ScopedMcpConfig } from './scopedMcp.js';
+import { claudeWebSearch, withExtraMcpConfig, type ClaudeWebSearch } from './webSearch.js';
 import type {
   AdapterEvent,
   AgentStatus,
-  Effort,
   PermissionMode,
   ResolvedAccount,
   Usage,
 } from '../types.js';
+
+/** Host arguments minus the permission hook, for runs that do not ask. */
+function withoutPromptTool(args: string[]): string[] {
+  const at = args.indexOf('--permission-prompt-tool');
+  return at < 0 ? args : [...args.slice(0, at), ...args.slice(at + 2)];
+}
 
 const PERMISSION_ARGS: Record<PermissionMode, string[]> = {
   safe: ['--permission-mode', 'plan'],
@@ -70,12 +77,7 @@ export function claudeUsage(msg: Record<string, unknown>): Usage {
   const at = (...path: string[]): number => getNumber(msg, 'usage', ...path) ?? 0;
   const cacheRead = at('cache_read_input_tokens');
   const input = at('input_tokens') + at('cache_creation_input_tokens') + cacheRead;
-  const output = at('output_tokens');
-  const usage: Usage = {};
-  if (input > 0) usage.inputTokens = input;
-  if (output > 0) usage.outputTokens = output;
-  if (cacheRead > 0) usage.cachedInputTokens = cacheRead;
-  return usage;
+  return usageOf(input, at('output_tokens'), cacheRead);
 }
 
 export class ClaudeAdapter implements ProviderAdapter {
@@ -125,8 +127,10 @@ export class ClaudeAdapter implements ProviderAdapter {
     if (req.systemBrief?.trim()) args.push('--append-system-prompt', req.systemBrief);
     // Claude cannot ask over stream-json — `--permission-mode manual` silently
     // degrades to `default` in headless mode. Its real hook is an MCP tool it
-    // calls before acting, which the host supplies.
-    if (asking) args.push(...req.hostArgs!.args);
+    // calls before acting, which the host supplies. The host's other tools
+    // (canvas, built-in browser) come along in every mode; the prompt hook
+    // only when asking, since it would replace the mode flag's decisions.
+    if (req.hostArgs) args.push(...(asking ? req.hostArgs.args : withoutPromptTool(req.hostArgs.args)));
 
     const effort = supportedEffort(this.id, req.model, req.effort);
     const env = {
@@ -135,13 +139,26 @@ export class ClaudeAdapter implements ProviderAdapter {
       ...(req.hostArgs?.env ?? {}),
       ...(req.mcpServers !== undefined ? { ENABLE_CLAUDEAI_MCP_SERVERS: 'false' } : {}),
     };
+    // Die Websuche des Agenten: eigene Suche aus, bei Exa das Cortex-Werkzeug
+    // dazu. Seine Konfiguration hängt hinter demselben --mcp-config und bleibt
+    // so auch bei einer engen MCP-Auswahl (--strict-mcp-config) erhalten.
+    let webSearch: ClaudeWebSearch;
+    try {
+      webSearch = claudeWebSearch(req.webSearch);
+    } catch (error) {
+      yield setupFailure(error, WEB_SEARCH_SETUP_FAILED);
+      return;
+    }
+    args.push(...webSearch.args);
+    if (webSearch.configPath) args = withExtraMcpConfig(args, webSearch.configPath);
     let scopedMcp: ScopedMcpConfig | undefined;
     if (req.mcpServers !== undefined) {
       try {
         scopedMcp = createClaudeMcpConfig(req.mcpServers);
         args = withClaudeMcpSelection(args, scopedMcp.path);
       } catch (error) {
-        yield { type: 'error', message: error instanceof Error ? error.message : 'Die MCP-Auswahl konnte nicht eingerichtet werden.', retryable: false };
+        webSearch.dispose();
+        yield setupFailure(error, 'Die MCP-Auswahl konnte nicht eingerichtet werden.');
         return;
       }
     }
@@ -152,7 +169,7 @@ export class ClaudeAdapter implements ProviderAdapter {
     let lastText = '';
     // The newest main-thread assistant message — the turn's checkpoint.
     let lastAssistantUuid: string | undefined;
-    let lastTasks: ReturnType<typeof tasksFromTodoWrite> = [];
+    const trackTasks = taskListTracker();
     // Subagents, keyed by the tool call that spawned them — several run at once,
     // so every later event has to find its own lane again.
     const agents = new Set<string>();
@@ -216,7 +233,7 @@ export class ClaudeAdapter implements ProviderAdapter {
         return;
       }
       if (ev.stream === 'stderr') {
-        stderrTail = (stderrTail + '\n' + ev.line).slice(-4096);
+        stderrTail = appendTail(stderrTail, ev.line);
         continue;
       }
 
@@ -338,24 +355,10 @@ export class ClaudeAdapter implements ProviderAdapter {
               }
               // A subagent's own checklist is not the conversation's plan.
               if (b.name === 'TodoWrite' && !parent) {
-                const items = tasksFromTodoWrite(b.input);
-                if (items.length > 0 && !sameTasks(items, lastTasks)) {
-                  lastTasks = items;
-                  yield { type: 'tasks', items };
-                }
+                const tasks = trackTasks(tasksFromTodoWrite(b.input));
+                if (tasks) yield tasks;
               }
-              const info = describeToolUse(b.name, b.input, req.cwd);
-              yield {
-                type: 'tool-use',
-                name: b.name,
-                detail: info.detail,
-                preview: info.preview,
-                path: info.path,
-                action: info.action,
-                added: info.added,
-                removed: info.removed,
-                agentId: parent,
-              };
+              yield { ...toolUseEvent(b.name, describeToolUse(b.name, b.input, req.cwd)), agentId: parent };
             }
           }
         }
@@ -404,8 +407,7 @@ export class ClaudeAdapter implements ProviderAdapter {
         if (isError && limit) {
           yield { type: 'limit', ...limit };
         } else if (isError) {
-          const message = text || 'claude reported an error';
-          yield { type: 'error', message, retryable: isTransientFailure(message) };
+          yield transientError(text || 'claude reported an error');
         } else {
           const sid = getString(msg, 'session_id');
           if (sid && !sessionEmitted) {
@@ -432,6 +434,7 @@ export class ClaudeAdapter implements ProviderAdapter {
       if (req.handle) req.handle.inject = undefined;
       stdin = undefined;
       scopedMcp?.dispose();
+      webSearch.dispose();
     }
   }
 
@@ -458,15 +461,7 @@ export class ClaudeAdapter implements ProviderAdapter {
 
   /** Login flow for managed-home accounts (full config dir, no token). */
   managedLoginFlow(profileDir: string): LoginFlow {
-    const check = () =>
-      new Promise<boolean>((resolve) => {
-        const child = spawn(this.cliPath, ['auth', 'status'], {
-          env: { ...process.env, CLAUDE_CONFIG_DIR: profileDir },
-          stdio: 'ignore',
-        });
-        child.on('error', () => resolve(false));
-        child.on('close', (code) => resolve(code === 0));
-      });
+    const check = () => exitsZero(this.cliPath, ['auth', 'status'], { ...process.env, CLAUDE_CONFIG_DIR: profileDir });
     return {
       terminalCommand: [this.cliPath, 'auth', 'login'],
       env: { CLAUDE_CONFIG_DIR: profileDir },

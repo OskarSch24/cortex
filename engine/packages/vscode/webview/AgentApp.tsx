@@ -1,4 +1,5 @@
 import { ImageWorkspace } from './components/ImageWorkspace.js';
+import { nestBackground } from './components/backgroundTasks.js';
 import { PaneResizeHandle, storedPaneWidth, savePaneWidth, usePaneBounds } from './components/PaneResizeHandle.js';
 import { conversationImages, type WorkspaceImage } from './components/imageWorkspaceState.js';
 import type { ImageOptions } from '../src/panel/imageOptions.js';
@@ -6,11 +7,13 @@ import { assistantText } from '../src/panel/transcript.js';
 import { QueuedMessages } from './components/QueuedMessages.js';
 import { TemplateStrip } from './components/TemplateStrip.js';
 import { templateCategoryForAction, type ArtifactTemplateCategory } from './components/templateCommands.js';
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import type { AccountStatusDto, QueuedMessageDto, ConversationMeta, FileDiffDto, HostToWebview, Page, ProjectDto, WorkspaceDto } from '../src/panel/protocol.js';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import type { AccountStatusDto, QueuedMessageDto, ConversationMeta, FileDiffDto, HostToWebview, ProjectDto, WorkspaceDto } from '../src/panel/protocol.js';
 import { applyHostMessage, touchedFiles, type TranscriptItem } from '../src/panel/transcript.js';
 import { vscode } from './vscodeApi.js';
-import { ToolsMenu } from './components/ToolsMenu.js';
+import { tagsOf } from '../src/panel/tags.js';
+import { useArchivedProjects } from './hooks/useArchivedProjects.js';
+import { useNavigation } from './hooks/useNavigation.js';
 import { answerCanvasRequest, blockKey, canvasBlocks, requestDraw, type CanvasHost } from './canvas/client.js';
 import { Composer, type PinnedTarget } from './components/Composer.js';
 import { ControlPanel } from './components/ControlPanel.js';
@@ -22,69 +25,35 @@ import { SettingsApp, type Route } from './settings/SettingsApp.js';
 import type { SlashAction } from '../../core/src/commands/slashCommands.js';
 import { appSetting, startSettingsStore } from './settings/store.js';
 import { Transcript } from './components/Transcript.js';
-import { Dock, emptyDock, newTab, type DockKind, type DockPick, type DockState, type TranscriptDoc } from './components/Dock.js';
+import { Dock, DOCK_MIN, emptyDock, focusOrAddTab, newTab, type DockKind, type DockPick, type DockState, type TranscriptDoc } from './components/Dock.js';
+import { collectAgents } from './components/DockAgents.js';
+import { LocationChip, LocationPicker } from './components/LocationPicker.js';
+import type { ChatLocation } from '../../core/src/context/chatLocationBrief.js';
+
+/** So lange fährt das Dock herein und hinaus — gemessen an Codex (0,40 s / 0,30 s). */
+const DOCK_ENTER_MS = 400;
+const DOCK_LEAVE_MS = 300;
+/** Die Übersichtskarte samt rechtem Rand, und was der Chat daneben behalten soll. */
+const CARD_WIDTH = 368;
+const CHAT_ROOM = 560;
+/** Die Einstiege der Startseite: runde Knöpfe unter der Eingabe, der Text geht ins Eingabefeld. */
+const START_PROMPTS = [
+  { icon: 'search', label: 'Code verstehen', text: 'Analysiere dieses Projekt. Erkläre den Aufbau und die wichtigsten Abläufe.' },
+  { icon: 'code', label: 'Feature bauen', text: 'Ich möchte ein neues Feature entwickeln. Prüfe zuerst die bestehende Architektur und frage mich nach dem gewünschten Verhalten.' },
+  { icon: 'eye', label: 'Code prüfen', text: 'Prüfe die aktuellen Änderungen auf Fehler und mögliche Regressionen.' },
+  { icon: 'bug', label: 'Fehler beheben', text: 'Hilf mir, einen Fehler zu beheben. Frage mich nach dem Problem und untersuche zuerst seine Ursache.' },
+];
 import { ArchivedProjects, ProjectTree } from './components/ProjectTree.js';
 import { ProjectEditor } from './components/ProjectEditor.js';
 import { ProjectPicker } from './components/ProjectPicker.js';
 import { ConversationSearch } from './components/ConversationSearch.js';
-import { PluginsView, type PluginView } from './components/PluginsView.js';
+import { PluginsView } from './components/PluginsView.js';
 import { ReviewPanel } from './components/ReviewPanel.js';
 import { ExokortexView } from './components/ExokortexView.js';
-import { BrandMark } from './components/brandIcons.js';
 import { CortexBrain, CortexMark, Glyph } from './components/CortexIcons.js';
 
-/** Ein Ort in der App: die Seite und, bei Plugins, die Stelle darin. */
-interface Location {
-  page: Page;
-  plugins?: PluginView;
-  profileId?: string;
-}
-
-/** Genug, um sich zurückzuarbeiten; nicht so viel, dass er ewig wächst. */
-const HISTORY_MAX = 60;
-
-/** Welche Projektpfade in der Leiste unter „Archivierte Projekte“ stehen. */
-const ARCHIVE_KEY = 'cortex.archivedProjects';
-function storedArchive(): string[] {
-  try {
-    const list: unknown = JSON.parse(localStorage.getItem(ARCHIVE_KEY) ?? '[]');
-    return Array.isArray(list) ? list.filter((p): p is string => typeof p === 'string') : [];
-  } catch { return []; }
-}
-
 export function AgentApp() {
-  /**
-   * Ein Verlauf statt eines einzelnen Seitenzustands.
-   *
-   * Ohne ihn gab es aus einer Produktseite keinen Weg zurück außer der kleinen
-   * Brotkrume — und aus einem Seitenwechsel gar keinen. Ein Ort ist deshalb die
-   * Seite *und* die Stelle innerhalb der Plugins; beides zusammen wandert in
-   * denselben Stapel, den die Pfeile oben links bedienen.
-   */
-  const [{ history, cursor }, setNavigation] = useState<{ history: Location[]; cursor: number }>({ history: [{ page: 'chat' }], cursor: 0 });
-  const here: Location = history[cursor] ?? { page: 'chat' };
-  const page = here.page;
-  // Der Nachrichten-Listener entsteht einmal; die Seite liest er über die Ref.
-  const pageRef = useRef(page);
-  pageRef.current = page;
-  const go = (next: Location, skipSamePage = false) => setNavigation(current => {
-    const currentPlace = current.history[current.cursor];
-    if (skipSamePage && next.page === currentPlace?.page && !(next.page === 'plugins' && currentPlace.plugins?.kind !== 'overview')) return current;
-    const history = [...current.history.slice(0, current.cursor + 1), next].slice(-HISTORY_MAX);
-    return { history, cursor: history.length - 1 };
-  });
-  const setCursor = (update: (cursor: number) => number) => setNavigation(current => ({ ...current, cursor: update(current.cursor) }));
-  /** Innerhalb der Plugins zu blättern ist ein Schritt wie jeder andere. */
-  const goPlugins = (plugins: PluginView) => go({ page: 'plugins', plugins });
-  const setPage = (next: Page) => {
-    // Zweimal dieselbe Seite ist kein Schritt — sonst müsste man zweimal zurück.
-    go(next === 'plugins' ? { page: next, plugins: { kind: 'overview' } } : { page: next }, true);
-  };
-  const canBack = cursor > 0;
-  const canForward = cursor < history.length - 1;
-  // Auch Verlauf und Host-Navigation ändern die sichtbare Seite. Die native
-  // Titelleiste kennt sie erst durch diese Meldung, unabhängig vom Chatverlauf.
-  useLayoutEffect(() => { vscode.postMessage({ kind: 'pageChanged', page }); }, [page]);
+  const { history, cursor, here, page, pageRef, go, setCursor, goPlugins, setPage, canBack, canForward } = useNavigation();
   const [items, setItems] = useState<TranscriptItem[]>([]);
   const [accounts, setAccounts] = useState<AccountStatusDto[]>([]);
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
@@ -102,8 +71,20 @@ export function AgentApp() {
    */
   const [dock, setDock] = useState<DockState>(emptyDock());
   const [transcript, setTranscript] = useState<TranscriptDoc>();
+  /** Standort-Kontext des offenen Chats (vom Host) und ob die Kachel dafür offen ist. */
+  const [chatLocation, setChatLocation] = useState<ChatLocation>();
+  const [locationOpen, setLocationOpen] = useState(false);
+  const saveLocation = (location: ChatLocation | undefined) => {
+    setChatLocation(location);
+    setLocationOpen(false);
+    if (activeRef.current || activeId) vscode.postMessage({ kind: 'setChatLocation', conversationId: activeRef.current || activeId, location: location ?? null });
+  };
   const stash = useRef<DockState>();
   const dockOpen = dock.tabs.length > 0;
+  /** Gesetzt, wenn der nächste Dockwechsel ohne Bewegung geschehen soll. */
+  const dockInstant = useRef(false);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   /**
    * Die Reiter gehören dem Chat, nicht dem Fenster.
@@ -125,6 +106,9 @@ export function AgentApp() {
     if (dockOwner.current) docks.current.set(dockOwner.current, { dock: dockRef.current, stash: stash.current });
     dockOwner.current = activeId;
     const held = activeId ? docks.current.get(activeId) : undefined;
+    // Ein Chatwechsel tauscht das Dock aus, er öffnet oder schließt es nicht:
+    // hier fährt nichts herein oder hinaus.
+    dockInstant.current = true;
     setDock(held?.dock ?? emptyDock());
     stash.current = held?.stash;
   }, [activeId]);
@@ -156,18 +140,109 @@ export function AgentApp() {
    * Die Excalidraw-Fläche geht auf und bleibt auf: ein Zeichenauftrag aus dem
    * Verlauf oder `/excalidraw` soll sie zeigen, nicht umschalten.
    */
-  const openCanvas = () => setDock(current => {
-    const existing = current.tabs.find(tab => tab.kind === 'canvas');
-    if (existing) return { ...current, activeId: existing.id };
-    const tab = newTab('canvas');
-    return { ...current, tabs: [...current.tabs, tab], activeId: tab.id };
-  });
+  const openCanvas = () => setDock(current => focusOrAddTab(current, 'canvas'));
+
+  /** Der Reiter „Video“ geht auf und bleibt auf, wie die Zeichenfläche. */
+  const openVideo = () => setDock(current => focusOrAddTab(current, 'video'));
 
   /** Das × wirft weg — deshalb geht hier kein Rückhalt mit. */
   const closeDock = () => {
     stash.current = undefined;
     setDock(current => ({ ...current, tabs: [], activeId: undefined }));
   };
+
+  /**
+   * Einklappen wie der Seitenleisten-Knopf bei Codex: alles bleibt liegen und
+   * kommt beim nächsten Öffnen wieder — nur das Vollbild nicht, das gilt für
+   * den Moment, nicht für das Dock.
+   */
+  const hideDock = (instant?: boolean) => {
+    // Hat das Dock die Bewegung schon selbst gezeichnet (Ziehen, Knopf), fährt
+    // hier nichts ein zweites Mal hinaus.
+    if (instant) dockInstant.current = true;
+    hideDockState();
+  };
+  const hideDockState = () => setDock(current => {
+    if (!current.tabs.length) return current;
+    stash.current = { ...current, fullscreen: false };
+    return { ...current, tabs: [], activeId: undefined, fullscreen: false };
+  });
+
+  /**
+   * ⌥⌘B: das ganze Dock ein und aus. Ohne Rückhalt beginnt es mit dem, was
+   * der Chat gerade hat — Subagenten, wenn welche liefen, sonst den Dateien.
+   */
+  const toggleWholeDock = () => setDock(current => {
+    if (current.tabs.length) {
+      stash.current = { ...current, fullscreen: false };
+      return { ...current, tabs: [], activeId: undefined, fullscreen: false };
+    }
+    const held = stash.current;
+    if (held?.tabs.length) { stash.current = undefined; return { ...held, width: current.width, fullscreen: false }; }
+    const tab = newTab(collectAgents(itemsRef.current).length ? 'agents' : 'files');
+    return { ...current, tabs: [tab], activeId: tab.id, fullscreen: false };
+  });
+
+  /*
+   * Hereinfahren und Hinausfahren. Das Dock hängt nur im Baum, solange es
+   * Reiter hat; damit es beim Schließen sichtbar hinausfahren kann, bleibt
+   * sein letzter Stand für die Dauer der Bewegung stehen. Aus dem Vollbild
+   * schließt Codex ohne Bewegung, ebenso beim Chatwechsel.
+   */
+  /*
+   * Die Übersichtskarte darf neben dem Dock stehen bleiben, solange der Chat
+   * dazwischen noch lesbar ist — Codex blendet sie erst aus, wenn der Platz
+   * nicht mehr reicht, und wieder ein, sobald er es tut.
+   */
+  const [workspaceWidth, setWorkspaceWidth] = useState(0);
+  const workspaceObserver = useRef<ResizeObserver>();
+  const measureWorkspace = useCallback((node: HTMLDivElement | null) => {
+    workspaceObserver.current?.disconnect();
+    if (!node) return;
+    // Im nächsten Frame: sofort gesetzt, ändert die neue Breite der Karte die
+    // beobachtete Fläche noch im selben Durchlauf — Chromium meldet dann eine
+    // Beobachterschleife.
+    let frame = 0;
+    workspaceObserver.current = new ResizeObserver(() => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => setWorkspaceWidth(node.clientWidth)); });
+    workspaceObserver.current.observe(node);
+  }, []);
+  const [liveDockWidth, setLiveDockWidth] = useState<number>();
+  /*
+   * Wie viel der Karte neben dem Dock Platz hat, von 0 bis 1. Beim Ziehen
+   * nimmt das Dock zuerst der Karte den Raum und erst dann dem Chat — im Takt
+   * der Maus, ohne dass der Chat dazwischen breiter oder schmaler springt.
+   */
+  const dockShown = liveDockWidth ?? Math.max(DOCK_MIN, dock.width);
+  const cardRoom = Math.max(0, Math.min(1, (workspaceWidth - dockShown - CHAT_ROOM) / CARD_WIDTH));
+  // In Ruhe ganz oder gar nicht; nur während des Ziehens anteilig.
+  const cardFit = !dockOpen ? 1 : dock.fullscreen ? 0 : liveDockWidth !== undefined ? cardRoom : cardRoom >= 1 ? 1 : 0;
+
+  /** Ein Subagent aus der Übersichtskarte öffnet sein Protokoll im Dock. */
+  const openAgent = (agentId?: string) => setDock(current => focusOrAddTab(current, 'agents', { agentId }));
+
+  const [dockMotion, setDockMotion] = useState<'enter'>();
+  const [leavingDock, setLeavingDock] = useState<DockState>();
+  const previousDock = useRef(dock);
+  useEffect(() => {
+    const before = previousDock.current;
+    previousDock.current = dock;
+    const wasOpen = before.tabs.length > 0;
+    const isOpen = dock.tabs.length > 0;
+    const instant = dockInstant.current;
+    dockInstant.current = false;
+    if (wasOpen === isOpen || instant) { if (instant) { setDockMotion(undefined); setLeavingDock(undefined); } return; }
+    if (isOpen) {
+      setLeavingDock(undefined);
+      setDockMotion('enter');
+      const timer = setTimeout(() => setDockMotion(undefined), DOCK_ENTER_MS);
+      return () => clearTimeout(timer);
+    }
+    setDockMotion(undefined);
+    if (before.fullscreen) return;
+    setLeavingDock(before);
+    const timer = setTimeout(() => setLeavingDock(undefined), DOCK_LEAVE_MS);
+    return () => clearTimeout(timer);
+  }, [dock]);
 
   /**
    * Browser und Terminal sind Flächen von Code-OSS, keine Reiter dieses Docks:
@@ -198,7 +273,6 @@ export function AgentApp() {
   // sidebar over the page for as long as you are looking at it, and clicking
   // it pins it back into the layout.
   const [peek, setPeek] = useState(false);
-  const [panes, setPanes] = useState({ browser: false, terminal: false });
   const [connectors, setConnectors] = useState<string[]>([]);
   const [templates, setTemplates] = useState(false);
   const [templateCategory, setTemplateCategory] = useState<ArtifactTemplateCategory>('dokument');
@@ -208,7 +282,6 @@ export function AgentApp() {
   const [settingsRoute, setSettingsRoute] = useState<Route>();
   const [commandRequest, setCommandRequest] = useState<{ action: SlashAction; key: number }>();
   const [archivedChats, setArchivedChats] = useState<ConversationMeta[]>([]);
-  const [promptSeedTemplate, setPromptSeedTemplate] = useState<{ text: string; key: number }>();
   const peekTimer = useRef<ReturnType<typeof setTimeout>>();
   const showPeek = () => { clearTimeout(peekTimer.current); if (!sidebar) setPeek(true); };
   const hidePeek = () => { clearTimeout(peekTimer.current); peekTimer.current = setTimeout(() => setPeek(false), 180); };
@@ -227,13 +300,8 @@ export function AgentApp() {
   const [looseOpen, setLooseOpen] = useState(true);
   // Archivieren ist reine Ordnung in der Leiste und bleibt deshalb hier vorn:
   // der Host erfährt nichts davon, Ordner und Aufgaben bleiben unberührt.
-  const [archived, setArchived] = useState<string[]>(storedArchive);
+  const [archived, toggleArchived] = useArchivedProjects();
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const toggleArchived = (project: ProjectDto) => setArchived(prev => {
-    const next = prev.includes(project.path) ? prev.filter(p => p !== project.path) : [...prev, project.path];
-    try { localStorage.setItem(ARCHIVE_KEY, JSON.stringify(next)); } catch { /* Speicher kann in einer frischen Webview fehlen. */ }
-    return next;
-  });
   // Die Prüfansicht liegt rechts, wo sonst Ausgaben und Quellen stehen —
   // zwei Panels nebeneinander wären im Chatfenster nicht mehr lesbar.
   const [review, setReview] = useState(false);
@@ -254,7 +322,6 @@ export function AgentApp() {
   const [permissionMode, setPermissionMode] = useState('safe');
   const [askPermission, setAskPermission] = useState(false);
   const [routingMode, setRoutingMode] = useState<'auto' | 'manual'>('auto');
-  const [pollUsage, setPollUsage] = useState(true);
   const [pinnedTarget, setPinnedTarget] = useState<PinnedTarget>();
   const [pinnedStandard, setPinnedStandard] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -278,7 +345,7 @@ export function AgentApp() {
   // die stehen für erzeugte Bilder und steuern die Auswahl im Bildbereich.
   const [attachmentThumbs, setAttachmentThumbs] = useState<Record<string, string | null>>({});
   useEffect(() => {
-    const wanted = attachments.filter(path => /\.(png|jpe?g|webp|gif|svg|bmp|heic|heif|tiff?)$/i.test(path) && !imagePreviews[path] && !(path in attachmentThumbs));
+    const wanted = attachments.filter(path => /\.(png|jpe?g|webp|gif|svg|bmp|heic|heif|tiff?|mp4|mov|m4v|webm|mkv|avi|pdf)$/i.test(path) && !imagePreviews[path] && !(path in attachmentThumbs));
     if (!wanted.length) return;
     setAttachmentThumbs(prev => ({ ...prev, ...Object.fromEntries(wanted.map(path => [path, null])) }));
     for (const path of wanted) vscode.postMessage({ kind: 'attachmentPreview', path });
@@ -416,30 +483,28 @@ export function AgentApp() {
       if (msg.kind === 'rules') { setTags([...new Set(msg.rules.rules.flatMap(r => r.match.tags ?? []))]); setCustomCommands(msg.customCommands ?? []); }
       if (msg.kind === 'modes') {
         setPermissionMode(msg.permissionMode); setRoutingMode(msg.routingMode); setAskPermission(msg.askPermission === true);
-        if (msg.pollUsage !== undefined) setPollUsage(msg.pollUsage);
       }
       if (msg.kind === 'pinnedTarget') { setPinnedTarget(msg.target); setPinnedStandard(msg.standard === true); }
-      if (msg.kind === 'panes') setPanes({ browser: msg.browser, terminal: msg.terminal });
+      if (msg.kind === 'chatLocation') { setChatLocation(msg.location); setLocationOpen(false); }
       if (msg.kind === 'connectors') setConnectors(msg.servers.map(server => server.name));
       if (msg.kind === 'toolbar') {
         // Die Knöpfe sitzen jetzt in der Fenster-Titelleiste, die über Chat und
         // Terminal zugleich läuft. Von dort kommen sie als Nachricht herein.
         if (msg.action === 'files') toggleDock('files');
+        if (msg.action === 'dock') toggleWholeDock();
         if (msg.action === 'changes') toggleDock('changes');
         if (msg.action === 'canvas') toggleDock('canvas');
+        if (msg.action === 'video') toggleDock('video');
         if (msg.action === 'sidebar') { setPeek(false); setSidebar(v => !v); }
         if (msg.action === 'project') vscode.postMessage({ kind: 'assignProject' });
+        // Die Übersicht (Ausgaben, Hintergrundprozesse, Quellen) nach dem Schließen zurückholen.
+        if (msg.action === 'overview') { setPage('chat'); setControlOpen(v => !v); }
       }
       if (msg.kind === 'transcript') {
         // Der Verlauf öffnet als Reiter im Dock. Ein zweiter Aufruf ersetzt den
         // Inhalt des vorhandenen Reiters, statt einen weiteren aufzumachen.
         setTranscript({ title: msg.title, turns: msg.turns });
-        setDock(current => {
-          const existing = current.tabs.find(tab => tab.kind === 'transcript');
-          if (existing) return { ...current, activeId: existing.id };
-          const tab = newTab('transcript');
-          return { ...current, tabs: [...current.tabs, tab], activeId: tab.id };
-        });
+        setDock(current => focusOrAddTab(current, 'transcript'));
       }
       // Auf der Plugin-Seite gehört eine gezogene Datei der Seite — meist eine
       // Client-JSON mit Secret, die nie stillschweigend an den nächsten Chat soll.
@@ -506,10 +571,21 @@ export function AgentApp() {
     draw: (code, key, force) => { setReview(false); openCanvas(); requestDraw({ conversationId: activeRef.current || activeId, code, key, force: !!force }); },
     open: () => { setReview(false); openCanvas(); },
   };
+  /** Eine Nachricht an den Host ohne Bildauftrag; #tags im Text werden zu Regeln. */
+  const buildSend = (text: string) => ({
+    kind: 'send' as const, text, tags: tagsOf(text), permissionMode, askPermission, routingMode, target: pinnedTarget,
+  });
   const send = (text: string, effort?: import('../../core/src/types.js').Effort, image?: import('./components/Composer.js').ImageSend) => {
     const trimmed = text.trim(); if (!trimmed) return;
     // `/excalidraw` allein öffnet nur die Fläche; mit Auftrag geht sie auf und
     // der Auftrag an das Modell, das dann darauf zeichnet.
+    // `/remotion` öffnet den Reiter „Video“; mit Auftrag baut der Agent dort das Video.
+    // Ein angehängtes Video oder Bild ist schon ein Auftrag — es ist das Material.
+    // Geht nichts hinaus, bleibt der Befehl im Eingabefeld stehen, statt zu verschwinden.
+    if (!image && /^\/remotion\b/i.test(trimmed)) {
+      setReview(false); openVideo();
+      if (!trimmed.replace(/^\/remotion\b/i, '').trim() && !attachments.length) { setPromptSeed({ text: '/remotion ', key: Date.now() }); return; }
+    }
     if (!image && /^\/excalidraw\b/i.test(trimmed)) {
       setReview(false); openCanvas();
       if (!trimmed.replace(/^\/excalidraw\b/i, '').trim()) return;
@@ -518,7 +594,7 @@ export function AgentApp() {
     const sentAttachments = viewedImage && !attachments.some(path => imagePreviews[path]) ? [...attachments, viewedImage.path] : attachments;
     vscode.postMessage(image
       ? { kind: 'send', text: trimmed, tags: [], permissionMode: 'safe', askPermission, routingMode: 'manual', attachments: sentAttachments, image: image.options, imageProvider: image.provider }
-      : { kind: 'send', effort, text: trimmed, tags: [...trimmed.matchAll(/(^|\s)#([\w-]+)/g)].map(m => m[2]!), permissionMode, askPermission, routingMode, attachments, target: pinnedTarget });
+      : { ...buildSend(trimmed), effort, attachments });
     setAttachments([]);
   };
   const runCommand = (action: SlashAction, draft: string) => {
@@ -550,6 +626,7 @@ export function AgentApp() {
     }
   };
   const pinnedChats = conversations.filter(c => c.pinned);
+  const isWorkspace = !['automations', 'agents', 'exokortex', 'plugins', 'accounts'].includes(page);
   const loose = conversations.filter(c => !c.pinned && !c.projectPath);
   const shownProjects = projects.filter(p => !archived.includes(p.path));
   const archivedProjects = projects.filter(p => archived.includes(p.path));
@@ -566,7 +643,7 @@ export function AgentApp() {
     onPinProject: (project: ProjectDto) => vscode.postMessage({ kind: 'pinProject', path: project.path, pinned: !project.pinned }),
     onArchiveProject: toggleArchived,
   };
-  const taskRows = (list: ConversationMeta[], reachable = true) => list.map(c => <div key={c.id} class={`cx-tree-task ${page === 'chat' && (opening ?? activeId) === c.id ? 'active' : ''}`}><button class="cx-tree-task-open" onClick={() => openTask(c.id)} title={c.title} tabIndex={reachable ? 0 : -1}><span>{c.title === 'New chat' || !c.title ? 'Neue Aufgabe' : c.title}</span></button>{c.running ? <span class="cx-tree-task-run" title="Läuft"><span class="cx-dot" /></span> : <button class="cx-icon cx-tree-task-del" aria-label={`Aufgabe löschen: ${c.title}`} tabIndex={reachable ? 0 : -1} onClick={() => vscode.postMessage({ kind: 'deleteConversation', id: c.id })}><Glyph name="trash" size={12} /></button>}</div>);
+  const taskRows = (list: ConversationMeta[], reachable = true) => nestBackground(list).map(c => <div key={c.id} class={`cx-tree-task ${page === 'chat' && (opening ?? activeId) === c.id ? 'active' : ''} ${c.nested ? 'nested' : ''}`}><button class="cx-tree-task-open" onClick={() => openTask(c.id)} title={c.background ? `Hintergrundprozess · ${c.title}` : c.title} tabIndex={reachable ? 0 : -1}>{c.background && <Glyph name="swarm" size={12} />}<span>{c.title === 'New chat' || !c.title ? 'Neue Aufgabe' : c.title}</span></button>{c.running ? <span class="cx-tree-task-run" title="Läuft"><span class="cx-dot" /></span> : <button class="cx-icon cx-tree-task-del" aria-label={`Aufgabe löschen: ${c.title}`} tabIndex={reachable ? 0 : -1} onClick={() => vscode.postMessage({ kind: 'deleteConversation', id: c.id })}><Glyph name="trash" size={12} /></button>}</div>);
 
   // Die Einstellungen legen sich wie bei Codex über das ganze Fenster: eine
   // eigene Leiste statt der App-Leiste, rechts die Seiten.
@@ -592,6 +669,21 @@ export function AgentApp() {
   </div>;
 
   return <div class={`cx-shell ${!sidebar ? 'cx-sidebar-hidden' : ''} ${windowed ? 'cx-windowed' : ''}`} style={{ '--cx-sidebar-width': `${shownSidebarWidth}px` }}>
+    {/* Eingeklappt bleibt eine schmale Leiste mit denselben Bereichen stehen:
+        jeder Weg der Seitenleiste ist so weiter einen Klick entfernt. */}
+    {!sidebar && <nav class={`cx-mini-rail ${peek ? 'covered' : ''}`} aria-label="Bereiche (eingeklappt)">
+      <button class="cx-icon cx-mini-brand" aria-label="Seitenleiste ausklappen" title="Seitenleiste ausklappen" onClick={() => { setPeek(false); setSidebar(true); }}><CortexMark size={24} /></button>
+      <button class={`cx-icon ${page === 'chat' ? 'selected' : ''}`} aria-label="Neuer Chat" title="Neuer Chat" onClick={() => newTask()}><Glyph name="compose" size={18} /></button>
+      <button class={`cx-icon ${page === 'agents' ? 'selected' : ''}`} aria-label="Aktive Agenten" title="Aktive Agenten" onClick={() => setPage('agents')}><Glyph name="bolt" size={18} />{runningCount > 0 && <span class="cx-mini-dot" />}</button>
+      <button class={`cx-icon ${page === 'automations' ? 'selected' : ''}`} aria-label="Geplante Aktionen" title="Geplante Aktionen" onClick={() => setPage('automations')}><Glyph name="clock" size={18} /></button>
+      <button class={`cx-icon ${page === 'exokortex' ? 'selected' : ''}`} aria-label="Exokortex" title="Exokortex" onClick={() => setPage('exokortex')}><Glyph name="branch" size={18} /></button>
+      <button class={`cx-icon ${page === 'plugins' ? 'selected' : ''}`} aria-label="Plugins" title="Plugins" onClick={() => goPlugins({ kind: 'overview' })}><Glyph name="plug" size={18} /></button>
+      <span class="cx-mini-sep" />
+      <button class="cx-icon" aria-label="Aufgaben suchen" title="Aufgaben suchen (⌘K)" onClick={() => setSearch('')}><Glyph name="search" size={18} /></button>
+      <span class="cx-mini-gap" />
+      <button class="cx-icon" aria-label="Konten und Limits" title="Konten und Limits" onClick={() => setPage('accounts')}><Glyph name="user" size={18} /></button>
+      <button class="cx-icon" aria-label="Einstellungen" title="Einstellungen" onClick={() => setPage('settings')}><Glyph name="gear" size={18} /></button>
+    </nav>}
     {!sidebar && <div class="cx-sidebar-edge" aria-hidden="true" onMouseEnter={showPeek} onMouseLeave={hidePeek} />}
     {/* Die Leiste bleibt im Baum, auch wenn sie zu ist — nur so lässt sich der
         Weg dorthin zeigen, statt sie verschwinden zu lassen. Zugeklappt schiebt
@@ -615,20 +707,19 @@ export function AgentApp() {
         <button class={`cx-nav ${page === 'automations' ? 'selected' : ''}`} onClick={() => setPage('automations')}><Glyph name="clock" size={16} /><span>Geplante Aktionen</span></button>
         <button class={`cx-nav ${page === 'exokortex' ? 'selected' : ''}`} onClick={() => setPage('exokortex')}><Glyph name="branch" size={16} /><span>Exokortex</span></button>
         <button class={`cx-nav ${page === 'plugins' ? 'selected' : ''}`} onClick={() => goPlugins({ kind: 'overview' })}><Glyph name="plug" size={16} /><span>Plugins</span></button>
-        <button class="cx-nav" onClick={() => setPage('settings')}><Glyph name="dots" size={16} /><span>Einstellungen</span></button>
       </nav>
 
       <div class="cx-rail-tree">
-        <ProjectTree projects={shownProjects} {...treeProps} />
+        <ProjectTree projects={shownProjects} {...treeProps} onAddProject={() => vscode.postMessage({ kind: 'addProject' })} />
         {pinnedChats.length > 0 && <section class="cx-pinned-chats" aria-label="Angeheftete Chats"><div class="cx-tree-row"><span class="cx-tree-open"><Glyph name="pin" size={14} />Angeheftete Chats</span></div>{taskRows(pinnedChats)}</section>}
         {projects.length === 0 && <button class="cx-add-project" onClick={() => vscode.postMessage({ kind: 'addProject' })}><Glyph name="folder" /><span>Projektordner hinzufügen<small>Deine Dateien als Arbeitsgrundlage</small></span></button>}
-        {projects.length > 0 && <button class="cx-rail-add" onClick={() => vscode.postMessage({ kind: 'addProject' })}><Glyph name="plus" size={13} />Projekt hinzufügen</button>}
 
         {loose.length > 0 && <section class={`cx-tree-node cx-loose ${looseOpen ? 'open' : ''}`}>
           <div class="cx-tree-row">
             <button class="cx-tree-open" aria-expanded={looseOpen} onClick={() => setLooseOpen(v => !v)}>
               <span class="cx-loose-chevron"><Glyph name="chevron" size={12} /></span>
               <span>Zuletzt verwendet</span>
+              {!looseOpen && <span class="cx-fold-count" aria-hidden="true">{loose.length}</span>}
             </button>
           </div>
           <div class="cx-tree-children" aria-hidden={!looseOpen}><div><div class="cx-tree-children-inner">{taskRows(loose, looseOpen)}</div></div></div>
@@ -636,10 +727,10 @@ export function AgentApp() {
 
       </div>
 
-      <div class="cx-sidebar-bottom"><ArchivedProjects projects={archivedProjects} expanded={archiveOpen} onExpand={() => setArchiveOpen(v => !v)} {...treeProps} /><AccountLimits accounts={routable} current={pinnedTarget} onOpen={() => setPage('accounts')} /></div>
+      <div class="cx-sidebar-bottom"><ArchivedProjects projects={archivedProjects} expanded={archiveOpen} onExpand={() => setArchiveOpen(v => !v)} {...treeProps} /><div class="cx-account-dock"><AccountLimits accounts={routable} current={pinnedTarget} onOpen={() => setPage('accounts')} /><button class="cx-icon cx-settings-btn" aria-label="Einstellungen" title="Einstellungen" onClick={() => setPage('settings')}><Glyph name="gear" size={17} /></button></div></div>
       {(sidebar || peek) && <PaneResizeHandle label="Seitenleistenbreite" edge="right" value={shownSidebarWidth} min={180} max={sidebarMax} initial={250} onChange={resizeSidebar} />}
     </aside>
-    <main class={`cx-main ${viewedImage && page === 'chat' ? 'has-image-workspace' : ''}`}>
+    <main class={`cx-main ${viewedImage && page === 'chat' ? 'has-image-workspace' : ''} ${isWorkspace ? 'has-workspace' : ''}`}>
       {/* Vor und Zurück, oben links neben der Seitenleiste. Sie bedienen den
           ganzen Verlauf — Seitenwechsel wie Schritte innerhalb der Plugins —
           und liegen links, weil rechts die Werkzeug-Icons der Titelleiste
@@ -667,33 +758,34 @@ export function AgentApp() {
         </button>
       </div>
       
-      {page === 'automations' ? <AgentAutomationsView onOpenProfile={id => go({ page: 'agents', profileId: id })} onManageAgents={() => setPage('agents')} /> : page === 'agents' ? <AgentTeamsView initialProfileId={here.profileId} accounts={accounts} projects={projects} conversations={conversations} onOpenConversation={openTask} onAccounts={() => setPage('accounts')} /> : page === 'exokortex' ? <ExokortexView /> : page === 'plugins' ? <PluginsView view={here.plugins ?? { kind: 'overview' }} onView={goPlugins} onPrompt={text => { setPromptSeed({ text, key: Date.now() }); setPage('chat'); }} /> : page === 'accounts' ? <AccountsView accounts={accounts} onUseAccount={a => { pickTarget({ provider: a.provider, account: a.label }); setPage('chat'); }} /> : <div class="cx-workspace">
-        <div class={`cx-conversation ${empty && !hydrating ? 'is-empty' : ''} ${viewedImage ? 'has-image-workspace' : ''} ${viewedImage && imageSplit ? 'image-split' : ''}`}>
-          {empty && !hydrating ? <div class="cx-welcome"><div class="cx-welcome-mark"><CortexBrain size={96} /></div><h1>{projectName ? `Woran sollen wir in ${projectName} arbeiten?` : 'Woran sollen wir arbeiten?'}</h1><div class="cx-start-cards">{[
-            { icon: 'search', label: 'Untersuche und verstehe Code', text: 'Analysiere dieses Projekt. Erkläre den Aufbau und die wichtigsten Abläufe.' },
-            { icon: 'code', label: 'Ein neues Feature, eine App oder ein Tool erstellen', text: 'Ich möchte ein neues Feature entwickeln. Prüfe zuerst die bestehende Architektur und frage mich nach dem gewünschten Verhalten.' },
-            { icon: 'refresh', label: 'Code überprüfen und Änderungen vorschlagen', text: 'Prüfe die aktuellen Änderungen auf Fehler und mögliche Regressionen.' },
-            { icon: 'edit', label: 'Behebe Probleme und Fehler', text: 'Hilf mir, einen Fehler zu beheben. Frage mich nach dem Problem und untersuche zuerst seine Ursache.' },
-          ].map(s => <button key={s.label} onClick={() => setPromptSeed({ text: s.text, key: Date.now() })}><Glyph name={s.icon} size={20} /><span>{s.label}</span></button>)}</div></div> : <div class="cx-transcript-scroll" ref={scrollRef} onScroll={e => { const el = e.currentTarget; const bottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 60; pinnedRef.current = bottom; setPinned(bottom); }}>{hydrating ? null : <div class="cx-chat-width"><Transcript conversationId={activeId} onExecutePrompt={text => vscode.postMessage({ kind: 'send', text, tags: [...text.matchAll(/(^|\s)#([\w-]+)/g)].map(m => m[2]!), permissionMode, askPermission, routingMode, target: pinnedTarget })} items={items} canvas={canvasHost} activity={hostActivity} onPrompt={text => setPromptSeed({ text, key: Date.now() })} onEditMessage={(index, text) => { pinnedRef.current = true; vscode.postMessage({ kind: 'editMessage', index, send: { kind: 'send', text, tags: [...text.matchAll(/(^|\s)#([\w-]+)/g)].map(m => m[2]!), permissionMode, askPermission, routingMode, target: pinnedTarget } }); }} onRewind={index => vscode.postMessage({ kind: 'rewindTo', index })} onFork={index => vscode.postMessage({ kind: 'forkFrom', index })} noAccounts={!routable.length} running={running} startedAt={startedAt} onAddAccount={() => setPage('accounts')} onPermission={(id, decision) => vscode.postMessage({ kind: 'permissionDecision', id, decision })} onRetry={() => vscode.postMessage({ kind: 'retryLast' })} onRate={(messageId, poor) => vscode.postMessage({ kind: 'rateAnswer', messageId, poor })} onOpenFile={openPath} onOpenUrl={url => vscode.postMessage({ kind: 'openUrlIn', url, app: appSetting<'cortex' | 'chrome' | 'safari' | 'default'>('browser.oeffnungsziel', 'cortex') })} onOpenUrlIn={(url, app) => app === 'copy' ? void navigator.clipboard?.writeText(url) : vscode.postMessage({ kind: 'openUrlIn', url, app })} diffs={changed} onReview={() => { setReview(true); closeDock(); }} onRevert={(messageId, paths) => vscode.postMessage({ kind: 'revertTurn', messageId, paths })} onOpenCode={(text, lang) => { setCode({ text, lang }); setReview(true); closeDock(); }} onImageAction={(action, image, all, options, target) => {
-            if (action === 'view') { openImage(images.find(i => i.path === image.path) ?? image); return; }
-            if (action === 'variant' || action === 'variantAll') { setAttachments(action === 'variant' ? [image.path] : all.map(i => i.path)); setImageSeed({ options: { ratio: options?.ratio ?? '1:1', count: 1 }, provider: target?.provider, key: Date.now() }); return; }
-            if (action === 'copyPrompt') { if (image.prompt) void navigator.clipboard?.writeText(image.prompt); return; }
-            vscode.postMessage({ kind: 'imageAction', action, path: image.path, prompt: image.prompt, ...(action === 'saveAll' ? { paths: all.map(i => i.path) } : {}) });
-          }} /><div ref={bottomRef} /></div>}</div>}
-          {viewedImage && <ImageWorkspace images={images} path={viewedImage.path} title={active?.title || 'Generiertes Bild'} selected={attachments.filter(path => imagePreviews[path])} split={imageSplit} running={running} onPath={setImagePath} onClose={() => setImagePath(undefined)} onSplit={() => setImageSplit(value => !value)} onSelect={paths => setAttachments(previous => [...previous.filter(path => !imagePreviews[path]), ...paths])} onAction={(action, image, paths) => vscode.postMessage({ kind: 'imageAction', action, path: image.path, prompt: image.prompt, paths })} onEdit={editImage} onResize={(image, width, height) => vscode.postMessage({ kind: 'resizeImage', path: image.path, width, height })} />}
-          <div class="cx-compose-area cx-chat-width">
-            {viewedImage && !imageSplit && <div class={`cx-image-last ${lastContribution ? 'expanded' : ''}`}><button aria-expanded={lastContribution} onClick={() => setLastContribution(value => !value)}><span>{running ? 'Bild wird bearbeitet …' : 'Letzter Beitrag'}</span><Glyph name="chevron" size={13} /></button>{lastContribution && <div>{imageNotice || (running ? 'Bild wird bearbeitet …' : lastAnswerText || 'Generiertes Bild')}</div>}</div>}
-            {!hydrating && !pinned && !empty && !viewedImage && <button class="cx-jump" title="Zur neuesten Aktivität" aria-label="Zur neuesten Aktivität" onClick={() => { pinnedRef.current = true; setPinned(true); bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }}><Glyph name="arrowDown" size={16} /></button>}
-            {!chatStarted && <div class="cx-compose-context"><ProjectPicker projects={shownProjects} activePath={projectPath} disabled={running} /><span><span class="cx-dot" />Lokal</span></div>}
-            {(templates || templatePreview) && <TemplateStrip initialCategory={templatePreview ?? templateCategory} categoryRequest={templateCategoryRequest} onClose={() => { setTemplates(false); setTemplatePreview(undefined); }} onPick={template => { setTemplates(false); setTemplatePreview(undefined); setPromptSeed({ text: (template.prompt ?? template.body).trim(), key: Date.now(), mode: 'chat' }); const files = [template.artifactPath, template.instructionPath].filter((path): path is string => !!path); setAttachments(previous => [...new Set([...previous.filter(path => !templateFiles.includes(path)), ...files])]); setTemplateFiles(files); }} />}<QueuedMessages key={`queue-${activeId}`} items={queued} paused={queuePaused} pauseReason={queuePauseReason} />
-            <Composer key={activeId} onTemplatePreview={setTemplatePreview} onCommand={runCommand} commandRequest={commandRequest} pinnedChat={active?.pinned} unavailableCommands={{ ...(!chatStarted ? { forkChat: 'Starte zuerst einen Chat', exportChat: 'Starte zuerst einen Chat', compactChat: 'Starte zuerst einen Chat' } : {}), ...(running ? { archiveChat: 'Warte, bis die Antwort fertig ist', forkChat: 'Warte, bis die Antwort fertig ist', compactChat: 'Warte, bis die Antwort fertig ist', clearChat: 'Warte, bis die Antwort fertig ist' } : {}) }} accounts={accounts} tags={tags} customCommands={customCommands} connectors={connectors} running={running} permissionMode={permissionMode} askPermission={askPermission} routingMode={routingMode} attachments={attachments} attachmentPreviews={{ ...Object.fromEntries(Object.entries(attachmentThumbs).filter((entry): entry is [string, string] => !!entry[1])), ...imagePreviews }} pinnedTarget={pinnedTarget} pinnedStandard={pinnedStandard} promptSeed={promptSeed} imageSeed={imageSeed} imageWorkspace={!!viewedImage} onImageProviderChange={setImageProviderChoice} onImageOrder={(provider, order) => vscode.postMessage({ kind: 'setImageAccountOrder', provider, accounts: order })} onPickAttachments={() => vscode.postMessage({ kind: 'pickAttachments' })} onAddFolder={() => vscode.postMessage({ kind: 'addProject' })} onConnectors={draft => runCommand('openConnectors', draft)} onTemplates={() => setTemplates(v => !v)} onVoiceSettings={draft => { setPromptSeed({ text: draft, key: Date.now() }); setSettingsRoute({ id: 'stimme', sub: [] }); setPage('settings'); }} onRemoveAttachment={path => setAttachments(prev => prev.filter(p => p !== path))} onSend={send} onCancel={() => vscode.postMessage({ kind: 'cancel' })} onPinnedTarget={pickTarget} onModeChange={({ ask, ...modes }) => { if (ask !== undefined) setAskPermission(ask); if (modes.permissionMode) setPermissionMode(modes.permissionMode); if (modes.routingMode) setRoutingMode(modes.routingMode); if (modes.permissionMode || modes.routingMode || ask !== undefined) vscode.postMessage({ kind: 'setModes', ...modes, ask }); }} />
-            {empty && routable.length === 0 && <div class="cx-connect-nudge"><div><Glyph name="link" size={17} /><span><strong>Mit deinem eigenen KI-Abo starten</strong><small>Claude, ChatGPT oder Grok · auch mehrere Konten</small></span></div><button onClick={() => setPage('accounts')}>Abo verbinden <Glyph name="arrow" size={13} /></button></div>}
+      {page === 'automations' ? <AgentAutomationsView onOpenProfile={id => go({ page: 'agents', profileId: id })} onManageAgents={() => setPage('agents')} /> : page === 'agents' ? <AgentTeamsView initialProfileId={here.profileId} accounts={accounts} projects={projects} conversations={conversations} onOpenConversation={openTask} onAccounts={() => setPage('accounts')} /> : page === 'exokortex' ? <ExokortexView /> : page === 'plugins' ? <PluginsView view={here.plugins ?? { kind: 'overview' }} onView={goPlugins} onPrompt={text => { setPromptSeed({ text, key: Date.now() }); setPage('chat'); }} /> : page === 'accounts' ? <AccountsView accounts={accounts} onUseAccount={a => { pickTarget({ provider: a.provider, account: a.label }); setPage('chat'); }} /> : <div class={`cx-workspace ${dockOpen && dock.fullscreen && !review ? 'dock-full' : ''}`} ref={measureWorkspace}>
+        {/* Verlauf und Übersichtskarte teilen sich eine Insel; Dock und Prüfansicht stehen daneben. */}
+        <div class="cx-chat-island">
+          <div class={`cx-conversation ${empty && !hydrating ? 'is-empty' : ''} ${viewedImage ? 'has-image-workspace' : ''} ${viewedImage && imageSplit ? 'image-split' : ''}`}>
+            {empty && !hydrating ? <div class="cx-welcome"><div class="cx-welcome-mark"><CortexBrain size={64} /></div><h1>{projectName ? `Was steht in ${projectName} an?` : 'Was steht heute an?'}</h1></div> : <div class="cx-transcript-scroll" ref={scrollRef} onScroll={e => { const el = e.currentTarget; const bottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 60; pinnedRef.current = bottom; setPinned(bottom); }}>{hydrating ? null : <div class="cx-chat-width"><Transcript conversationId={activeId} onExecutePrompt={text => vscode.postMessage(buildSend(text))} items={items} canvas={canvasHost} activity={hostActivity} onPrompt={text => setPromptSeed({ text, key: Date.now() })} onEditMessage={(index, text) => { pinnedRef.current = true; vscode.postMessage({ kind: 'editMessage', index, send: buildSend(text) }); }} onRewind={index => vscode.postMessage({ kind: 'rewindTo', index })} onFork={index => vscode.postMessage({ kind: 'forkFrom', index })} noAccounts={!routable.length} running={running} startedAt={startedAt} onAddAccount={() => setPage('accounts')} onPermission={(id, decision) => vscode.postMessage({ kind: 'permissionDecision', id, decision })} onRetry={() => vscode.postMessage({ kind: 'retryLast' })} onRate={(messageId, poor) => vscode.postMessage({ kind: 'rateAnswer', messageId, poor })} onOpenFile={openPath} onOpenUrl={url => vscode.postMessage({ kind: 'openUrlIn', url, app: appSetting<'cortex' | 'chrome' | 'safari' | 'default'>('browser.oeffnungsziel', 'cortex') })} onOpenUrlIn={(url, app) => app === 'copy' ? void navigator.clipboard?.writeText(url) : vscode.postMessage({ kind: 'openUrlIn', url, app })} diffs={changed} onReview={() => { setReview(true); closeDock(); }} onRevert={(messageId, paths) => vscode.postMessage({ kind: 'revertTurn', messageId, paths })} onOpenCode={(text, lang) => { setCode({ text, lang }); setReview(true); closeDock(); }} onImageAction={(action, image, all, options, target) => {
+              if (action === 'view') { openImage(images.find(i => i.path === image.path) ?? image); return; }
+              if (action === 'variant' || action === 'variantAll') { setAttachments(action === 'variant' ? [image.path] : all.map(i => i.path)); setImageSeed({ options: { ratio: options?.ratio ?? '1:1', count: 1 }, provider: target?.provider, key: Date.now() }); return; }
+              if (action === 'copyPrompt') { if (image.prompt) void navigator.clipboard?.writeText(image.prompt); return; }
+              vscode.postMessage({ kind: 'imageAction', action, path: image.path, prompt: image.prompt, ...(action === 'saveAll' ? { paths: all.map(i => i.path) } : {}) });
+            }} /><div ref={bottomRef} /></div>}</div>}
+            {viewedImage && <ImageWorkspace images={images} path={viewedImage.path} title={active?.title || 'Generiertes Bild'} selected={attachments.filter(path => imagePreviews[path])} split={imageSplit} running={running} onPath={setImagePath} onClose={() => setImagePath(undefined)} onSplit={() => setImageSplit(value => !value)} onSelect={paths => setAttachments(previous => [...previous.filter(path => !imagePreviews[path]), ...paths])} onAction={(action, image, paths) => vscode.postMessage({ kind: 'imageAction', action, path: image.path, prompt: image.prompt, paths })} onEdit={editImage} onResize={(image, width, height) => vscode.postMessage({ kind: 'resizeImage', path: image.path, width, height })} />}
+            <div class="cx-compose-area cx-chat-width">
+              {viewedImage && !imageSplit && <div class={`cx-image-last ${lastContribution ? 'expanded' : ''}`}><button aria-expanded={lastContribution} onClick={() => setLastContribution(value => !value)}><span>{running ? 'Bild wird bearbeitet …' : 'Letzter Beitrag'}</span><Glyph name="chevron" size={13} /></button>{lastContribution && <div>{imageNotice || (running ? 'Bild wird bearbeitet …' : lastAnswerText || 'Generiertes Bild')}</div>}</div>}
+              {!hydrating && !pinned && !empty && !viewedImage && <button class="cx-jump" title="Zur neuesten Aktivität" aria-label="Zur neuesten Aktivität" onClick={() => { pinnedRef.current = true; setPinned(true); bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }}><Glyph name="arrowDown" size={16} /></button>}
+              {locationOpen && <LocationPicker current={chatLocation} onApply={saveLocation} onRemove={() => saveLocation(undefined)} onClose={() => setLocationOpen(false)} />}
+              {!locationOpen && chatLocation && <LocationChip location={chatLocation} onEdit={() => setLocationOpen(true)} onRemove={() => saveLocation(undefined)} />}
+              {(templates || templatePreview) && <TemplateStrip initialCategory={templatePreview ?? templateCategory} categoryRequest={templateCategoryRequest} onClose={() => { setTemplates(false); setTemplatePreview(undefined); }} onPick={template => { setTemplates(false); setTemplatePreview(undefined); setPromptSeed({ text: (template.prompt ?? template.body).trim(), key: Date.now(), mode: 'chat' }); const files = [template.artifactPath, template.instructionPath].filter((path): path is string => !!path); setAttachments(previous => [...new Set([...previous.filter(path => !templateFiles.includes(path)), ...files])]); setTemplateFiles(files); }} />}<QueuedMessages key={`queue-${activeId}`} items={queued} paused={queuePaused} pauseReason={queuePauseReason} />
+              <Composer key={activeId} project={!chatStarted ? <ProjectPicker projects={shownProjects} activePath={projectPath} disabled={running} /> : undefined} onTemplatePreview={setTemplatePreview} onCommand={runCommand} commandRequest={commandRequest} pinnedChat={active?.pinned} unavailableCommands={{ ...(!chatStarted ? { forkChat: 'Starte zuerst einen Chat', exportChat: 'Starte zuerst einen Chat', compactChat: 'Starte zuerst einen Chat' } : {}), ...(running ? { archiveChat: 'Warte, bis die Antwort fertig ist', forkChat: 'Warte, bis die Antwort fertig ist', compactChat: 'Warte, bis die Antwort fertig ist', clearChat: 'Warte, bis die Antwort fertig ist' } : {}) }} accounts={accounts} tags={tags} customCommands={customCommands} connectors={connectors} running={running} permissionMode={permissionMode} askPermission={askPermission} attachments={attachments} attachmentPreviews={{ ...Object.fromEntries(Object.entries(attachmentThumbs).filter((entry): entry is [string, string] => !!entry[1])), ...imagePreviews }} pinnedTarget={pinnedTarget} pinnedStandard={pinnedStandard} promptSeed={promptSeed} imageSeed={imageSeed} imageWorkspace={!!viewedImage} onImageProviderChange={setImageProviderChoice} onImageOrder={(provider, order) => vscode.postMessage({ kind: 'setImageAccountOrder', provider, accounts: order })} onPickAttachments={() => vscode.postMessage({ kind: 'pickAttachments' })} onAddFolder={() => vscode.postMessage({ kind: 'addProject' })} onConnectors={draft => runCommand('openConnectors', draft)} onTemplates={() => setTemplates(v => !v)} onLocation={() => setLocationOpen(true)} onVoiceSettings={draft => { setPromptSeed({ text: draft, key: Date.now() }); setSettingsRoute({ id: 'stimme', sub: [] }); setPage('settings'); }} onRemoveAttachment={path => setAttachments(prev => prev.filter(p => p !== path))} onSend={send} onCancel={() => vscode.postMessage({ kind: 'cancel' })} onPinnedTarget={pickTarget} onModeChange={({ ask, ...modes }) => { if (ask !== undefined) setAskPermission(ask); if (modes.permissionMode) setPermissionMode(modes.permissionMode); if (modes.routingMode) setRoutingMode(modes.routingMode); if (modes.permissionMode || modes.routingMode || ask !== undefined) vscode.postMessage({ kind: 'setModes', ...modes, ask }); }} />
+              {empty && !hydrating && <div class="cx-suggestions cx-start-pills" aria-label="Einstiege">{START_PROMPTS.map(s => <button key={s.label} onClick={() => setPromptSeed({ text: s.text, key: Date.now() })}><Glyph name={s.icon} size={15} /><span>{s.label}</span></button>)}</div>}
+              {empty && routable.length === 0 && <div class="cx-connect-nudge"><div><Glyph name="link" size={17} /><span><strong>Mit deinem eigenen KI-Abo starten</strong><small>Claude, ChatGPT oder Grok · auch mehrere Konten</small></span></div><button onClick={() => setPage('accounts')}>Abo verbinden <Glyph name="arrow" size={13} /></button></div>}
+            </div>
+  
           </div>
-
+          {chatStarted && controlOpen && !review && !viewedImage && (!dock.fullscreen || !dockOpen) && <ControlPanel key={activeId} conversationId={conversations.find(c => c.id === activeId)?.parentId ?? activeId} onSwarm={() => setPage('agents')} onChat={openTask} fit={cardFit} items={items} onImage={openImage} onOpen={openPath} onAgent={openAgent} onCreate={() => setPromptSeed({ text: 'Erstelle eine Datei oder Website: ', key: Date.now() })} onClose={() => setControlOpen(false)} />}
         </div>
         {review && <ReviewPanel touched={touched} code={code} onClose={() => { setReview(false); setCode(undefined); }} onBack={() => setCode(undefined)} />}
-        {chatStarted && controlOpen && !dockOpen && !review && !viewedImage && <ControlPanel key={activeId} items={items} onImage={openImage} onOpen={openPath} onCreate={() => setPromptSeed({ text: 'Erstelle eine Datei oder Website: ', key: Date.now() })} onClose={() => setControlOpen(false)} />}
-        {dockOpen && !review && <Dock state={dock} onState={setDock} conversationId={activeId} workspace={workspace} projectName={projectName ?? 'Projekt'} transcript={transcript} onClose={closeDock} onPick={pickPane} />}
+        {dockOpen && !review && <Dock state={dock} onState={setDock} conversationId={activeId} workspace={workspace} projectName={projectName ?? 'Projekt'} transcript={transcript} items={items} motion={dockMotion} onClose={closeDock} onHide={hideDock} onPick={pickPane} onLiveWidth={setLiveDockWidth} />}
+        {!dockOpen && leavingDock && !review && <Dock state={leavingDock} onState={() => {}} conversationId={activeId} workspace={workspace} projectName={projectName ?? 'Projekt'} transcript={transcript} items={items} motion="leave" onClose={() => {}} onHide={() => {}} onPick={() => {}} />}
       </div>}
     </main>
     {editing && <ProjectEditor project={editing} onClose={() => setEditing(undefined)} onSaved={() => setEditing(undefined)} />}

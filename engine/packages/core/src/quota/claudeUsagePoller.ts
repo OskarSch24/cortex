@@ -1,4 +1,5 @@
 import type { UsageWindow } from './quotaTracker.js';
+import { toEpochMs } from '../util/epoch.js';
 
 /**
  * Reads the 5h/weekly utilization that Claude Code's own /usage view shows,
@@ -80,7 +81,7 @@ function parseResetsAt(value: unknown): number | undefined {
     const t = Date.parse(value);
     return Number.isNaN(t) ? undefined : t;
   }
-  if (typeof value === 'number') return value > 10_000_000_000 ? value : value * 1000;
+  if (typeof value === 'number') return toEpochMs(value);
   return undefined;
 }
 

@@ -7,6 +7,7 @@
  * Aufträge über eine kleine Warteschlange, die die Fläche abholt, sobald sie
  * bereit ist.
  */
+import { CANVAS_LANG } from '../../../core/src/context/canvasBrief.js';
 import type { CanvasHandle, MountOptions, Snapshot } from './bundle.js';
 
 export type { CanvasHandle } from './bundle.js';
@@ -84,7 +85,7 @@ export function blockKey(code: string): string {
 /** Die fertigen (geschlossenen) Excalidraw-Blöcke in einem Antworttext. */
 export function canvasBlocks(text: string): string[] {
   const out: string[] = [];
-  const fence = /^(`{3,}|~{3,})[ \t]*(?:cortex-excalidraw|excalidraw)[ \t]*\n([\s\S]*?)\n\1[ \t]*$/gm;
+  const fence = new RegExp(`^(\`{3,}|~{3,})[ \\t]*(?:${CANVAS_LANG}|excalidraw)[ \\t]*\\n([\\s\\S]*?)\\n\\1[ \\t]*$`, 'gm');
   for (let m = fence.exec(text); m; m = fence.exec(text)) out.push(m[2]!.trim());
   return out;
 }

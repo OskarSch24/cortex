@@ -1,6 +1,7 @@
 import type { ProviderId } from '../types.js';
 import type { McpServerDef } from '../mcp/mcpSync.js';
 import { OAUTH_PROVIDERS, type OAuthProviderId, type RedirectHost } from '../mcp/oauthClient.js';
+import { isRecord } from '../util/guards.js';
 
 /**
  * Ein Plugin ist in Cortex kein eigenes Laufzeitgebilde: es ist ein benannter
@@ -177,7 +178,7 @@ function parseDefinition(raw: unknown): McpServerDef | undefined {
     url,
     args: strList(d.args),
     env:
-      d.env && typeof d.env === 'object' && !Array.isArray(d.env)
+      isRecord(d.env)
         ? Object.fromEntries(
             Object.entries(d.env as Record<string, unknown>).filter(
               (kv): kv is [string, string] => typeof kv[1] === 'string',
@@ -350,8 +351,4 @@ export function fold(value: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
-}
-
-export function byCategory(entries: PluginEntry[], category: PluginCategory): PluginEntry[] {
-  return entries.filter((entry) => entry.category === category);
 }

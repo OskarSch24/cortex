@@ -67,7 +67,7 @@ it('passes an explicit role reasoning level into the real task modes and freezes
 
 it('keeps frozen reasoning for follow-ups and retry/resume while honoring explicit turn/model changes', async () => {
   const { chat, directory } = host();
-  const saved: TeamAgent = { ...agent, effort: 'max', target: { ...agent.target, model: 'claude-opus-5' } };
+  const saved: TeamAgent = { ...agent, effort: 'max', target: { ...agent.target, model: 'claude-opus-5-5' } };
   chat.conversations.set('followup', { id: 'followup', title: 'Agent', log: [], turns: [], teamAgent: saved, pinnedTarget: saved.target, teamWorkspace: directory });
   chat.workspaceContext = { forRoot: () => ({ editorContext: () => ({}), refresh: async () => {} }) };
   chat.projectFolders = () => []; chat.rules = { getCustomCommands: () => [] }; chat.panels = new Map();
@@ -85,7 +85,7 @@ it('keeps frozen reasoning for follow-ups and retry/resume while honoring explic
   await run('@codex:work/gpt-5.6-sol Mit neuem Modell');
   await run('@codex:work/gpt-6-astra Mit expliziter Stufe', { effort: 'ultra' });
   expect(chat.orchestrator.run.mock.calls.map(([request]: any[]) => request.effort)).toEqual(['max', 'max', 'low', 'low', 'ultra']);
-  expect(chat.orchestrator.run.mock.calls[0][0].prompt).toMatch(/^@claude:privat\/claude-opus-5 /);
+  expect(chat.orchestrator.run.mock.calls[0][0].prompt).toMatch(/^@claude:privat\/claude-opus-5-5 /);
   expect(chat.orchestrator.run.mock.calls[3][0].prompt).toMatch(/^@codex:work\/gpt-5.6-sol /);
   expect(saved.effort).toBe('max');
   expect(chat.output.appendLine).not.toHaveBeenCalled();

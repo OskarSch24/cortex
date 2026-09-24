@@ -1,11 +1,12 @@
+import type { BriefSection } from './brief.js';
 /**
  * Chat-Widgets: wann und wie ein Modell eine Karte statt Text ausgibt.
  *
  * Der Weg ist ein Codeblock mit der Sprache `cortex-widget` in der Antwort —
  * Claude, Codex und Grok schreiben ihn gleich, und ohne Cortex bleibt er als
  * lesbares JSON stehen. Die Webview zeichnet ihn (webview/components/widgets).
- * Die Typen hier und `WIDGET_TYPES` dort müssen dieselben sein; der Test
- * `widgets.test.ts` hält sie zusammen.
+ * Die Typen hier und `WidgetSpec` dort müssen dieselben sein; `widgets/spec.ts`
+ * prüft das beim Übersetzen, `widgets.test.ts` die Beispiele.
  */
 
 export const WIDGET_LANG = 'cortex-widget';
@@ -42,7 +43,10 @@ export const WIDGET_BRIEF = [
   'ticker {name, symbol, price, change, tone?, changeNote?, series: [number], reference?: number, referenceLabel?, axis?: [label], others?: [{name, symbol, price, change, tone?, series?}]}',
   'worldclock {cities: [{name, timezone: IANA name, home?: true, sunrise?, sunset?}]} — Cortex shows the live local times.',
   'agent-run {title, account?, elapsed?, steps: [{text, state: done|now|next|failed, duration?, added?, removed?}], note?}',
-  'agent-swarm {task?, count?: 1-20, project?, agents?: [{name, role?, instructions?}], note?} — ONLY in answer to the /agent-swarm command, and it is the one widget that proposes instead of reporting: suggest the roles that fit the task (one line of `role` each, `instructions` when the role needs more than its name), set `count` to how many you think it takes, and put the text behind the command into `task`. Leave `task` out when the command came without one; the card then asks. Never start a run yourself and never claim one is running — the user sets the number, picks the agents and presses Start in the card.',
+  'agent-swarm {task?, count?: 1-20, project?, agents?: [{name, role?, instructions?}], note?, start?: true} — Cortex\'s agent swarm: Cortex starts every role as its own background agent with its own chat. Two cases. ' +
+    '(1) The /agent-swarm command: propose — suggest the roles that fit the task (one line of `role` each, `instructions` when the role needs more than its name), set `count`, put the text behind the command into `task` (leave it out when there was none; the card asks), no `start`; the user adjusts and presses Start. ' +
+    '(2) The user asks in their own words to start, spawn or continue an agent swarm ("starte einen Agent Swarm", "spawne einen Schwarm", "nächste Schwarm-Runde"): set `"start": true` — Cortex starts it at once. Split the work into independent parts, one role per part (for example one per country, lane or data source), each with a self-contained `instructions` text naming exactly its part, the files or folders it owns, what "done" means, and what it must not touch; `task` states the shared goal and constraints. ' +
+    'In both cases the swarm does the work, not you: answer with this one widget and at most one short sentence, do not start the work yourself, and never use your own subagent, task or delegation tools for a swarm — their output would stream into this chat. Never claim results before the roles report.',
   'test-result {title, command?, duration?, groups: [{label, passed, total}], failures?: [{name, file?, detail?: lines starting with "- " or "+ " are coloured}]}',
   'quota {accounts: [{provider, name, plan?, percent: 0-100 or null if unknown, reset?, bound?: true}], note?}',
   'server {name, subtitle?, metrics?: [{label, value, unit?, percent?, series?}], containers?: [{name, state: ok|warn|down, note?}], alerts?: [{tone, text}]}',
@@ -64,3 +68,26 @@ export const WIDGET_BRIEF = [
   'game-theory {title, subtitle?, actors: [{name, want, tone?, hidden?: true when this party is not visible yet}] (2-4), relations?: [{from: index, to: index, label, dashed?}], balance?: {value: -1..1, left, right, note?}, recommendation}',
   'Example:\n```cortex-widget\n{"type":"timer","label":"Fokus","durationSec":1500,"endsAt":"2026-09-13T15:07:00+02:00"}\n```',
 ].join('\n');
+
+/**
+ * Nennt die Nachricht einen Schwarm („spawne einen Agent Swarm“, „nächste
+ * Schwarm-Runde“)? `/agent-swarm` bringt seine Anweisung selbst mit.
+ */
+export function mentionsSwarm(prompt: string): boolean {
+  return !/^\s*(?:@\S+\s+)?\/agent-swarm\b/i.test(prompt) && /agent(?:s|en)?[\s-]*s(?:w|ch)arm|\bschwarm/i.test(prompt);
+}
+
+/**
+ * Ein Hinweis nur in diesem Zug: am 24.09.2026 hatte Grok auf „spawne einen
+ * Agent Swarm“ eigene Sub-Agenten gestartet, deren Ausgaben ineinander
+ * verschachtelt im Chat landeten — ein Cortex-Schwarm lief nie.
+ */
+export function swarmSections(prompt: string): BriefSection[] {
+  if (!mentionsSwarm(prompt)) return [];
+  return [{
+    id: 'swarm-request',
+    title: 'Agent swarm',
+    body: 'This message is about an agent swarm. If the user wants one started, spawned or continued, answer ONLY with one cortex-widget block of type agent-swarm with "start": true and one role per independent part (see the widget description) — Cortex runs the roles as background agents with their own chats and shows them in the overview. ' +
+      'Do not do the work in this chat and do not use your own subagent, task or delegation tools. If the user only asks about a swarm, answer normally.',
+  }];
+}

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RUNTIME="$HOME/.cortex/runtime"
 mkdir -p "$RUNTIME/bin"
-npm install --prefix "$RUNTIME/claude" @anthropic-ai/claude-code@2.1.263
+npm install --prefix "$RUNTIME/claude" @anthropic-ai/claude-code@2.1.280
 python3 - "$RUNTIME" <<'PY'
 import sys, pathlib, platform, re, urllib.request, gzip, subprocess
 runtime=pathlib.Path(sys.argv[1]); base='https://x.ai/cli'

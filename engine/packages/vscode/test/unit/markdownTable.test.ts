@@ -7,12 +7,12 @@ describe('Markdown-Tabellen', () => {
   });
 
   it('behält einen maskierten Strich als Inhalt — die Spalten verschieben sich nicht', () => {
-    expect(tableCells('| 4 | Chapter 06 \\| Abschluss | 2025-04-20 | 0 | https://youtu.be/demoVideo01 |')).toEqual([
+    expect(tableCells('| 4 | Chapter 06 \\| After Sell | 2025-04-20 | 0 | https://youtu.be/ZokDMeVjJwA |')).toEqual([
       '4',
-      'Chapter 06 | Abschluss',
+      'Chapter 06 | After Sell',
       '2025-04-20',
       '0',
-      'https://youtu.be/demoVideo01',
+      'https://youtu.be/ZokDMeVjJwA',
     ]);
   });
 

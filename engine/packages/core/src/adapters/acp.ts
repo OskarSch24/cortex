@@ -1,16 +1,25 @@
-import { EventQueue, JsonRpcProcess } from './jsonRpc.js';
+import { EventQueue, JsonRpcProcess, RpcError } from './jsonRpc.js';
 import { readImageBase64 } from './attachments.js';
 import { getNumber, getObject, getString } from './ndjson.js';
-import { isTransientFailure } from './limits.js';
-import { describeToolUse } from './toolDetail.js';
+import { describeToolUse, toolUseEvent } from './toolDetail.js';
 import { acpImageEvent } from './images.js';
-import { sameTasks, tasksFromAcpPlan } from './taskList.js';
-import { PermissionGate, acpPermissionKind } from './permission.js';
+import { taskListTracker, tasksFromAcpPlan } from './taskList.js';
+import { acpPermissionKind } from './permission.js';
+import { createRunGate, deferDenial } from './runGate.js';
 import { approvalSignature } from './approvalSignature.js';
 import { supportedEffort } from '../models/catalog.js';
 import type { AdapterEvent, LimitInfo, Usage } from '../types.js';
 import type { RunRequest } from './adapter.js';
-import { scopedMcpUnsupportedMessage } from '../mcp/runPolicy.js';
+import { ACP_WEB_SEARCH_TOOL, acpWebSearchServers } from './webSearch.js';
+import {
+  WEB_SEARCH_SETUP_FAILED,
+  appendTail,
+  exitOutcome,
+  limitOrError,
+  scopedMcpRefusal,
+  setupFailure,
+  transientError,
+} from './outcome.js';
 
 /**
  * Agent Client Protocol runner — the JSON-RPC dialect Grok CLI (`--acp`)
@@ -75,8 +84,7 @@ export interface AcpOptions {
  * and never names the method, so it must never reach the user unexplained.
  */
 function methodMissing(error: unknown): boolean {
-  const code = (error as { code?: unknown } | undefined)?.code;
-  return code === -32601 || /^method not found$/i.test((error as Error | undefined)?.message?.trim() ?? '');
+  return (error instanceof RpcError && error.code === -32601) || /^method not found$/i.test((error as Error | undefined)?.message?.trim() ?? '');
 }
 
 /**
@@ -89,9 +97,17 @@ const PROMPT_IDLE_MS = 30 * 60_000;
 
 export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
   const { req, signal } = opts;
-  const mcpError = scopedMcpUnsupportedMessage(opts.configureGrokSession ? 'grok' : 'copilot', req.mcpServers);
-  if (mcpError) {
-    yield { type: 'error', message: mcpError, retryable: false };
+  const mcpRefusal = scopedMcpRefusal(opts.configureGrokSession ? 'grok' : 'copilot', req.mcpServers);
+  if (mcpRefusal) {
+    yield mcpRefusal;
+    return;
+  }
+  // Nur Grok bekommt eine wählbare Websuche; bei Exa kommt der Cortex-Suchserver in die Sitzung.
+  let mcpServers: ReturnType<typeof acpWebSearchServers>;
+  try {
+    mcpServers = opts.configureGrokSession ? acpWebSearchServers(req.webSearch) : [];
+  } catch (error) {
+    yield setupFailure(error, WEB_SEARCH_SETUP_FAILED);
     return;
   }
   const events = new EventQueue<AdapterEvent>();
@@ -103,7 +119,7 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
   const isAuthError = (message: string) => /\b401\b|unauthori[sz]ed|not authenticated|(?:token|credential|authentication)[^\n]{0,60}(?:expired|invalid)|expired[^\n]{0,40}(?:token|credential)/i.test(message);
   const failure = (message: string): AdapterEvent => opts.configureGrokSession && (authenticationFailed || isAuthError(message))
     ? { type: 'error', message: 'Die Grok-Sitzung ist abgelaufen oder konnte nicht bestätigt werden. Verbinde das betroffene Konto erneut.', retryable: false, recovery: 'reconnect-grok' }
-    : { type: 'error', message, retryable: isTransientFailure(message) };
+    : transientError(message);
   let stderrTail = '';
   // A cancelled prompt settles AFTER the one that replaced it, so the run
   // ends only when every outstanding prompt has settled.
@@ -112,7 +128,7 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
   let segStart = 0;
 
   let refusal = false;
-  let lastTasks: ReturnType<typeof tasksFromAcpPlan> = [];
+  const trackTasks = taskListTracker();
   /** Prompt je Bildaufruf — das Ergebnis kommt als eigenes Update ohne ihn. */
   const imagePrompts = new Map<string, string>();
   /** Reported by the agent when the turn settles, when it reports at all. */
@@ -126,24 +142,14 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
   let replaying = false;
   /** Hat sich die CLI in diesem Lauf überhaupt je gemeldet? */
   let heardFrom = false;
-  const pendingUserPermissions = new Set<string>();
 
-  const gate = new PermissionGate({
-    mode: req.permissionMode,
+  const { gate, close: closeGate } = createRunGate({
+    req,
+    events,
     ask: req.askPermission === true,
-    emit: (request) => { pendingUserPermissions.add(request.id); events.push({ type: 'permission', request }); },
-    resolved: (id, allowed) => { pendingUserPermissions.delete(id); events.push({ type: 'permission-resolved', id, allowed }); },
+    finished: () => finished,
+    onDenialReason: (_id, reason) => deferDenial(events, reason),
   });
-  if (req.handle) req.handle.respondPermission = (id, decision) => {
-    if (finished || !pendingUserPermissions.delete(id)) return;
-    // Capture only a real user response, synchronously before a possible Stop.
-    // Automatic safe-mode/closed-gate reasons are not user instructions.
-    if (decision.outcome === 'deny' && decision.reason?.trim()) {
-      events.push({ type: 'deferred-instruction', text: decision.reason.trim() });
-      events.push({ type: 'notice', text: 'Die Aktion wurde abgelehnt. Deine Begründung wird mit der nächsten Nachricht an den Agenten übergeben.' });
-    }
-    gate.respond(id, decision);
-  };
 
   /** One outstanding prompt settled; the last one ends the run. */
   const settle = (error?: Error) => {
@@ -161,8 +167,7 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
   const finish = (event?: AdapterEvent) => {
     if (finished) return;
     finished = true;
-    pendingUserPermissions.clear();
-    gate.close();
+    closeGate();
     if (event) events.push(event);
     events.end();
     rpc.dispose();
@@ -221,25 +226,17 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
                   req.cwd,
                 )
               : undefined;
-          const preview = edited ? edited.preview : info.preview;
-          events.push({
-            type: 'tool-use',
-            name: title,
-            detail: info.detail,
-            preview,
-            path: info.path,
-            action: info.action,
+          events.push(toolUseEvent(title, {
+            ...info,
+            preview: edited ? edited.preview : info.preview,
             added: edited?.added ?? info.added,
             removed: edited?.removed ?? info.removed,
-          });
+          }));
           break;
         }
         case 'plan': {
-          const items = tasksFromAcpPlan(update);
-          if (items.length > 0 && !sameTasks(items, lastTasks)) {
-            lastTasks = items;
-            events.push({ type: 'tasks', items });
-          }
+          const tasks = trackTasks(tasksFromAcpPlan(update));
+          if (tasks) events.push(tasks);
           break;
         }
         default:
@@ -251,6 +248,15 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
         const options = (r.params.options as Array<{ optionId?: string; kind?: string }>) ?? [];
         const toolCall = getObject(r.params, 'toolCall') ?? {};
         const title = getString(toolCall, 'title') ?? 'perform an action';
+        const byKind = (kind: string) => options.find((o) => o.kind === kind);
+        // Die Cortex-Suche (Exa Instant) liest nur — wie Groks eigene Suche, die
+        // ohne Frage läuft. Grok meldet sie als „other“, was der Nur-lesen-Modus
+        // sonst ablehnt. Freigegeben wird genau dieses Werkzeug, nur wenn Cortex
+        // es für diesen Lauf selbst eingehängt hat.
+        const once = byKind('allow_once');
+        if (mcpServers.length && once?.optionId && (title === ACP_WEB_SEARCH_TOOL || getString(toolCall, 'rawInput', 'tool_name') === ACP_WEB_SEARCH_TOOL)) {
+          return { outcome: { outcome: 'selected', optionId: once.optionId } };
+        }
         const decision = await gate.ask({
           id: `${r.id}`,
           kind: acpPermissionKind(getString(toolCall, 'kind')),
@@ -265,7 +271,6 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
 
         // ACP wants one of the options the agent offered; map our answer onto
         // whichever of them means the same thing.
-        const byKind = (kind: string) => options.find((o) => o.kind === kind);
         if (decision.outcome === 'deny') {
           const reject = byKind('reject_once');
           return reject?.optionId
@@ -285,18 +290,11 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
       return {};
     },
     onStderr: (line) => {
-      if (line.trim()) stderrTail = (stderrTail + '\n' + line).slice(-4096);
+      if (line.trim()) stderrTail = appendTail(stderrTail, line);
     },
     onExit: () => {
       if (finished) return;
-      const haystack = `${text}\n${stderrTail}`;
-      const limit = opts.detectLimit(haystack);
-      if (limit) finish({ type: 'limit', ...limit });
-      else if (text) finish({ type: 'result', text });
-      else {
-        const message = stderrTail.trim() || `${opts.command} exited unexpectedly`;
-        finish(failure(message));
-      }
+      finish(exitOutcome(text, stderrTail, opts.detectLimit, `${opts.command} exited unexpectedly`, failure));
     },
     onSpawnError: (message) => finish({ type: 'error', message, retryable: false }),
   });
@@ -336,7 +334,7 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
           created = await rpc.request('session/load', {
             sessionId: req.resumeSessionId,
             cwd: req.cwd,
-            mcpServers: [],
+            mcpServers,
           });
           sessionId = req.resumeSessionId;
           resumed = true;
@@ -348,7 +346,7 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
         }
       }
       if (!sessionId) {
-        created = await rpc.request('session/new', { cwd: req.cwd, mcpServers: [] });
+        created = await rpc.request('session/new', { cwd: req.cwd, mcpServers });
         sessionId = getString(created, 'sessionId');
       }
       if (!sessionId) throw new Error('ACP agent did not return a session id');
@@ -445,9 +443,7 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
         });
         return;
       }
-      const limit = opts.detectLimit(message);
-      if (limit) { finish({ type: 'limit', ...limit }); return; }
-      const event = failure(message);
+      const event = limitOrError(message, opts.detectLimit, failure);
       // Eine CLI, die sich in diesem Lauf nie gemeldet hat, ist ein
       // Infrastrukturfehler und keine Aussage über Konto oder Modell: derselbe
       // Zugang darf es noch einmal versuchen. Ist der Auftrag dagegen

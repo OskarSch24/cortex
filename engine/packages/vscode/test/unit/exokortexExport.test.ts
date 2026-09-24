@@ -8,7 +8,7 @@ import type { HostToWebview } from '../../src/panel/protocol.js';
 const chat = (log: HostToWebview[], über: Partial<ExportableConversation> = {}): ExportableConversation => ({
   id: 'c0ffee12-3456-7890-abcd-ef0123456789',
   title: 'Exokortex an Cortex hängen',
-  projectPath: '/Users/demo/dev/Exokortex',
+  projectPath: '/Users/oskar/dev/Exokortex',
   pinnedTarget: { provider: 'claude', account: 'privat', model: 'opus-5' },
   createdAt: Date.UTC(2026, 8, 9, 11, 0),
   updatedAt: Date.UTC(2026, 8, 9, 12, 30),

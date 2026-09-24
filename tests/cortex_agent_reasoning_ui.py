@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 from playwright.sync_api import expect
 from headless_browser import headless_browser
+from cortex_agents_nav import to_overview
 from cortex_control_styles import assert_controls_styled
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,6 +45,7 @@ with headless_browser(port=PORT) as browser:
     effort = page.get_by_role('button', name=REASONING, exact=True)
 
     # Profiles saved before this feature retain the selected model's default.
+    to_overview(page)
     page.get_by_role('region', name='Teams', exact=True).get_by_role('button').click()
     expect(effort).to_contain_text('Modellvorgabe (Hoch)')
     effort.click()
@@ -55,6 +57,8 @@ with headless_browser(port=PORT) as browser:
     page.get_by_label('Beschreibung', exact=True).fill('Bestehendes Profil mit Modellvorgabe')
     save('Team')
     assert all('effort' not in agent for agent in profile('Recherche und Redaktion')['agents'])
+
+    to_overview(page)
 
     page.get_by_role('button', name='Agent erstellen', exact=True).click()
     page.get_by_role('button', name=re.compile('^Ohne Vorlage')).click()
@@ -78,6 +82,7 @@ with headless_browser(port=PORT) as browser:
     expect(effort).to_contain_text('Ultra')
     page.reload()
     load()
+    to_overview(page)
     page.get_by_role('region', name='Agenten', exact=True).get_by_role('button').click()
     expect(effort).to_contain_text('Ultra')
     expect(page.get_by_role('button', name='Modell des Agenten', exact=True)).to_contain_text('GPT-6 Astra')
@@ -97,6 +102,7 @@ with headless_browser(port=PORT) as browser:
     assert profile('Gründlicher Prüfer')['agents'][0]['effort'] == 'ultra'
 
     # A copied solo agent carries its effort into a team, independently of peers.
+    to_overview(page)
     page.get_by_role('button', name='Team erstellen', exact=True).click()
     page.get_by_label('Teamname', exact=True).fill('Prüfung mit getrennten Stärken')
     select('Konto des Agenten', 'Claude · privat')

@@ -10,6 +10,8 @@ import * as fs from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import type { ConfigurationChange, DesktopMemento } from './storage.js';
+import type { SecretBackend } from '../../vscode/src/storage/secrets.js';
 
 export class Disposable {
   private ended = false;
@@ -114,26 +116,17 @@ export const StatusBarAlignment = { Left: 1, Right: 2 } as const;
 export const ConfigurationTarget = { Global: 1, Workspace: 2, WorkspaceFolder: 3 } as const;
 export const FileType = { Unknown: 0, File: 1, Directory: 2, SymbolicLink: 64 } as const;
 export const QuickPickItemKind = { Separator: -1, Default: 0 } as const;
-export const EndOfLine = { LF: 1, CRLF: 2 } as const;
+const EndOfLine = { LF: 1, CRLF: 2 } as const;
 /** API compatibility level only; not the product version or a shipped VS Code runtime. */
 export const version = '1.126.0';
 
-export interface Memento {
-  get<T>(key: string, fallback?: T): T | undefined;
-  update(key: string, value: unknown): Promise<void>;
-  keys(): readonly string[];
-}
-export interface PlatformStorage {
+export type Memento = DesktopMemento;
+interface PlatformStorage {
   globalState: Memento;
   workspaceState: Memento;
-  secrets: {
-    get(key: string): Promise<string | undefined>;
-    store(key: string, value: string): Promise<void>;
-    delete(key: string): Promise<void>;
-    onDidChange(listener: (event: { key: string }) => unknown): { dispose(): void };
-  };
+  secrets: SecretBackend;
   settings: { read(): Record<string, unknown>; update(key: string, value: unknown): Promise<void> };
-  onDidChangeConfiguration(listener: (event: { affectsConfiguration(section: string): boolean }) => unknown): { dispose(): void };
+  onDidChangeConfiguration(listener: (event: ConfigurationChange) => unknown): { dispose(): void };
   globalStoragePath: string;
   flush(): Promise<void>;
 }
@@ -155,11 +148,10 @@ let configurationSubscription: { dispose(): void } | undefined;
 let defaults: Record<string, unknown> = {};
 let defaultCustomEditors: Array<{ viewType: string; patterns: RegExp[] }> = [];
 let workspaceFolders: Array<{ uri: Uri; name: string; index: number }> = [];
-const configurationChanged = new EventEmitter<{ affectsConfiguration(section: string): boolean }>();
+const configurationChanged = new EventEmitter<ConfigurationChange>();
 const foldersChanged = new EventEmitter<{ added: typeof workspaceFolders; removed: typeof workspaceFolders }>();
 const windowStateChanged = new EventEmitter<{ focused: boolean }>();
 const terminalClosed = new EventEmitter<any>();
-const terminalIntegrationChanged = new EventEmitter<any>();
 const activeEditorChanged = new EventEmitter<any>();
 const documentChanged = new EventEmitter<any>();
 const registeredCommands = new Map<string, (...args: any[]) => any>();
@@ -212,10 +204,6 @@ export function configurePlatform(next: PlatformServices): void {
 export function configurationValues(): Record<string, unknown> { return { ...defaults, ...host().storage.settings.read() }; }
 export function notifyWindowFocus(focused: boolean): void { windowStateChanged.fire({ focused }); }
 export function notifyTerminalClosed(terminal: any): void { terminalClosed.fire(terminal); }
-export function notifyTerminalShellIntegration(terminal: any, shellIntegration: any): void {
-  terminal.shellIntegration = shellIntegration;
-  terminalIntegrationChanged.fire({ terminal, shellIntegration });
-}
 
 function asUri(value: Uri | string | { fsPath?: string; scheme?: string; path?: string }): Uri {
   if (value instanceof Uri) return value;
@@ -528,7 +516,6 @@ export const window = {
   get state() { return { focused: host().window.isFocused() }; },
   onDidChangeWindowState: windowStateChanged.event,
   onDidCloseTerminal: terminalClosed.event,
-  onDidChangeTerminalShellIntegration: terminalIntegrationChanged.event,
   onDidChangeActiveTextEditor: activeEditorChanged.event,
   createWebviewPanel(viewType: string, title: string, column: number | { viewColumn: number }, options: Record<string, unknown> = {}): any {
     const panel = host().createPanel(viewType, title, options, typeof column === 'number' ? column : column.viewColumn);

@@ -1,5 +1,6 @@
 import type { ProviderId } from '../types.js';
-import { clipToTokens, estimateTokens, formatTokens } from './tokens.js';
+import { clipLines, estimateTokens } from './tokens.js';
+import { diffSection } from './diffSection.js';
 
 /**
  * The task brief: everything the model should have known before it started.
@@ -117,12 +118,6 @@ export function readsNatively(provider: ProviderId, path: string): boolean {
   return NATIVE_CONVENTIONS[provider].includes(fileNameOf(path));
 }
 
-function clipLines(text: string, maxLines: number): string {
-  const lines = text.split('\n');
-  if (lines.length <= maxLines) return text;
-  return lines.slice(0, maxLines).join('\n') + `\n… +${lines.length - maxLines} more lines`;
-}
-
 function listSection(
   id: string,
   title: string,
@@ -133,62 +128,6 @@ function listSection(
   const shown = items.slice(0, max);
   const extra = items.length > max ? `\n… +${items.length - max} more` : '';
   return { id, title, body: shown.map((i) => `- ${i}`).join('\n') + extra };
-}
-
-/** Per-file `+added −removed` tallies, parsed out of a unified diff. */
-function diffFileStats(diff: string): Array<{ path: string; added: number; removed: number }> {
-  const files: Array<{ path: string; added: number; removed: number }> = [];
-  let current: { path: string; added: number; removed: number } | undefined;
-  for (const line of diff.split('\n')) {
-    const header = /^\+\+\+ (?:b\/)?(.+)$/.exec(line);
-    if (header) {
-      const path = header[1]!.trim();
-      current = path === '/dev/null' ? undefined : { path, added: 0, removed: 0 };
-      if (current) files.push(current);
-      continue;
-    }
-    if (!current) continue;
-    if (line.startsWith('+++') || line.startsWith('---')) continue;
-    if (line.startsWith('+')) current.added++;
-    else if (line.startsWith('-')) current.removed++;
-  }
-  return files;
-}
-
-/**
- * The diff section, or — when the diff is too big to be worth its window — the
- * map that replaces it. Just-in-time retrieval: hand over the identifiers and
- * let the model pull what it actually needs.
- */
-function diffSection(diff: string, budget: number): BriefSection {
-  const trimmed = diff.trim();
-  const tokens = estimateTokens(trimmed);
-  if (tokens <= budget) {
-    return { id: 'diff', title: 'Current diff', body: '```diff\n' + clipLines(trimmed, 120) + '\n```' };
-  }
-  const files = diffFileStats(trimmed);
-  if (files.length === 0) {
-    return {
-      id: 'diff',
-      title: 'Current diff',
-      body: '```diff\n' + clipToTokens(trimmed, budget) + '\n```',
-    };
-  }
-  const lines = files
-    .slice(0, 40)
-    .map((f) => `- ${f.path} (+${f.added} −${f.removed})`)
-    .join('\n');
-  const extra = files.length > 40 ? `\n… +${files.length - 40} more files` : '';
-  return {
-    id: 'diff',
-    title: 'Uncommitted work',
-    body:
-      `The working tree has ${files.length} changed file${files.length === 1 ? '' : 's'} — about ` +
-      `${formatTokens(tokens)} tokens of diff, too much to send. Read the ones you need with ` +
-      '`git diff -- <path>`:\n' +
-      lines +
-      extra,
-  };
 }
 
 /**
@@ -357,14 +296,14 @@ export function briefDelta(previous: BriefState | undefined, sections: BriefSect
     })));
   }
   if (dropped.length > 0) {
-    const titles = dropped.map((id) => droppedTitle(id, previous)).join(', ');
+    const titles = dropped.map((id) => droppedTitle(id)).join(', ');
     parts.push(`## No longer applies\n${titles}`);
   }
   return { text: parts.join('\n\n'), state, changed: changed.map((s) => s.id), dropped };
 }
 
 /** A readable name for a section that is gone, without having kept its title. */
-function droppedTitle(id: string, previous: BriefState): string {
+function droppedTitle(id: string): string {
   if (id.startsWith('convention:')) return `project conventions (${id.slice('convention:'.length)})`;
   const names: Record<string, string> = {
     shaping: 'how to approach this one',
@@ -378,8 +317,10 @@ function droppedTitle(id: string, previous: BriefState): string {
     erinnerungen: 'the Exokortex memories',
     canvas: 'the Excalidraw canvas',
     'canvas-scene': 'what was on the Excalidraw canvas',
+    remotion: 'the Remotion video of this chat',
+    location: 'the location context of this chat',
   };
-  return names[id] ?? (previous[id] ? id : id);
+  return names[id] ?? id;
 }
 
 /** Prepends the brief to a prompt, or returns the prompt unchanged. */

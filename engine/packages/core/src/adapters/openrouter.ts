@@ -1,38 +1,167 @@
 import type { LoginFlow, ProviderAdapter, RunRequest } from './adapter.js';
-import { scopedMcpUnsupportedMessage } from '../mcp/runPolicy.js';
+import { scopedMcpRefusal } from './outcome.js';
+import {
+  OPENROUTER_API_BASE,
+  OPENROUTER_CHAT_URL,
+  openRouterErrorMessage,
+  openRouterHeaders,
+  openRouterNoCredit,
+} from './openrouterHttp.js';
+import { citationsFrom, formatSources, openRouterSearchTools, type WebSearchResult } from './webSearch.js';
 import { buildChildEnv } from '../accounts/env.js';
 import { isTransientFailure } from './limits.js';
 import type { AdapterEvent, ResolvedAccount, Usage } from '../types.js';
+import type { ModelOption } from '../models/catalog.js';
 
 /**
- * Open-weight models over OpenRouter's HTTP API — the only provider here that
- * is not a CLI, and the only one that costs the user nothing.
+ * Any model on OpenRouter over its HTTP API — the only provider here that is
+ * not a CLI.
  *
- * It exists for one job: the second opinion. A review needs a model from a
- * different lab reading a diff, which is a single stateless request — no tools,
- * no sandbox, no session. That is precisely what a free tier can carry, and
- * precisely what makes this provider useless as an author (see
- * `REVIEW_ONLY_PROVIDERS`).
+ * Two jobs. The second opinion: a review needs a model from a different lab
+ * reading a diff, a single stateless request that a free model can carry. And
+ * plain chat: with the user's own key, any model on OpenRouter can answer a
+ * message the user explicitly sends there. Either way there are no tools, no
+ * sandbox and no session, so it is never routed an edit on its own (see
+ * `REVIEW_ONLY_PROVIDERS`); it only answers when picked by hand.
  *
- * Two facts about free tiers shape the code below. The free model list rotates
- * without notice, so a pinned model id will eventually 404 — `run` walks a
- * chain instead of trusting one. And free capacity runs out both per-model
- * (busy hour) and per-account (daily cap), both reported as 429 — so a 429 is
- * worth retrying on another model before it is believed as a real limit.
+ * Two facts about free models shape the code below. The free list rotates
+ * without notice, so a pinned model id will eventually 404 — a free request
+ * walks a chain instead of trusting one. And free capacity runs out both
+ * per-model (busy hour) and per-account (daily cap), both reported as 429 — so
+ * a 429 is worth retrying on another free model before it is believed as a
+ * real limit. A paid model the user chose is never swapped for another one.
  */
-
-const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 /**
- * Ordered by usefulness as a reviewer: reasoning first, then a coder model with
- * a large window, then a generalist as the last resort. Ids ending in `:free`
- * are the zero-cost variants; everything else on OpenRouter bills the account.
+ * Fallback reviewers, used until the live catalog has been read. Ordered by
+ * usefulness as a reviewer: a large reasoning model first, then a coder, then
+ * a generalist. Ids ending in `:free` are the zero-cost variants; everything
+ * else on OpenRouter bills the account.
  */
-export const OPENROUTER_FREE_MODELS = [
-  { id: 'deepseek/deepseek-r1:free', label: 'DeepSeek R1 (free)' },
-  { id: 'qwen/qwen3-coder:free', label: 'Qwen3 Coder (free)' },
-  { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B (free)' },
+export const OPENROUTER_FREE_MODELS: ModelOption[] = [
+  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron 3 Ultra (free)' },
+  { id: 'qwen/qwen3.8-27b:free', label: 'Qwen3.8 27B (free)' },
+  { id: 'google/gemma-4-31b-it:free', label: 'Gemma 4 31B (free)' },
 ];
+
+/** What the chat picker offers until the user chooses their own favourites. */
+export const OPENROUTER_DEFAULT_FAVORITES = [
+  'anthropic/claude-opus-5',
+  'openai/gpt-5.6-terra',
+  'google/gemini-3.8-flash',
+  'x-ai/grok-4.7',
+  'deepseek/deepseek-v4-pro',
+  'moonshotai/kimi-k3',
+  'z-ai/glm-5.3',
+];
+
+/**
+ * The built-in favourites with each Claude entry moved to the newest release
+ * of its family in the live catalog — `anthropic/claude-opus-5` becomes
+ * `anthropic/claude-opus-5.5` once that exists. Other labs stay as listed.
+ */
+export function currentDefaultFavorites(catalog: OpenRouterModel[]): string[] {
+  const version = (id: string) => /^anthropic\/claude-(sonnet|opus|fable)-(\d+)(?:\.(\d+))?$/.exec(id);
+  return OPENROUTER_DEFAULT_FAVORITES.map((id) => {
+    const family = version(id)?.[1];
+    if (!family) return id;
+    const newest = catalog
+      .map((m) => version(m.id))
+      .filter((v): v is RegExpExecArray => !!v && v[1] === family)
+      .sort((a, b) => Number(b[2]) - Number(a[2]) || Number(b[3] ?? 0) - Number(a[3] ?? 0))[0];
+    return newest?.[0] ?? id;
+  });
+}
+
+export const isFreeModel = (id: string): boolean => id.endsWith(':free');
+
+/** One entry of OpenRouter's public model list, reduced to what Cortex shows. */
+export interface OpenRouterModel {
+  id: string;
+  label: string;
+  free: boolean;
+  contextLength?: number;
+  /** US dollars per million input tokens. */
+  promptPerMillion?: number;
+  /** US dollars per million output tokens. */
+  completionPerMillion?: number;
+  created?: number;
+}
+
+/**
+ * The live model list. Public — no key needed. Batch variants are dropped:
+ * they answer hours later and make no sense in a chat.
+ */
+export async function fetchOpenRouterModels(
+  fetchImpl: typeof fetch = (...args) => fetch(...args),
+  signal?: AbortSignal,
+): Promise<OpenRouterModel[]> {
+  const response = await fetchImpl(`${OPENROUTER_API_BASE}/models`, { signal });
+  if (!response.ok) throw new Error(`OpenRouter: ${response.status} ${response.statusText}`);
+  const body = (await response.json()) as {
+    data?: Array<{ id: string; name?: string; context_length?: number; created?: number; pricing?: { prompt?: string; completion?: string } }>;
+  };
+  const perMillion = (v?: string) => (v !== undefined && Number.isFinite(Number(v)) ? Number(v) * 1e6 : undefined);
+  return (body.data ?? [])
+    .filter((m) => typeof m.id === 'string' && !m.id.endsWith(':batch'))
+    .map((m) => ({
+      id: m.id,
+      // "Anthropic: Claude Opus 5" → "Claude Opus 5"; the lab is in the id.
+      label: (m.name ?? m.id).replace(/^[^:]+:\s*/, ''),
+      free: isFreeModel(m.id),
+      contextLength: m.context_length,
+      promptPerMillion: perMillion(m.pricing?.prompt),
+      completionPerMillion: perMillion(m.pricing?.completion),
+      created: m.created,
+    }));
+}
+
+/**
+ * Free models worth asking for a review, best first: the largest context
+ * windows among the newest free models. Falls back to the built-in list when
+ * the catalog has none.
+ */
+export function freeReviewChain(catalog: OpenRouterModel[], size = 3): ModelOption[] {
+  const free = catalog
+    .filter((m) => m.free && (m.contextLength ?? 0) >= 32_000)
+    .sort((a, b) => (b.contextLength ?? 0) - (a.contextLength ?? 0) || (b.created ?? 0) - (a.created ?? 0))
+    .slice(0, size)
+    .map((m) => ({ id: m.id, label: m.label }));
+  return free.length ? free : OPENROUTER_FREE_MODELS;
+}
+
+/** What OpenRouter says about a key — enough to show which key is connected. */
+export interface OpenRouterKeyInfo {
+  label: string;
+  /** Credit limit in US dollars, when the key has one. */
+  limit?: number;
+  usage?: number;
+  freeTier: boolean;
+}
+
+/** Checks a key against OpenRouter before it is stored. Throws a readable error. */
+export async function verifyOpenRouterKey(
+  key: string,
+  fetchImpl: typeof fetch = (...args) => fetch(...args),
+  signal?: AbortSignal,
+): Promise<OpenRouterKeyInfo> {
+  const response = await fetchImpl(`${OPENROUTER_API_BASE}/key`, {
+    signal,
+    headers: { Authorization: `Bearer ${key.trim()}` },
+  });
+  const text = await response.text().catch(() => '');
+  if (response.status === 401 || response.status === 403) {
+    throw new Error('OpenRouter hat den Schlüssel abgelehnt. Prüfe ihn unter openrouter.ai/keys.');
+  }
+  if (!response.ok) throw new Error(`OpenRouter: ${openRouterErrorMessage(text) ?? `${response.status} ${response.statusText}`}`);
+  const data = (JSON.parse(text) as { data?: { label?: string; limit?: number | null; usage?: number; is_free_tier?: boolean } }).data ?? {};
+  return {
+    label: data.label || 'OpenRouter-Schlüssel',
+    limit: typeof data.limit === 'number' ? data.limit : undefined,
+    usage: data.usage,
+    freeTier: !!data.is_free_tier,
+  };
+}
 
 /** A model that is gone or unroutable right now — try the next one instead. */
 function isModelUnavailable(status: number, body: string): boolean {
@@ -40,25 +169,39 @@ function isModelUnavailable(status: number, body: string): boolean {
 }
 
 interface StreamChoice {
-  delta?: { content?: string | null };
+  delta?: { content?: string | null; annotations?: unknown };
+  message?: { annotations?: unknown };
 }
 
 interface StreamChunk {
   choices?: StreamChoice[];
-  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
   error?: { message?: string };
 }
 
 export class OpenRouterAdapter implements ProviderAdapter {
   readonly id = 'openrouter' as const;
-  readonly displayName = 'OpenRouter (free models)';
+  readonly displayName = 'OpenRouter';
   /** Stateless HTTP; the caller supplies whatever history matters. */
   readonly supportsNativeResume = false;
-  readonly models = OPENROUTER_FREE_MODELS;
+  /** The chat picker's list: the user's favourites, then the free reviewers. */
+  models: ModelOption[] = OPENROUTER_FREE_MODELS;
+  /** Free models a review walks through, best first. */
+  freeChain: ModelOption[] = OPENROUTER_FREE_MODELS;
+  /** Chosen in the settings; answers whenever a run names no model. */
+  defaultModel?: string;
 
   // Wrapped rather than passed as a bare reference so the global keeps its own
   // receiver when it is called as a method of this adapter.
   constructor(private fetchImpl: typeof fetch = (...args) => fetch(...args)) {}
+
+  /** Replaces the picker list and the review chain, e.g. after the catalog was read. */
+  setModels(models: ModelOption[], freeChain?: ModelOption[], defaultModel?: string): void {
+    if (freeChain?.length) this.freeChain = freeChain;
+    this.defaultModel = defaultModel || undefined;
+    const seen = new Set<string>();
+    this.models = [...models, ...this.freeChain].filter((m) => !seen.has(m.id) && !!seen.add(m.id));
+  }
 
   buildEnv(account: ResolvedAccount, base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
     return buildChildEnv(account, base);
@@ -69,9 +212,9 @@ export class OpenRouterAdapter implements ProviderAdapter {
     account: ResolvedAccount,
     signal: AbortSignal,
   ): AsyncGenerator<AdapterEvent> {
-    const mcpError = scopedMcpUnsupportedMessage(this.id, req.mcpServers);
-    if (mcpError) {
-      yield { type: 'error', message: mcpError, retryable: false };
+    const mcpRefusal = scopedMcpRefusal(this.id, req.mcpServers);
+    if (mcpRefusal) {
+      yield mcpRefusal;
       return;
     }
     const key = account.secret?.trim();
@@ -84,10 +227,16 @@ export class OpenRouterAdapter implements ProviderAdapter {
       return;
     }
 
-    // A requested model is tried first, then the rest of the free chain.
-    const chain = req.model
-      ? [req.model, ...this.models.map((m) => m.id).filter((id) => id !== req.model)]
-      : this.models.map((m) => m.id);
+    // No model named: the default from the settings. A paid model is billed
+    // and meant — it is asked alone. A free one (or none at all) walks the
+    // free chain, the requested model first.
+    const requested = req.model ?? this.defaultModel;
+    const freeIds = this.freeChain.map((m) => m.id);
+    const chain = requested && !isFreeModel(requested)
+      ? [requested]
+      : requested
+        ? [requested, ...freeIds.filter((id) => id !== requested)]
+        : freeIds;
 
     for (let i = 0; i < chain.length; i++) {
       if (signal.aborted) return;
@@ -106,18 +255,24 @@ export class OpenRouterAdapter implements ProviderAdapter {
 
       if (!response.ok) {
         const body = await response.text().catch(() => '');
-        const detail = errorMessage(body) ?? `${response.status} ${response.statusText}`;
+        const detail = openRouterErrorMessage(body) ?? `${response.status} ${response.statusText}`;
 
         // Both "this model is gone" and "this model is busy" are worth trying
         // the next free model for; only the last one is believed.
         if (!isLast && (isModelUnavailable(response.status, body) || response.status === 429)) {
           continue;
         }
-        yield response.status === 429
+        if (response.status === 402) {
+          yield { type: 'error', message: openRouterNoCredit(model), retryable: false };
+          return;
+        }
+        yield response.status === 429 && isFreeModel(model)
           ? // OpenRouter's free allowance is a daily count; the tracker parks
             // the account until it rolls over rather than retrying all day.
             { type: 'limit', scope: 'daily', raw: detail }
-          : { type: 'error', message: `OpenRouter: ${detail}`, retryable: response.status >= 500 };
+          : // A paid model's 429 is a short rate limit, not a day-long one —
+            // parking the account would lock every other model out with it.
+            { type: 'error', message: `OpenRouter: ${detail}`, retryable: response.status === 429 || response.status >= 500 };
         return;
       }
 
@@ -137,21 +292,18 @@ export class OpenRouterAdapter implements ProviderAdapter {
     if (brief) messages.push({ role: 'system', content: brief });
     messages.push({ role: 'user', content: req.prompt });
 
-    return this.fetchImpl(API_URL, {
+    // Websuche eines Agenten: OpenRouter führt sie als Server-Tool selbst aus.
+    const tools = openRouterSearchTools(req.webSearch);
+    return this.fetchImpl(OPENROUTER_CHAT_URL, {
       method: 'POST',
       signal,
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-        // Attribution headers OpenRouter uses for its app leaderboard.
-        'HTTP-Referer': 'https://github.com/bulsana/cortex',
-        'X-Title': 'cortex',
-      },
+      headers: openRouterHeaders(key),
       body: JSON.stringify({
         model,
         messages,
         stream: true,
         usage: { include: true },
+        ...(tools.length ? { tools } : {}),
       }),
     });
   }
@@ -169,6 +321,9 @@ export class OpenRouterAdapter implements ProviderAdapter {
     let buffer = '';
     let text = '';
     let usage: Usage | undefined;
+    let cost: number | undefined;
+    // Treffer der Websuche — die echten URLs, nicht die aus dem Antworttext.
+    const sources: WebSearchResult[] = [];
 
     try {
       while (true) {
@@ -200,10 +355,14 @@ export class OpenRouterAdapter implements ProviderAdapter {
               inputTokens: chunk.usage.prompt_tokens,
               outputTokens: chunk.usage.completion_tokens,
             };
+            if (typeof chunk.usage.cost === 'number') cost = chunk.usage.cost;
           }
           // Reasoning models also stream a `reasoning` field; the answer is
           // what the caller asked for, so only `content` is collected.
-          const delta = chunk.choices?.[0]?.delta?.content;
+          const choice = chunk.choices?.[0];
+          citationsFrom(choice?.delta?.annotations, sources);
+          citationsFrom(choice?.message?.annotations, sources);
+          const delta = choice?.delta?.content;
           if (delta) {
             text += delta;
             yield { type: 'text-delta', text: delta };
@@ -223,13 +382,19 @@ export class OpenRouterAdapter implements ProviderAdapter {
     }
 
     if (signal.aborted) return;
-    yield { type: 'result', text, usage, costUsd: 0 };
+    // Die Quellen gehen mit der Antwort weiter, damit Nachfolger im Team echte URLs bekommen.
+    const sourceList = formatSources(sources.filter(source => !text.includes(source.url)));
+    if (sourceList) {
+      text += sourceList;
+      yield { type: 'text-delta', text: sourceList };
+    }
+    yield { type: 'result', text, usage, costUsd: cost ?? 0 };
   }
 
   interactiveCommand(): { command: string[]; env: NodeJS.ProcessEnv } {
     // Nothing to attach a terminal to — this provider is an HTTP call, and the
     // host filters it out of the interactive picker for that reason.
-    throw new Error('OpenRouter has no interactive CLI — it is used for reviews only');
+    throw new Error('OpenRouter has no interactive CLI — it answers over HTTP only');
   }
 
   loginFlow(): LoginFlow {
@@ -239,15 +404,4 @@ export class OpenRouterAdapter implements ProviderAdapter {
       'OpenRouter is connected with an API key from openrouter.ai/keys — there is no login flow',
     );
   }
-}
-
-/** OpenRouter reports failures as `{ error: { message } }`; fall back to raw text. */
-function errorMessage(body: string): string | undefined {
-  try {
-    const parsed = JSON.parse(body) as { error?: { message?: string } };
-    if (parsed.error?.message) return parsed.error.message;
-  } catch {
-    // not JSON
-  }
-  return body.trim() ? body.trim().slice(0, 300) : undefined;
 }

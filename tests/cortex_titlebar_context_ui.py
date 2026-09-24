@@ -65,7 +65,7 @@ with headless_browser(port=PORT) as browser:
         ('plugins', lambda: page.locator('.cx-rail-nav').get_by_role('button', name='Plugins', exact=True).click()),
         ('accounts', lambda: page.get_by_role('button', name='Konten und Limits', exact=True).click()),
         ('exokortex', lambda: page.locator('.cx-rail-nav').get_by_role('button', name='Exokortex', exact=True).click()),
-        ('settings', lambda: page.locator('.cx-rail-nav').get_by_role('button', name='Einstellungen', exact=True).click()),
+        ('settings', lambda: page.locator('.cx-settings-btn').click()),
     ]
     for name, navigate in routes:
         navigate()

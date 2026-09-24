@@ -30,6 +30,40 @@ werden über freigegebene Ressourcenwurzeln bereitgestellt. Editor- und
 Sprachdienste laufen lokal: Editor-, JSON-, TypeScript/JavaScript-, HTML- und
 CSS-Worker werden mit der App ausgeliefert.
 
+## Eingebauter Browser
+
+Der Browser rechts hat Tabs. Jeder Tab steht in der Kopfzeile der rechten
+Seite, neben geöffneten Dateien. Dort sitzen auch das Plus für einen neuen Tab
+(⌘T, auch unter Ablage) und die Werkzeug-Icons (Browser, Dateien, Terminal,
+Chat-Aktionen). Ist die rechte Seite zu, schweben die Icons oben rechts; ist nur
+das Dock offen, stehen sie in dessen Tableiste. Alle Tabs teilen eine Sitzung
+(`persist:cortex-preview`), Anmeldungen gelten also in jedem Tab. Öffnet eine
+Seite ein Fenster, etwa „Mit Apple anmelden“, wird es ein eigener Tab und bleibt
+mit der öffnenden Seite verbunden; schließt es sich nach der Anmeldung selbst,
+verschwindet der Tab.
+
+### Passkeys mit Touch ID
+
+Electron 44 kann Passkeys mit Touch ID speichern (`app.configureWebAuthn`). Sie
+liegen im Schlüsselbund dieses Macs, gebunden an seine Secure Enclave, und
+werden **nicht** über iCloud synchronisiert. Passkeys, die schon im
+iCloud-Schlüsselbund liegen (etwa aus Safari), erreicht Cortex nicht: Apple gibt
+sie nur Browsern frei, denen es die Berechtigung
+`com.apple.developer.web-browser.public-key-credential` erteilt hat. Für Google
+und andere Seiten, die mehrere Passkeys erlauben, legt man in Cortex einen
+eigenen an; danach meldet Touch ID dort an.
+
+Die Schlüsselbund-Berechtigung gilt auf dem Mac nur mit einem
+Provisioning-Profil. `scripts/assemble.sh` sucht eins (über
+`scripts/find-provisioning-profile.py`, in den Profilordnern von Xcode oder unter
+`$CORTEX_PROVISIONING_PROFILE`), das für das Team der Signatur, die Bundle-ID
+`dev.oskarschiermeister.cortex`, diesen Mac und die Gruppe
+`<Team-ID>.dev.oskarschiermeister.cortex.webauthn` gilt. Findet es eins, bettet es
+das Profil ein, signiert mit der Berechtigung und legt `webauthn.json` in die
+Ressourcen; nur dann schaltet die App Touch ID ein. Ohne Profil bleibt alles wie
+bisher, und Seiten bieten keinen Touch-ID-Weg an, der dann scheitern würde.
+Mehrere Passkeys für eine Seite fragt ein Mac-Dialog ab.
+
 ## Bauen
 
 Voraussetzungen: macOS, Node.js/pnpm, Xcode Command Line Tools und eine stabile

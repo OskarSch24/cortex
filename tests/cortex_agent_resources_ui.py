@@ -6,6 +6,7 @@ preview host simulates catalog changes; no login or model request is performed.
 import re
 from playwright.sync_api import expect
 from headless_browser import headless_browser
+from cortex_agents_nav import to_overview
 from cortex_control_styles import assert_controls_styled
 
 PORT = 4204
@@ -40,6 +41,8 @@ with headless_browser(port=PORT) as browser:
     new_project = {'name': 'Neues Projekt', 'path': '/demo/new-project', 'missing': False}
     accounts = initial_accounts + [new_account]
     projects_now = initial_projects + [new_project]
+
+    to_overview(page)
 
     page.get_by_role('button', name='Agent erstellen', exact=True).click()
     page.get_by_role('button', name=re.compile('^Ohne Vorlage')).click()
@@ -133,6 +136,7 @@ with headless_browser(port=PORT) as browser:
     expect(page.get_by_role('status')).to_contain_text('Agent gespeichert.')
 
     # Teams consume the same live catalogs; unrelated updates keep the chosen role.
+    to_overview(page)
     page.get_by_role('button', name='Team erstellen', exact=True).click()
     page.get_by_label('Teamname', exact=True).fill('Live synchronisiertes Team')
     select('Konto des Agenten', 'Claude · neu')
@@ -156,6 +160,7 @@ with headless_browser(port=PORT) as browser:
     # The first connected account also appears in a draft created without one.
     page.goto(f'http://127.0.0.1:{PORT}/dev/preview.html?mode=agent&page=agents&teams=empty&accounts=empty')
     page.wait_for_load_state('networkidle')
+    to_overview(page)
     page.get_by_role('button', name='Agent erstellen', exact=True).click()
     page.get_by_role('button', name=re.compile('^Ohne Vorlage')).click()
     page.get_by_label('Agentenname', exact=True).fill('Entwurf vor der Anmeldung')

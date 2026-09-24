@@ -1,10 +1,13 @@
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { randomBytes } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
+import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { join } from 'node:path';
-import { nextCronOccurrence, validateAutomation } from './cron';
-import { AutomationLease } from './lease';
-import type { AgentAutomation, AutomationEvent, AutomationRuntimeState, AutomationSource } from './types';
+import { nextCronOccurrence, validateAutomation } from './cron.js';
+import { AutomationLease } from './lease.js';
+import type { AgentAutomation, AutomationEvent, AutomationRuntimeState, AutomationSource } from './types.js';
+import { CLAIM_LIMIT, errorText, initialState, profileIdPattern, readStateFile, writeStateFile, type Claim, type SavedProfile, type SavedState } from './stateFile.js';
+import { createWebhookServer, listenLocal, readWebhookInput, reply, webhookTarget } from './webhookServer.js';
+import { sameSecret } from '../util/secrets.js';
 
 export interface AutomationProfile { id: string; name: string; automation?: AgentAutomation }
 export interface AutomationRuntimeOptions {
@@ -22,37 +25,9 @@ export class AutomationSkippedError extends Error {
   readonly code = 'AUTOMATION_SKIPPED';
 }
 
-interface Claim {
-  key: string;
-  at: number;
-  source: 'schedule' | 'webhook';
-  status: 'claimed' | 'started' | 'skipped' | 'failed';
-  message?: string;
-  runId?: string;
-}
-interface SavedProfile {
-  signature: string;
-  nextRunAt?: number;
-  token?: string;
-  lastEvent?: AutomationEvent;
-  error?: string;
-  claims: Claim[];
-}
-interface SavedState {
-  version: 1;
-  port?: number;
-  listening?: boolean;
-  error?: string;
-  profiles: Record<string, SavedProfile>;
-}
 interface DispatchResult { status: 'started' | 'skipped' | 'failed'; runId?: string; message?: string; duplicate?: boolean }
 
-const BODY_LIMIT = 32 * 1024;
-const CLAIM_LIMIT = 256;
 const CLAIM_TTL = 7 * 24 * 60 * 60 * 1000;
-const profileIdPattern = /^[a-zA-Z0-9_-]{1,160}$/;
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error)).slice(0, 1000);
-const initialState = (): SavedState => ({ version: 1, profiles: Object.create(null) as SavedState['profiles'] });
 
 /** Local, at-most-once trigger delivery. The saved task is always the authority. */
 export class AutomationRuntime {
@@ -243,34 +218,24 @@ export class AutomationRuntime {
     }
     if (this.server || this.now() < this.listenerRetryAt) return;
     const port = this.data.port ?? this.options.port ?? 47831;
-    const server = createServer((request, response) => { void this.handleWebhook(request, response).catch(error => {
+    const server = createWebhookServer((request, response) => { void this.handleWebhook(request, response).catch(error => {
       this.error = `Webhook: ${errorText(error)}`;
-      this.reply(response, 503, { error: 'Die Auslösung konnte nicht sicher gespeichert werden.' });
+      reply(response, 503, { error: 'Die Auslösung konnte nicht sicher gespeichert werden.' });
       this.notify();
     }); });
-    server.headersTimeout = 5000;
-    server.requestTimeout = 10000;
-    server.keepAliveTimeout = 1000;
-    server.maxHeadersCount = 32;
     this.server = server;
-    const opened = await new Promise<boolean>(resolve => {
-      const onError = (error: Error) => {
+    const opened = await listenLocal(server, port, {
+      failed: (error) => {
         this.listenerError = `Lokaler Webhook auf 127.0.0.1:${port} nicht erreichbar: ${error.message}`;
         this.listenerRetryAt = this.now() + 10_000;
         this.data.error = this.listenerError;
-        resolve(false);
-      };
-      server.once('error', onError);
-      server.listen(port, '127.0.0.1', () => {
-        server.removeListener('error', onError);
-        server.on('error', error => {
-          this.listenerError = this.data.error = `Lokaler Webhook: ${error.message}`;
-          this.stopServer();
-          try { this.persist(); } catch { /* The snapshot retains the listener failure. */ }
-          this.notify();
-        });
-        resolve(true);
-      });
+      },
+      lateError: (error) => {
+        this.listenerError = this.data.error = `Lokaler Webhook: ${error.message}`;
+        this.stopServer();
+        try { this.persist(); } catch { /* The snapshot retains the listener failure. */ }
+        this.notify();
+      },
     });
     if (!opened || this.disposed) {
       server.close();
@@ -298,40 +263,18 @@ export class AutomationRuntime {
   }
 
   private async handleWebhook(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    if (request.method !== 'POST') return this.reply(response, 405, { error: 'Nur POST ist erlaubt.' });
-    if (request.headers.origin !== undefined || request.headers['sec-fetch-site'] !== undefined) return this.reply(response, 403, { error: 'Browser-Aufrufe sind nicht erlaubt.' });
-    if (request.headers.host !== `127.0.0.1:${this.data.port}`) return this.reply(response, 403, { error: 'Ungültiger lokaler Host.' });
-    const match = /^\/hooks\/([a-zA-Z0-9_-]{1,160})$/.exec(request.url ?? '');
-    if (!match) return this.reply(response, 404, { error: 'Webhook nicht gefunden.' });
-    const id = match[1]!;
+    const id = webhookTarget(request, response, this.data.port);
+    if (id === undefined) return;
     this.refreshProfiles();
     const profile = this.knownProfiles.get(id), saved = this.data.profiles[id];
-    if (this.disposed || !this.owner || !profile?.automation?.webhook?.enabled || !saved?.token || saved.error) return this.reply(response, 404, { error: 'Webhook nicht aktiv.' });
+    if (this.disposed || !this.owner || !profile?.automation?.webhook?.enabled || !saved?.token || saved.error) return reply(response, 404, { error: 'Webhook nicht aktiv.' });
     const supplied = request.headers.authorization;
     const expected = `Bearer ${saved.token}`;
-    if (typeof supplied !== 'string' || Buffer.byteLength(supplied) !== Buffer.byteLength(expected) || !timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) return this.reply(response, 401, { error: 'Ungültige Webhook-Anmeldedaten.' });
-    const idempotency = request.headers['idempotency-key'];
-    if (idempotency !== undefined && (typeof idempotency !== 'string' || !/^[\x21-\x7e]{1,200}$/.test(idempotency))) return this.reply(response, 400, { error: 'Idempotency-Key muss 1 bis 200 druckbare Zeichen enthalten.' });
-    const contentType = request.headers['content-type'];
-    if (contentType && !/^application\/json(?:\s*;|$)/i.test(contentType)) return this.reply(response, 415, { error: 'Der Webhook akzeptiert JSON.' });
-    const length = request.headers['content-length'];
-    if (length && (!/^\d+$/.test(length) || Number(length) > BODY_LIMIT)) return this.reply(response, 413, { error: 'Webhook-Daten dürfen höchstens 32 KiB umfassen.' });
-    let payload: unknown;
-    try {
-      const chunks: Buffer[] = [];
-      let size = 0;
-      for await (const chunk of request.iterator({ destroyOnReturn: false })) {
-        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-        size += buffer.length;
-        if (size > BODY_LIMIT) { this.reply(response, 413, { error: 'Webhook-Daten dürfen höchstens 32 KiB umfassen.' }); request.resume(); return; }
-        chunks.push(buffer);
-      }
-      const text = Buffer.concat(chunks).toString('utf8').trim();
-      if (text) payload = JSON.parse(text);
-    } catch { return this.reply(response, 400, { error: 'Ungültige JSON-Daten.' }); }
-    const key = typeof idempotency === 'string' ? createHash('sha256').update(idempotency).digest('hex') : randomUUID();
-    const result = await this.dispatch(id, { kind: 'webhook', id: `webhook:${id}:${key}` }, payload);
-    this.reply(response, result.status === 'failed' ? 503 : result.status === 'skipped' && !result.duplicate ? 409 : result.duplicate ? 200 : 202, result);
+    if (typeof supplied !== 'string' || !sameSecret(supplied, expected)) return reply(response, 401, { error: 'Ungültige Webhook-Anmeldedaten.' });
+    const input = await readWebhookInput(request, response);
+    if (!input) return;
+    const result = await this.dispatch(id, { kind: 'webhook', id: `webhook:${id}:${input.key}` }, input.payload);
+    reply(response, result.status === 'failed' ? 503 : result.status === 'skipped' && !result.duplicate ? 409 : result.duplicate ? 200 : 202, result);
   }
 
   private async dispatch(id: string, source: AutomationSource, payload?: unknown): Promise<DispatchResult> {
@@ -379,29 +322,7 @@ export class AutomationRuntime {
   }
 
   private readState(): SavedState {
-    let parsed: unknown;
-    try { parsed = JSON.parse(readFileSync(this.path, 'utf8')); }
-    catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return initialState();
-      // JSON parser diagnostics can quote a secret near the malformed byte.
-      throw new Error(`Gespeicherte Auslöser konnten nicht gelesen werden: ${error instanceof SyntaxError ? 'Die Datei enthält ungültiges JSON.' : errorText(error)}`);
-    }
-    const state = parsed as SavedState;
-    if (!state || state.version !== 1 || !state.profiles || typeof state.profiles !== 'object' || Array.isArray(state.profiles)) throw new Error('Die Datei der geplanten Aktionen ist beschädigt.');
-    if (state.port !== undefined && (!Number.isInteger(state.port) || state.port < 1 || state.port > 65535)) throw new Error('Ungültiger gespeicherter Webhook-Port.');
-    if ((state.listening !== undefined && typeof state.listening !== 'boolean') || (state.error !== undefined && typeof state.error !== 'string')) throw new Error('Der gespeicherte Webhook-Status ist beschädigt.');
-    for (const [id, saved] of Object.entries(state.profiles)) {
-      if (!profileIdPattern.test(id) || !saved || typeof saved.signature !== 'string' || !Array.isArray(saved.claims) || saved.claims.length > CLAIM_LIMIT || (saved.nextRunAt !== undefined && !Number.isFinite(saved.nextRunAt)) || (saved.token !== undefined && !/^[a-f0-9]{64}$/.test(saved.token))) throw new Error('Ein gespeicherter Auslöser ist beschädigt.');
-      for (const claim of saved.claims) if (!claim || typeof claim.key !== 'string' || !Number.isFinite(claim.at) || !['schedule', 'webhook'].includes(claim.source) || !['claimed', 'started', 'skipped', 'failed'].includes(claim.status)) throw new Error('Ein gespeicherter Auslösungsverlauf ist beschädigt.');
-      if (saved.lastEvent) {
-        const event = saved.lastEvent;
-        if (!Number.isFinite(event.at) || !['schedule', 'webhook'].includes(event.source) || !['started', 'skipped', 'failed'].includes(event.status) || (event.message !== undefined && typeof event.message !== 'string') || (event.runId !== undefined && typeof event.runId !== 'string')) throw new Error('Der gespeicherte Auslösungsstatus ist beschädigt.');
-        saved.lastEvent = { at: event.at, source: event.source, status: event.status, ...(event.message ? { message: event.message } : {}), ...(event.runId ? { runId: event.runId } : {}) };
-      }
-    }
-    state.profiles = Object.assign(Object.create(null), state.profiles) as SavedState['profiles'];
-    chmodSync(this.path, 0o600);
-    return state;
+    return readStateFile(this.path);
   }
 
   private persist(): void {
@@ -409,30 +330,11 @@ export class AutomationRuntime {
     if (!this.stateLoaded) throw new Error('Der Auslösungsverlauf wurde noch nicht sicher geladen.');
     const serialized = JSON.stringify(this.data);
     if (serialized === this.lastPersisted) return;
-    const temporary = `${this.path}.${randomUUID()}.tmp`;
-    let fd: number | undefined;
-    try {
-      fd = openSync(temporary, 'wx', 0o600);
-      writeFileSync(fd, serialized);
-      fsyncSync(fd);
-      closeSync(fd); fd = undefined;
-      renameSync(temporary, this.path);
-      const directory = openSync(this.options.directory, 'r');
-      try { fsyncSync(directory); } finally { closeSync(directory); }
-      this.lastPersisted = serialized;
-    } finally {
-      if (fd !== undefined) closeSync(fd);
-      rmSync(temporary, { force: true });
-    }
+    writeStateFile(this.path, serialized);
+    this.lastPersisted = serialized;
   }
 
   private url(id: string): string { return `http://127.0.0.1:${this.data.port}/hooks/${id}`; }
-
-  private reply(response: ServerResponse, status: number, body: unknown): void {
-    if (response.writableEnded || response.destroyed) return;
-    response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', Connection: 'close' });
-    response.end(JSON.stringify(body));
-  }
 
   private notify(): void {
     const snapshot = JSON.stringify(this.snapshot());

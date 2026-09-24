@@ -1,7 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { AccountProfile, ProviderId } from '../types.js';
-import { isSseUrl } from './probe.js';
+import { isSseUrl } from './transport.js';
+import { readJson } from '../util/jsonFile.js';
+
+export { parseMcpFile } from './mcpFile.js';
 
 /**
  * Define MCP servers once (.cortex/mcp.json) and fan them out to every
@@ -40,14 +43,6 @@ export interface McpServerDef {
   providers?: ProviderId[];
 }
 
-const PROVIDER_IDS: ReadonlySet<string> = new Set<ProviderId>([
-  'claude',
-  'codex',
-  'copilot',
-  'grok',
-  'openrouter',
-]);
-
 /** The servers this provider should actually be given. */
 export function serversFor(
   provider: ProviderId,
@@ -59,47 +54,6 @@ export function serversFor(
     scoped[name] = def;
   }
   return scoped;
-}
-
-export function parseMcpFile(
-  content: string,
-): { ok: true; servers: Record<string, McpServerDef> } | { ok: false; error: string } {
-  try {
-    const parsed = JSON.parse(content) as { servers?: unknown };
-    if (parsed.servers === null || typeof parsed.servers !== 'object' || Array.isArray(parsed.servers)) {
-      return { ok: false, error: 'missing "servers" object' };
-    }
-    const servers: Record<string, McpServerDef> = {};
-    for (const [name, def] of Object.entries(parsed.servers as Record<string, unknown>)) {
-      if (def === null || typeof def !== 'object') continue;
-      const d = def as Record<string, unknown>;
-      servers[name] = {
-        command: typeof d.command === 'string' ? d.command : undefined,
-        args: Array.isArray(d.args) ? d.args.filter((a): a is string => typeof a === 'string') : undefined,
-        env: stringRecord(d.env),
-        url: typeof d.url === 'string' ? d.url : undefined,
-        headers: stringRecord(d.headers),
-        kind: typeof d.kind === 'string' ? d.kind : undefined,
-        providers: Array.isArray(d.providers)
-          ? (d.providers.filter(
-              (p): p is ProviderId => typeof p === 'string' && PROVIDER_IDS.has(p),
-            ) as ProviderId[])
-          : undefined,
-      };
-    }
-    return { ok: true, servers };
-  } catch (e) {
-    return { ok: false, error: (e as Error).message };
-  }
-}
-
-function stringRecord(value: unknown): Record<string, string> | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).filter(
-      (kv): kv is [string, string] => typeof kv[1] === 'string',
-    ),
-  );
 }
 
 const withHeaders = (def: McpServerDef) =>
@@ -188,12 +142,10 @@ export function syncMcpToProfile(
 const MANIFEST = '.cortex-mcp.json';
 
 function readManifest(homeDir: string): string[] {
-  const path = join(homeDir, MANIFEST);
-  if (!existsSync(path)) return [];
   try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as { servers?: unknown };
-    return Array.isArray(parsed.servers)
-      ? parsed.servers.filter((s): s is string => typeof s === 'string')
+    const servers = readJson<{ servers?: unknown }>(join(homeDir, MANIFEST))?.servers;
+    return Array.isArray(servers)
+      ? servers.filter((s): s is string => typeof s === 'string')
       : [];
   } catch {
     return [];
@@ -213,12 +165,11 @@ function mergeJsonFile(
   convert: (def: McpServerDef) => Record<string, unknown>,
 ): undefined {
   let existing: Record<string, unknown> = {};
-  if (existsSync(path)) {
-    try {
-      existing = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
-    } catch {
-      existing = {};
-    }
+  try {
+    const read = readJson<Record<string, unknown>>(path);
+    if (read !== undefined) existing = read;
+  } catch {
+    existing = {};
   }
   const current = (existing[key] as Record<string, unknown> | undefined) ?? {};
   for (const name of dropped) delete current[name];

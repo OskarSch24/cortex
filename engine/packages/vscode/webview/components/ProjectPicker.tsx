@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { HostToWebview, ProjectDto } from '../../src/panel/protocol.js';
+import type { ProjectDto } from '../../src/panel/protocol.js';
 import { useDismissiblePopup } from '../hooks/useDismissiblePopup.js';
 import { vscode } from '../vscodeApi.js';
+import { AddFolderButton, FolderRow, ProjectDialog, ProjectNameField, RemoveFolderButton, pickProjectFolder, useEscapeClose, useFolderPicks } from './projectDialog.js';
 import { Glyph } from './CortexIcons.js';
 
 /**
@@ -116,80 +117,38 @@ export function ProjectPicker({ projects, activePath, disabled }: {
  */
 function ProjectCreate({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
-  const [folders, setFolders] = useState<string[]>([]);
+  const [folders, setFolders] = useFolderPicks(() => []);
   const field = useRef<HTMLInputElement>(null);
 
   useEffect(() => { field.current?.focus(); }, []);
-  useEffect(() => {
-    const listen = (event: MessageEvent<HostToWebview>) => {
-      const msg = event.data;
-      if (msg?.kind === 'pickedFolder') setFolders(prev => prev.includes(msg.path) ? prev : [...prev, msg.path]);
-    };
-    window.addEventListener('message', listen);
-    return () => window.removeEventListener('message', listen);
-  }, []);
-  useEffect(() => {
-    const keys = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.stopPropagation(); onClose(); } };
-    window.addEventListener('keydown', keys, true);
-    return () => window.removeEventListener('keydown', keys, true);
-  }, [onClose]);
+  useEscapeClose(onClose);
 
-  const pick = () => vscode.postMessage({ kind: 'pickProjectFolder' });
   const create = () => {
     if (!folders.length) return;
     vscode.postMessage({ kind: 'createProject', name: name.trim(), folders });
     onClose();
   };
 
-  return <div class="cx-modal-backdrop" onClick={onClose}>
-    <section class="cx-project-dialog cx-project-new" role="dialog" aria-modal="true" aria-label="Projekt erstellen" onClick={event => event.stopPropagation()}>
-      <header>
-        <h2>Projekt erstellen</h2>
-        <button class="cx-icon" aria-label="Schließen" onClick={onClose}><Glyph name="close" size={16} /></button>
-      </header>
+  return <ProjectDialog title="Projekt erstellen" class="cx-project-new" onClose={onClose}>
+    <ProjectNameField field={field} value={name} placeholder="Projektname" onInput={setName} onEnter={create} />
 
-      <div class="cx-project-name">
-        <Glyph name="folder" size={15} />
-        <input
-          ref={field}
-          aria-label="Projektname"
-          placeholder="Projektname"
-          value={name}
-          onInput={event => setName(event.currentTarget.value)}
-          onKeyDown={event => { if (event.key === 'Enter') create(); }}
-        />
-      </div>
+    <p class="cx-project-legend">Quellordner</p>
+    {folders.length === 0
+      ? <button class="cx-project-drop" onClick={pickProjectFolder}>
+          <Glyph name="folderPlus" size={18} />
+          <span>Füge Ordner hinzu, die Cortex lesen und bearbeiten kann</span>
+        </button>
+      : <div class="cx-project-folders">
+          {folders.map(folder => <FolderRow key={folder} folder={folder}>
+            <RemoveFolderButton folder={folder} onRemove={() => setFolders(prev => prev.filter(f => f !== folder))} />
+          </FolderRow>)}
+          <AddFolderButton />
+        </div>}
 
-      <p class="cx-project-legend">Quellordner</p>
-      {folders.length === 0
-        ? <button class="cx-project-drop" onClick={pick}>
-            <Glyph name="folderPlus" size={18} />
-            <span>Füge Ordner hinzu, die Cortex lesen und bearbeiten kann</span>
-          </button>
-        : <div class="cx-project-folders">
-            {folders.map(folder => <div key={folder} class="cx-project-folder">
-              <Glyph name="folder" size={14} />
-              <span title={folder}>{short(folder)}</span>
-              <button class="cx-icon" aria-label={`Ordner entfernen: ${folder}`} onClick={() => setFolders(prev => prev.filter(f => f !== folder))}>
-                <Glyph name="close" size={14} />
-              </button>
-            </div>)}
-            <button class="cx-project-add-folder" onClick={pick}>
-              <Glyph name="folderPlus" size={14} />Ordner hinzufügen
-            </button>
-          </div>}
-
-      <footer>
-        <span class="cx-project-spacer" />
-        <button class="cx-ghost" onClick={onClose}>Abbrechen</button>
-        <button class="cx-primary" disabled={!folders.length} onClick={create}>Projekt erstellen</button>
-      </footer>
-    </section>
-  </div>;
-}
-
-/** Der Heimatpfad ist auf diesem Mac immer derselbe — er kostet nur Breite. */
-function short(path: string) {
-  const home = /^\/Users\/[^/]+/.exec(path);
-  return home ? '~' + path.slice(home[0].length) : path;
+    <footer>
+      <span class="cx-project-spacer" />
+      <button class="cx-ghost" onClick={onClose}>Abbrechen</button>
+      <button class="cx-primary" disabled={!folders.length} onClick={create}>Projekt erstellen</button>
+    </footer>
+  </ProjectDialog>;
 }

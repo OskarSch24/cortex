@@ -385,6 +385,7 @@ describe('Was die CLIs selbst sehen', async () => {
   it('liest Groks Diagnose', () => {
     const healthy = JSON.stringify({ servers: [{ name: 'youtube-kanal', healthy: true, checks: [{ label: 'handshake OK', passed: true }, { label: '27 tools discovered', passed: true }] }] });
     expect(readGrok(healthy, 'youtube-kanal')).toEqual({ state: 'verbunden', detail: 'Grok: 27 Werkzeuge gefunden.' });
+    expect(readGrok('', 'remotion')).toMatchObject({ state: 'fehlt' });
     const broken = JSON.stringify({ servers: [{ name: 'x', healthy: false, checks: [{ label: 'command found', passed: false, detail: 'npx fehlt' }] }] });
     expect(readGrok(broken, 'x')).toEqual({ state: 'fehler', detail: 'command found: npx fehlt' });
     expect(readGrok(JSON.stringify({ servers: [] }), 'x')).toMatchObject({ state: 'fehlt' });

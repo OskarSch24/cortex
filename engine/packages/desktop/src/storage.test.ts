@@ -218,6 +218,7 @@ describe('standalone Cortex storage', () => {
 
   it('reloads edited settings after an atomic replacement and avoids duplicate events from its own writes', async () => {
     const root = makeRoot(), store = createDesktopStorage({ userDataPath: root, encryption, isolated: true });
+    expect(store.settingsPath).toBe(join(root, 'Standalone', 'settings.json'));
     const changes: string[] = [];
     store.onDidChangeConfiguration(event => { if (event.affectsConfiguration('cortex.browserAccess')) changes.push(String(store.settings.read()['cortex.browserAccess'])); });
     const replacement = join(store.root, 'edited-settings.json');

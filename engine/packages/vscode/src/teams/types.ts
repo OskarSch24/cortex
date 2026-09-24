@@ -1,4 +1,4 @@
-import type { Effort, PermissionMode, Target } from '@cortex/core';
+import type { Effort, PermissionMode, Target, WebSearchMode } from '@cortex/core';
 import { EFFORT_LABELS, modelOption } from '../../../core/src/models/catalog.js';
 import { validateAutomationShape, type AgentAutomation, type AutomationSource, type AutomationRuntimeState } from '../automations/types.js';
 
@@ -13,6 +13,8 @@ export interface TeamAgent {
   permissionMode: PermissionMode;
   /** Missing means all configured connectors; [] means no external MCPs. */
   mcpServers?: string[];
+  /** Missing uses the provider's own search (`standard`), also for existing profiles. */
+  webSearch?: WebSearchMode;
   skillPaths: string[];
   dependsOn: string[];
 }
@@ -25,6 +27,12 @@ export interface AgentTeam {
   description: string;
   instructions: string;
   projectPath?: string;
+  /**
+   * Schwarm: alle Rollen arbeiten zugleich im selben Ordner, auch schreibend.
+   * Jede Rolle bekommt ihren eigenen Teil; Cortex sperrt den Ordner dann
+   * nicht Rolle für Rolle, sonst liefe ein Schwarm nacheinander statt nebeneinander.
+   */
+  sharedWorkspace?: boolean;
   agents: TeamAgent[];
   automation?: AgentAutomation;
   updatedAt: number;
@@ -71,6 +79,14 @@ export interface TeamsState extends TeamResources {
   revision: number;
   automations?: AutomationRuntimeState;
 }
+
+/**
+ * Die Websuche-Wahl im Agenten. Steht hier und nicht aus @cortex/core
+ * importiert, weil diese Datei auch im Webview landet (reine Werte, kein Node).
+ * Muss zu WEB_SEARCH_MODES / WEB_SEARCH_PROVIDERS in core/adapters/webSearch.ts passen.
+ */
+const WEB_SEARCH_CHOICES = ['standard', 'exa-instant', 'off'] as const satisfies readonly WebSearchMode[];
+export const WEB_SEARCH_CHOICE_PROVIDERS: readonly string[] = ['claude', 'codex', 'grok', 'openrouter'];
 
 /** Wie viele Rollen ein Team höchstens hat — die Besetzung. */
 export const MAX_TEAM_AGENTS = 20;
@@ -122,7 +138,10 @@ export function validateTeam(value: unknown): AgentTeam {
   const agents = value.agents.map((entry): TeamAgent => {
     if (!object(entry) || !object(entry.target)) throw new Error('Der Agent braucht ein Konto.');
     const provider = entry.target.provider;
-    if (!['claude', 'codex', 'grok', 'copilot'].includes(String(provider))) throw new Error('Dieser Anbieter unterstützt keine Teamaufträge.');
+    // OpenRouter nur ausdrücklich zugewiesen: automatisch bekommt es nie Arbeit (siehe Schwarm-Besetzung).
+    if (!['claude', 'codex', 'grok', 'copilot', 'openrouter'].includes(String(provider))) throw new Error('Dieser Anbieter unterstützt keine Teamaufträge.');
+    if (entry.webSearch !== undefined && !(WEB_SEARCH_CHOICES as readonly unknown[]).includes(entry.webSearch)) throw new Error('Die Websuche ist ungültig.');
+    if (entry.webSearch !== undefined && entry.webSearch !== 'standard' && !WEB_SEARCH_CHOICE_PROVIDERS.includes(String(provider))) throw new Error('Bei diesem Anbieter lässt sich die Websuche nicht umstellen.');
     if (!['safe', 'edits', 'full'].includes(String(entry.permissionMode))) throw new Error('Die Werkzeugfreigabe ist ungültig.');
     const target: Target = { provider: provider as Target['provider'], account: string(entry.target.account, 100, 'Konto', true),
       ...(entry.target.model ? { model: string(entry.target.model, 150, 'Modell') } : {}) };
@@ -134,6 +153,7 @@ export function validateTeam(value: unknown): AgentTeam {
       ...(entry.effort === undefined ? {} : { effort: entry.effort as Effort }),
       permissionMode: entry.permissionMode as PermissionMode,
       ...(entry.mcpServers === undefined ? {} : { mcpServers: strings(entry.mcpServers, 'MCP-Auswahl') }),
+      ...(entry.webSearch === undefined || entry.webSearch === 'standard' ? {} : { webSearch: entry.webSearch as WebSearchMode }),
       skillPaths: strings(entry.skillPaths ?? [], 'Skills'), dependsOn: strings(entry.dependsOn ?? [], 'Übergaben'),
     };
   });
@@ -142,7 +162,8 @@ export function validateTeam(value: unknown): AgentTeam {
   const team: AgentTeam = {
     id: id(value.id), ...(value.kind ? { kind: value.kind } : {}), name: string(value.name, value.kind === 'agent' ? 80 : 100, value.kind === 'agent' ? 'Agentenname' : 'Teamname', true).trim(),
     description: string(value.description, 1000, 'Beschreibung'), instructions: string(value.instructions, 100_000, 'Team-Anweisungen'),
-    ...(value.projectPath ? { projectPath: string(value.projectPath, 4096, 'Projekt') } : {}), agents, updatedAt: Date.now(),
+    ...(value.projectPath ? { projectPath: string(value.projectPath, 4096, 'Projekt') } : {}),
+    ...(value.sharedWorkspace === true ? { sharedWorkspace: true } : {}), agents, updatedAt: Date.now(),
     ...(value.automation === undefined ? {} : { automation: validateAutomationShape(value.automation) }),
   };
   teamOrder(team);

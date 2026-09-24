@@ -1,11 +1,12 @@
 import { realpathSync } from 'node:fs';
-import { resolve, relative, isAbsolute, sep } from 'node:path';
+import { resolve, isAbsolute } from 'node:path';
+import { isInside } from '../../vscode/src/util/paths.js';
 
 export function allowedResource(path: string, roots: string[]): boolean {
   try {
     const candidate = realpathSync(path);
     return roots.some(root => {
-      try { const rel = relative(realpathSync(root), candidate); return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)); }
+      try { return isInside(realpathSync(root), candidate); }
       catch { return false; }
     });
   } catch { return false; }

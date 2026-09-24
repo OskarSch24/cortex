@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { accessSync, constants, mkdirSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { delimiter, isAbsolute, join } from 'node:path';
-import { ClaudeAdapter, buildChildEnv, shortId, slugify, type AccountProfile, type AdapterRegistry, type ProviderId } from '@cortex/core';
+import { ClaudeAdapter, buildChildEnv, shortId, slugify, verifyOpenRouterKey, type AccountProfile, type AdapterRegistry, type ProviderId } from '@cortex/core';
 import { vendorLogin, verifiedIdentity } from './oauthProcess.js';
 import type { AccountStore } from '../storage/accountStore.js';
+import { profilesRoot } from '../paths.js';
 
 export interface ConnectOptions {
   provider?: ProviderId;
@@ -41,13 +41,28 @@ export async function addAccountWizard(accounts: AccountStore, adapters: Adapter
   let provider = options.provider;
   if (!provider) {
     const choice = await vscode.window.showQuickPick(
-      adapters.all().filter(a => PROVIDERS.includes(a.id)).map(a => ({ label: a.displayName, id: a.id })),
+      adapters.all().filter(a => PROVIDERS.includes(a.id) || a.id === 'openrouter').map(a => ({ label: a.displayName, description: a.id === 'openrouter' ? 'mit API-Schlüssel' : undefined, id: a.id })),
       { title: 'KI-Abo verbinden', placeHolder: 'Anbieter wählen' },
     );
     if (!choice) return;
     provider = choice.id;
   }
   const progress = options.onProgress ?? (() => {});
+  if (provider === 'openrouter') {
+    // Only the command palette lands here; the settings page sends the key itself.
+    const key = await vscode.window.showInputBox({ title: 'OpenRouter: API-Schlüssel', prompt: 'Den Schlüssel findest du unter openrouter.ai/keys. Er wird im Schlüsselbund des Systems gespeichert.', password: true, ignoreFocusOut: true, placeHolder: 'sk-or-v1-…' });
+    if (!key) return;
+    await addOpenRouterAccount(accounts, {
+      key,
+      label: options.label,
+      accountId: options.accountId,
+      onProgress: options.onProgress ?? ((state, message) => {
+        if (state === 'error') void vscode.window.showErrorMessage(message);
+        else if (state === 'connected') void vscode.window.showInformationMessage(message);
+      }),
+    });
+    return;
+  }
   if (!PROVIDERS.includes(provider)) return;
   if (pending.has(provider)) {
     progress('connecting', 'Eine Anmeldung für diesen Anbieter ist bereits geöffnet.');
@@ -66,7 +81,7 @@ export async function addAccountWizard(accounts: AccountStore, adapters: Adapter
   const id = existing?.id ?? `${provider}-${shortId()}`;
   // A reconnect authenticates into a fresh directory and replaces only the same account after success.
   // Failed/cancelled login never changes the existing profile or its session.
-  const profileDir = join(homedir(), '.cortex', 'profiles', `${id}-${shortId()}`);
+  const profileDir = join(profilesRoot(), `${id}-${shortId()}`);
   mkdirSync(profileDir, { recursive: true, mode: 0o700 });
   const flow = provider === 'claude' ? (adapter as ClaudeAdapter).managedLoginFlow(profileDir) : adapter.loginFlow(profileDir);
   const [command, ...args] = flow.terminalCommand;
@@ -115,4 +130,50 @@ export async function addAccountWizard(accounts: AccountStore, adapters: Adapter
     clearTimeout(timeout);
     pending.delete(provider);
   }
+}
+
+/**
+ * OpenRouter has no login, only an API key. The key is checked against
+ * OpenRouter first and only then written to the system keychain (VS Code
+ * SecretStorage) — never to settings, never to disk in the clear.
+ */
+export async function addOpenRouterAccount(
+  accounts: AccountStore,
+  options: { key: string; label?: string; accountId?: string; onProgress?: ConnectOptions['onProgress'] },
+): Promise<boolean> {
+  const progress = options.onProgress ?? (() => {});
+  const key = options.key.trim();
+  if (!/^sk-or-/.test(key)) {
+    progress('error', 'Das sieht nicht nach einem OpenRouter-Schlüssel aus — er beginnt mit „sk-or-“.');
+    return false;
+  }
+  const existing = options.accountId ? accounts.all().find(a => a.id === options.accountId && a.provider === 'openrouter') : undefined;
+  if (options.accountId && !existing) return false;
+  progress('connecting', 'Schlüssel wird bei OpenRouter geprüft …');
+  let info: Awaited<ReturnType<typeof verifyOpenRouterKey>>;
+  try {
+    info = await verifyOpenRouterKey(key, undefined, AbortSignal.timeout(15_000));
+  } catch (e) {
+    progress('error', (e as Error).name === 'TimeoutError' ? 'OpenRouter antwortet nicht. Prüfe die Internetverbindung.' : (e as Error).message);
+    return false;
+  }
+  const label = availableLabel(accounts.all(), 'openrouter', existing?.label ?? options.label, existing?.id);
+  const id = existing?.id ?? `openrouter-${shortId()}`;
+  await accounts.setSecret(id, key);
+  const profile: AccountProfile = {
+    ...existing,
+    id,
+    provider: 'openrouter',
+    label,
+    authMode: 'api-key',
+    hasSecret: true,
+    disabled: false,
+    identity: info.label,
+    verifiedAt: Date.now(),
+    priority: existing?.priority ?? accounts.all().length + 1,
+  };
+  await accounts.upsert(profile);
+  const credit = info.limit !== undefined ? ` · Limit ${info.limit.toFixed(2)} $` : info.freeTier ? ' · nur Gratis-Modelle' : '';
+  progress('connected', `OpenRouter-Schlüssel ${info.label} ist als „${label}“ verbunden${credit}.`, { identity: info.label });
+  return true;
 }

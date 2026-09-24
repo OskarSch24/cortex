@@ -100,7 +100,7 @@ with headless_browser() as browser:
 
     # #78: real container widths, with similarly named long containers.
     page, errors = open_page(browser)
-    server = page.get_by_role('region', name='Server demo-hetzner')
+    server = page.get_by_role('region', name='Server nordwind-hetzner')
     server.locator('.cx-w-container .cx-w-mono').evaluate_all('es => es.forEach((e,i) => e.textContent = "production-background-processing-container-" + i)')
     for width in [320, 399]:
         server.evaluate('(e,w) => { const p=e.closest(".md"); p.style.width=w+"px"; p.style.maxWidth="none"; }', width)
@@ -114,7 +114,7 @@ with headless_browser() as browser:
         page, errors = open_page(browser, width=width)
         expect(page.locator('section.cx-w')).to_have_count(len(SAMPLES))
         assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), width
-        page.get_by_role('region', name='Server demo-hetzner').screenshot(path=str(SHOTS / f'server-{width}.png'))
+        page.get_by_role('region', name='Server nordwind-hetzner').screenshot(path=str(SHOTS / f'server-{width}.png'))
         assert errors == [], errors
 
 print(f'Widgets UI: {len(SAMPLES)} Widgets gezeichnet, Timer, To-do, Umrechner, Quiz, Aktionen, Fehlerfall, Platzhalter und drei Breiten bestanden.')

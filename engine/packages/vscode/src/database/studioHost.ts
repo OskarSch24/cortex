@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { databaseStudioRoot } from './studioRoot.js';
 
 /**
  * Cortex's end of Database Studio.
@@ -18,7 +19,7 @@ import { pathToFileURL } from 'node:url';
  * and Database Studio can then be updated without rebuilding Cortex.
  */
 
-export interface StudioSessionInfo {
+interface StudioSessionInfo {
   id: string;
   path: string;
   name: string;
@@ -42,9 +43,6 @@ interface StudioHostHandle {
   stop(): Promise<void>;
 }
 
-/** Where Database Studio lives when nothing says otherwise. */
-const DEFAULT_ROOT = join(homedir(), 'dev', 'Database System');
-
 export class StudioUnavailableError extends Error {}
 
 /**
@@ -54,7 +52,7 @@ export class StudioUnavailableError extends Error {}
  * time is the cheaper place to find a missing one — the runtime check only
  * fires once someone opens a database.
  */
-export interface StudioDelegate {
+interface StudioDelegate {
   pickSource(): Promise<string | null>;
   chooseSaveTarget(suggestedName: string): Promise<string | null>;
   chooseFolder(message: string): Promise<string | null>;
@@ -100,11 +98,7 @@ export class StudioHost implements vscode.Disposable {
 
   /** The folder holding `database-studio/` and `cortex-bridge/`. */
   private root(): string {
-    const configured = vscode.workspace
-      .getConfiguration('cortex')
-      .get<string>('databaseStudio.path', '')
-      .trim();
-    return configured || DEFAULT_ROOT;
+    return databaseStudioRoot();
   }
 
   /**
@@ -288,7 +282,7 @@ export class StudioHost implements vscode.Disposable {
 }
 
 /** The extensions Database Studio can open, for the file dialog. */
-export const SOURCE_FILTERS = [
+const SOURCE_FILTERS = [
   'graph', 'amqrun', 'json', 'jsonl', 'ndjson', 'csv', 'tsv',
   'xlsx', 'xlsm', 'sqlite', 'sqlite2', 'sqlite3', 'db', 'db3',
   'rdb', 'aof',

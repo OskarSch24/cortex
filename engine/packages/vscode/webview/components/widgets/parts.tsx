@@ -6,7 +6,7 @@
  */
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
-import type { Tone, WidgetAction } from './spec.js';
+import { displayNumber, type Tone, type WidgetAction } from './spec.js';
 
 export const TONE: Record<Tone, string> = {
   pos: '#88b99b', neg: '#e36a6a', warn: '#d8b36a', info: '#6aa8ff', violet: '#9d8fd9', mute: '#999a9d',
@@ -242,10 +242,7 @@ export function str(v: unknown): string {
 
 /** Anzeigewert: Zahlen deutsch (ganze unter 10.000 ohne Punkt), Text wie er ist. */
 export function fmt(v: unknown): string {
-  if (typeof v === 'number' && Number.isFinite(v)) {
-    return Number.isInteger(v) && Math.abs(v) < 10_000 ? String(v) : v.toLocaleString('de-DE', { maximumFractionDigits: 2 });
-  }
-  return str(v);
+  return typeof v === 'number' && Number.isFinite(v) ? displayNumber(v) : str(v);
 }
 
 export function toneOf(v: unknown, fallback: Tone = 'mute'): Tone {

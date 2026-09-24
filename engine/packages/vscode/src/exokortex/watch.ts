@@ -6,7 +6,7 @@
  * ist wesentlich — dieser Wächter läuft **nicht** die ganze Sitzung, sondern
  * nur, solange die Seite offen ist. Wer sie nie aufschlägt, zahlt nichts.
  */
-export interface WatchOptions {
+interface WatchOptions {
   /** Wie oft nachgesehen wird, in Minuten. */
   intervallMinuten: number;
   /** Einen Durchgang machen. Darf nie werfen — ein Fehler wird eine Kachel. */

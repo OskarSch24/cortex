@@ -19,12 +19,12 @@ import {
 const APPROVED_COMMANDS_KEY = 'cortex.approvedWorkspaceCommands';
 
 /** The slice of `vscode.Memento` this needs; keeps the class testable. */
-export interface ApprovalStore {
+interface ApprovalStore {
   get<T>(key: string): T | undefined;
   update(key: string, value: unknown): Thenable<void>;
 }
 
-export interface RulesState {
+interface RulesState {
   rules: RulesFile;
   path: string;
   exists: boolean;

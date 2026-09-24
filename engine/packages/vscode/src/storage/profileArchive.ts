@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, renameSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
+import { profilesArchiveRoot, profilesRoot } from '../paths.js';
 
 /**
  * Profilordner ohne Konto — aus entfernten Konten, abgebrochenen Anmeldungen oder
@@ -9,8 +9,8 @@ import { basename, join } from 'node:path';
  * darin bleiben so wiederherstellbar, aber `profiles/` zeigt nur, was Cortex
  * wirklich benutzt (beobachtet am 13.09.2026: drei Gemini- und zwei Grok-Reste).
  */
-export const PROFILES_ROOT = join(homedir(), '.cortex', 'profiles');
-export const ARCHIVE_ROOT = join(homedir(), '.cortex', 'profiles-archiv');
+const PROFILES_ROOT = profilesRoot();
+const ARCHIVE_ROOT = profilesArchiveRoot();
 
 /** Ein frisch angelegter Ordner kann zu einer laufenden Anmeldung gehören. */
 const GRACE_MS = 24 * 60 * 60 * 1000;

@@ -28,8 +28,14 @@ function startShell(host: DesktopBridge): void {
     return new URL(`./${name}.worker.js`, source).href;
   } };
   document.body.classList.add('cortex-desktop-shell');
+  // Code und Terminal: JetBrains Mono aus media/fonts. MONO_LOADED ist derselbe
+  // Satz in anderer Schreibweise — damit erzwingt man bei xterm ein Neumessen.
+  const MONO = "'JetBrains Mono', 'SF Mono', Menlo, monospace";
+  const MONO_LOADED = "'JetBrains Mono', Menlo, monospace";
 
   const icons: Record<string, string> = {
+    // Ein Tab, den ein Agent geöffnet hat: Globus mit Funken.
+    agent: '<path d="M20.5 11.5A8.5 8.5 0 1 1 12.5 3.5"/><path d="M3.5 12h11M12 3.6c-2.3 2.3-3.2 5.1-3.2 8.4s.9 6.1 3.2 8.4c1.6-1.6 2.5-3.5 2.9-5.6"/><path d="M18 2.5l.7 1.8 1.8.7-1.8.7L18 7.5l-.7-1.8-1.8-.7 1.8-.7Z"/>',
     globe: '<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',
     folder: '<path d="M3 19V6.4a1 1 0 0 1 1-1h4.5l2 2H20a1 1 0 0 1 1 1V19Z"/>',
     terminal: '<path d="m4 5 6 6-6 6m9 1h7"/>',
@@ -80,7 +86,14 @@ function startShell(host: DesktopBridge): void {
 
   const side = el('section', 'cxd-side'); side.setAttribute('aria-label', 'Arbeitsbereich');
   const sideResize = el('div', 'cxd-resize cxd-side-resize');
+  // Eine Kopfzeile für die ganze rechte Seite: Tabs (Browser und Dateien), ein
+  // Plus für einen neuen Browser-Tab und rechts die Werkzeug-Icons. Ist die
+  // Seite zu, schweben die Icons wieder allein oben rechts.
+  const sideHead = el('div', 'cxd-side-head');
   const sideTabs = el('div', 'cxd-tabs cxd-side-tabs'); sideTabs.setAttribute('role', 'tablist'); sideTabs.setAttribute('aria-label', 'Geöffnete Arbeitsbereiche');
+  const newTabButton = button('Neuer Browser-Tab (⌘T)', 'plus', () => send({ type: 'browser-new-tab' }), 'cxd-new-tab');
+  const toolSlot = el('div', 'cxd-tool-slot');
+  sideHead.append(sideTabs, newTabButton, toolSlot);
   const browserPanel = el('div', 'cxd-browser');
   const browserControls = el('form', 'cxd-browser-controls'); browserControls.setAttribute('aria-label', 'Browser-Navigation');
   const back = button('Im Browser zurück', 'back', () => send({ type: 'browser-back' }));
@@ -104,7 +117,7 @@ function startShell(host: DesktopBridge): void {
   const editorSurface = el('div', 'cxd-editor-surface');
   const diffSurface = el('div', 'cxd-editor-surface'); diffSurface.hidden = true;
   editorPanel.append(editorHeader, editorSurface, diffSurface);
-  side.append(sideResize, sideTabs, browserPanel, editorPanel);
+  side.append(sideResize, sideHead, browserPanel, editorPanel);
 
   const terminalPanel = el('section', 'cxd-terminal'); terminalPanel.setAttribute('aria-label', 'Terminal');
   const terminalResize = el('div', 'cxd-resize cxd-terminal-resize');
@@ -129,7 +142,13 @@ function startShell(host: DesktopBridge): void {
   let terminalOpenedOnCurrentPage = false;
   let activeTerminal = '';
   let activePanel = '';
-  let browser = { visible: false, url: '', title: 'Browser', canBack: false, canForward: false, loading: false, error: '' };
+  interface BrowserTabInfo { id: string; title: string; url: string; loading?: boolean; agent?: boolean }
+  let browser: { visible: boolean; url: string; title: string; canBack: boolean; canForward: boolean; loading: boolean; error: string; tabs: BrowserTabInfo[]; active: string } = { visible: false, url: '', title: 'Browser', canBack: false, canForward: false, loading: false, error: '', tabs: [], active: '' };
+  // Ein Browser-Tab steht als „browser:<id>“ in der Tableiste; ältere Hosts
+  // melden nur einen Browser ohne Tabliste, der heißt dann schlicht „browser“.
+  const browserPanelId = (id: string) => id ? `browser:${id}` : 'browser';
+  const isBrowserPanel = (id: string) => id === 'browser' || id.startsWith('browser:');
+  const browserTabs = (): BrowserTabInfo[] => browser.tabs.length ? browser.tabs : browser.visible ? [{ id: '', title: browser.title || 'Browser', url: browser.url }] : [];
   let menu: HTMLElement | undefined;
   let prompt: HTMLElement | undefined;
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -139,7 +158,7 @@ function startShell(host: DesktopBridge): void {
   let diffEditor: monaco.editor.IStandaloneDiffEditor | undefined;
   let changingModel = false;
   interface FileEntry { id: string; path: string; model: monaco.editor.ITextModel; original?: monaco.editor.ITextModel; saved: string; readonly: boolean; view?: monaco.editor.ICodeEditorViewState | null; timer?: ReturnType<typeof setTimeout>; autoSave?: ReturnType<typeof setTimeout>; saving?: boolean; savingText?: string }
-  interface TermEntry { id: string; name: string; cwd?: string; term: Terminal; fit: FitAddon; host: HTMLElement; exited?: boolean }
+  interface TermEntry { id: string; name: string; cwd?: string; term: Terminal; fit: FitAddon; host: HTMLElement; exited?: boolean; measured?: boolean }
   const files = new Map<string, FileEntry>();
   const diagnostics = new Map<string, Record<string, any[]>>();
   const terminals = new Map<string, TermEntry>();
@@ -159,20 +178,22 @@ function startShell(host: DesktopBridge): void {
     if (previous && editor && !previous.original) previous.view = editor.saveViewState();
     activePanel = id;
     if (files.has(id)) { send({ type: 'editor-active', id }); renderEditor(); }
+    if (id.startsWith('browser:')) send({ type: 'browser-select-tab', id: id.slice(8) });
     renderSideTabs(); layout();
   }
   function renderSideTabs(): void {
     sideTabs.replaceChildren();
-    const tab = (id: string, label: string, title: string, close: () => void, dirty = false) => {
+    const tab = (id: string, label: string, title: string, close: () => void, dirty = false, kind = 'file') => {
       const wrapper = el('div', `cxd-tab-wrap${activePanel === id ? ' selected' : ''}`);
-      const item = el('button', 'cxd-tab', label); item.type = 'button'; item.title = title;
+      const item = el('button', 'cxd-tab'); item.type = 'button'; item.title = title;
+      item.append(icon(kind === 'agent' ? 'agent' : kind === 'browser' ? 'globe' : 'file'), el('span', 'cxd-tab-label', label));
       item.setAttribute('role', 'tab'); item.setAttribute('aria-selected', String(activePanel === id));
       item.addEventListener('click', () => setActivePanel(id));
       if (dirty) { const mark = el('span', 'cxd-dirty', '•'); mark.setAttribute('aria-label', 'Ungespeicherte Änderungen'); item.append(mark); }
       const closeButton = button(`${label} schließen`, 'close', close, 'cxd-tab-close');
       wrapper.append(item, closeButton); sideTabs.append(wrapper);
     };
-    if (browser.visible) tab('browser', browser.title || 'Browser', browser.url || 'Browser', () => send({ type: 'browser-close' }));
+    if (browser.visible) for (const entry of browserTabs()) tab(browserPanelId(entry.id), entry.title || 'Neuer Tab', entry.agent ? `Vom Agenten geöffnet · ${entry.url}` : entry.url || 'Browser', () => send(entry.id ? { type: 'browser-close-tab', id: entry.id } : { type: 'browser-close' }), false, entry.agent ? 'agent' : 'browser');
     for (const file of files.values()) tab(file.id, file.path.split('/').pop() || file.path || 'Unbenannt', file.path, () => send({ type: 'editor-close', id: file.id }), fileDirty(file));
   }
   function renderTerminalTabs(): void {
@@ -199,7 +220,11 @@ function startShell(host: DesktopBridge): void {
     const main = document.querySelector('.cx-main');
     document.documentElement.style.setProperty('--cxd-terminal-left', main ? `${Math.max(0, Math.round(main.getBoundingClientRect().left))}px` : '0px');
     side.hidden = !rightVisible; terminalPanel.hidden = !termVisible; toolbar.hidden = !isChat();
-    browserPanel.hidden = activePanel !== 'browser'; editorPanel.hidden = !files.has(activePanel);
+    // Offen gehören die Werkzeug-Icons zur Kopfzeile der rechten Seite.
+    if (rightVisible && toolbar.parentElement !== toolSlot) toolSlot.append(toolbar);
+    if (!rightVisible && toolbar.parentElement !== document.body) document.body.append(toolbar);
+    document.body.classList.toggle('cxd-side-open', rightVisible);
+    browserPanel.hidden = !isBrowserPanel(activePanel); editorPanel.hidden = !files.has(activePanel);
     browserButton.classList.toggle('selected', browser.visible); browserButton.setAttribute('aria-pressed', String(browser.visible));
     filesButton.classList.toggle('selected', !!context['cortex.filesOpen']); filesButton.setAttribute('aria-pressed', String(!!context['cortex.filesOpen']));
     terminalButton.classList.toggle('selected', terminalVisible); terminalButton.setAttribute('aria-pressed', String(terminalVisible));
@@ -208,10 +233,17 @@ function startShell(host: DesktopBridge): void {
       if (rightVisible && files.has(activePanel)) { editor?.layout(); diffEditor?.layout(); }
       if (termVisible) {
         const entry = terminals.get(activeTerminal);
-        if (entry) { entry.fit.fit(); send({ type: 'terminal-resize', id: entry.id, cols: entry.term.cols, rows: entry.term.rows }); }
+        if (entry) {
+          // xterm misst die Zeichenbreite beim Öffnen; war das Terminal da noch
+          // verborgen oder die Schrift nicht geladen, stimmt sie nicht. Beim
+          // ersten sichtbaren Layout wird neu gemessen — xterm tut das nur,
+          // wenn sich der Wert ändert, daher der gleichwertige Wechselwert.
+          if (!entry.measured && entry.host.offsetWidth > 0) { entry.measured = true; entry.term.options.fontFamily = entry.term.options.fontFamily === MONO ? MONO_LOADED : MONO; }
+          entry.fit.fit(); send({ type: 'terminal-resize', id: entry.id, cols: entry.term.cols, rows: entry.term.rows });
+        }
       }
       const rect = browserContent.getBoundingClientRect();
-      const value = { type: 'browser-bounds', x: Math.round(rect.x), y: Math.round(rect.y), width: Math.max(0, Math.round(rect.width)), height: Math.max(0, Math.round(rect.height)), visible: !!(rightVisible && activePanel === 'browser' && !prompt && !menu) };
+      const value = { type: 'browser-bounds', x: Math.round(rect.x), y: Math.round(rect.y), width: Math.max(0, Math.round(rect.width)), height: Math.max(0, Math.round(rect.height)), visible: !!(rightVisible && isBrowserPanel(activePanel) && !prompt && !menu) };
       const encoded = JSON.stringify(value);
       if (encoded !== lastBrowserBounds) { lastBrowserBounds = encoded; send(value); }
     });
@@ -235,8 +267,13 @@ function startShell(host: DesktopBridge): void {
   }
   resizeHandle(sideResize, 'horizontal'); resizeHandle(terminalResize, 'vertical');
   window.addEventListener('resize', layout);
-  new ResizeObserver(layout).observe(browserContent);
-  const mainResize = new ResizeObserver(layout);
+  // Das Layout setzt selbst Größen (Terminal, Seitenbereich). Im Rückruf des
+  // ResizeObserver direkt ausgeführt, meldet Chromium eine Beobachterschleife;
+  // im nächsten Frame nicht.
+  let observedFrame = 0;
+  const layoutSoon = () => { cancelAnimationFrame(observedFrame); observedFrame = requestAnimationFrame(layout); };
+  new ResizeObserver(layoutSoon).observe(browserContent);
+  const mainResize = new ResizeObserver(layoutSoon);
   let observedMain: Element | null = null;
   const followMain = () => {
     const main = document.querySelector('.cx-main');
@@ -244,7 +281,9 @@ function startShell(host: DesktopBridge): void {
     if (observedMain) mainResize.unobserve(observedMain);
     observedMain = main; if (main) mainResize.observe(main); layout();
   };
-  new MutationObserver(followMain).observe(document.getElementById('root')!, { childList: true, subtree: true });
+  // Geht das Dock der Oberfläche auf oder zu, rücken die Werkzeug-Icons in seine Tableiste.
+  const followDock = () => document.body.classList.toggle('cxd-dock-open', !!document.querySelector('.cx-dock:not(.leave)'));
+  new MutationObserver(() => { followMain(); followDock(); }).observe(document.getElementById('root')!, { childList: true, subtree: true });
   followMain();
 
   function closeMenu(): void { menu?.remove(); menu = undefined; menuButton.setAttribute('aria-expanded', 'false'); layout(); }
@@ -252,7 +291,7 @@ function startShell(host: DesktopBridge): void {
     if (menu) { closeMenu(); return; }
     menu = el('div', 'cxd-menu'); menu.setAttribute('role', 'menu'); menu.setAttribute('aria-label', 'Chat-Aktionen');
     const items = [
-      ['Dateien', 'cortex.showFiles'], ['Änderungen', 'cortex.showChanges'], ['Transkript-Ansicht', 'cortex.showTranscript'], ['Excalidraw', 'cortex.showCanvas'],
+      ['Übersicht', 'cortex.showOverview'], ['Dateien', 'cortex.showFiles'], ['Änderungen', 'cortex.showChanges'], ['Transkript-Ansicht', 'cortex.showTranscript'], ['Excalidraw', 'cortex.showCanvas'], ['Video (Remotion)', 'cortex.showVideo'],
       ['Chat kopieren', 'cortex.copyChat'], ['Chat exportieren …', 'cortex.exportChat'], ['', ''],
       ['Umbenennen', 'cortex.renameChat'], ['Ausgabestil', 'cortex.outputStyle'], ['Fork', 'cortex.forkChat'], ['', ''],
       ['Computer wach halten', 'cortex.keepAwake'], ['', ''], ['Archivieren', 'cortex.archiveChat'], ['Löschen', 'cortex.deleteChat'],
@@ -268,15 +307,25 @@ function startShell(host: DesktopBridge): void {
       if (event.key === 'Escape') { event.preventDefault(); closeMenu(); menuButton.focus(); }
       if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) { event.preventDefault(); options[event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (at + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length]?.focus(); }
     });
-    document.body.append(menu); menuButton.setAttribute('aria-expanded', 'true'); menu.querySelector('button')?.focus(); layout();
+    document.body.append(menu); menuButton.setAttribute('aria-expanded', 'true');
+    menu.style.top = `${Math.round(menuButton.getBoundingClientRect().bottom + 6)}px`;
+    menu.querySelector('button')?.focus(); layout();
   }
   document.addEventListener('pointerdown', event => { if (menu && !menu.contains(event.target as Node) && !menuButton.contains(event.target as Node)) closeMenu(); });
 
+  // Code und Terminal in der Cortex-Schrift. Sie liegt als Datei neben der
+  // Oberfläche und ist beim ersten Zeichnen womöglich noch nicht geladen —
+  // dann messen Monaco und xterm die Zeichenbreite neu, sobald sie da ist.
+  void document.fonts?.load("13px 'JetBrains Mono'").then(() => {
+    monaco.editor.remeasureFonts();
+    for (const entry of terminals.values()) entry.measured = false;
+    layout();
+  }, () => undefined);
   function editorOptions(): monaco.editor.IStandaloneEditorConstructionOptions {
     const lineNumbers = config['editor.lineNumbers']; const wrap = config['editor.wordWrap'];
     return {
       theme: document.documentElement.dataset.theme === 'light' ? 'vs' : 'cortex-dark',
-      fontSize: Number(config['editor.fontSize']) || 14, fontFamily: String(config['editor.fontFamily'] || "'SF Mono', Menlo, monospace"),
+      fontSize: Number(config['editor.fontSize']) || 14, fontFamily: String(config['editor.fontFamily'] || MONO),
       tabSize: Number(config['editor.tabSize']) || 4, insertSpaces: config['editor.insertSpaces'] !== false,
       wordWrap: ['off', 'on', 'wordWrapColumn', 'bounded'].includes(String(wrap)) ? wrap as any : 'off',
       lineNumbers: ['off', 'on', 'relative', 'interval'].includes(String(lineNumbers)) ? lineNumbers as any : 'on',
@@ -287,8 +336,9 @@ function startShell(host: DesktopBridge): void {
     };
   }
   monaco.editor.defineTheme('cortex-dark', { base: 'vs-dark', inherit: true, rules: [], colors: {
-    'editor.background': '#181818', 'editor.foreground': '#ededee', 'editor.lineHighlightBackground': '#ffffff06',
-    'editorLineNumber.foreground': '#707277', 'editor.selectionBackground': '#ffffff25', 'editorWidget.background': '#272727',
+    'editor.background': '#111316', 'editor.foreground': '#ecedef', 'editor.lineHighlightBackground': '#ffffff06',
+    'editorLineNumber.foreground': '#5e646c', 'editorLineNumber.activeForeground': '#9a9fa8', 'editor.selectionBackground': '#ffffff25', 'editorWidget.background': '#1d2024',
+    'editorGutter.background': '#111316', 'minimap.background': '#111316', 'scrollbarSlider.background': '#ffffff12',
   } });
   function ensureEditor(): void {
     if (editor) return;
@@ -382,7 +432,7 @@ function startShell(host: DesktopBridge): void {
     clearTimeout(file.timer); clearTimeout(file.autoSave);
     if (activePanel === id) { editor?.setModel(null); diffEditor?.setModel(null); }
     file.model.dispose(); file.original?.dispose(); files.delete(id);
-    if (activePanel === id) activePanel = [...files.keys()].at(-1) || (browser.visible ? 'browser' : '');
+    if (activePanel === id) activePanel = [...files.keys()].at(-1) || (browser.visible ? browserPanelId(browser.active) : '');
     if (files.has(activePanel)) { renderEditor(); send({ type: 'editor-active', id: activePanel }); }
     renderSideTabs(); layout();
   }
@@ -391,7 +441,7 @@ function startShell(host: DesktopBridge): void {
     const id = String(message.id); let entry = terminals.get(id);
     if (!entry) {
       const container = el('div', 'cxd-terminal-session'); terminalsHost.append(container);
-      const term = new Terminal({ cursorBlink: true, fontFamily: "'SF Mono', Menlo, monospace", fontSize: Number(config['terminal.integrated.fontSize']) || 13, cursorStyle: terminalCursor(), scrollback: Number(config['terminal.integrated.scrollback'] ?? 10000), theme: { background: '#181818', foreground: '#ededee', cursor: '#ededee', selectionBackground: '#ffffff30' }, allowProposedApi: false });
+      const term = new Terminal({ cursorBlink: true, fontFamily: MONO, fontSize: Number(config['terminal.integrated.fontSize']) || 13, cursorStyle: terminalCursor(), scrollback: Number(config['terminal.integrated.scrollback'] ?? 10000), theme: { background: '#111316', foreground: '#ecedef', cursor: '#ecedef', selectionBackground: '#ffffff30' }, allowProposedApi: false });
       const fit = new FitAddon(); term.loadAddon(fit); term.open(container);
       entry = { id, name: String(message.name || 'Terminal'), cwd: message.cwd, term, fit, host: container }; terminals.set(id, entry);
       term.onData(data => send({ type: 'terminal-input', id, data }));
@@ -493,12 +543,15 @@ function startShell(host: DesktopBridge): void {
       case 'diagnostics': diagnostics.set(String(message.name || 'cortex'), message.entries ?? {}); applyDiagnostics(); break;
       case 'window-state': document.documentElement.classList.toggle('cxd-fullscreen', !!message.fullscreen); break;
       case 'browser-state': {
-        const wasVisible = browser.visible; browser = { ...browser, ...message };
+        const wasVisible = browser.visible; const wasActive = browser.active; browser = { ...browser, ...message, tabs: Array.isArray(message.tabs) ? message.tabs : [], active: String(message.active ?? '') };
         // Opening/loading can recreate or temporarily hide the native view.
         // Re-send the current bounds even if their geometry did not change.
         lastBrowserBounds = '';
-        if (browser.visible && (!wasVisible || message.activate)) { activePanel = 'browser'; sideOpenedOnCurrentPage = true; }
-        if (!browser.visible && activePanel === 'browser') activePanel = [...files.keys()].at(-1) || '';
+        if (browser.visible && (!wasVisible || message.activate)) { activePanel = browserPanelId(browser.active); sideOpenedOnCurrentPage = true; }
+        else if (isBrowserPanel(activePanel) && browser.active !== wasActive) activePanel = browserPanelId(browser.active);
+        if (!browser.visible && isBrowserPanel(activePanel)) activePanel = [...files.keys()].at(-1) || '';
+        // Ein neuer, leerer Tab wartet auf eine Adresse.
+        if (message.activate && browser.url === 'about:blank') requestAnimationFrame(() => address.focus());
         if (document.activeElement !== address) address.value = browser.url === 'about:blank' ? '' : browser.url;
         back.disabled = !browser.canBack; forward.disabled = !browser.canForward;
         browserNotice.textContent = browser.error || (browser.loading ? 'Seite wird geladen …' : 'Öffne eine Adresse, um die Seite hier anzuzeigen.');

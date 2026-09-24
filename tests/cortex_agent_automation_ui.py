@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 from playwright.sync_api import expect
 from headless_browser import headless_browser
+from cortex_agents_nav import to_overview
 from cortex_control_styles import assert_controls_styled
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +34,7 @@ with headless_browser(port=PORT) as browser:
     overview()
     expect(page.get_by_text('Deine nächste Aktion, automatisch', exact=True)).to_be_visible()
     page.get_by_role('button', name='Agenten und Teams öffnen', exact=True).click()
+    to_overview(page)
     page.get_by_role('button', name='Agent erstellen', exact=True).click()
     page.get_by_role('button', name=re.compile('^Ohne Vorlage')).click()
     page.get_by_label('Agentenname', exact=True).fill('Morgenbriefing')
@@ -76,6 +78,7 @@ with headless_browser(port=PORT) as browser:
     page.reload()
     page.wait_for_load_state('networkidle')
     page.locator('#harness').evaluate('(element) => element.remove()')
+    to_overview(page)
     page.get_by_role('region', name='Agenten', exact=True).get_by_role('button').click()
     expect(automation.get_by_role('switch', name='Zeitplan aktivieren')).to_be_checked()
     expect(automation.get_by_role('switch', name='Webhook aktivieren')).to_be_checked()
@@ -109,6 +112,7 @@ with headless_browser(port=PORT) as browser:
     expect(automation.locator('.cx-automation-state')).to_have_text('Pausiert')
 
     # Team automation invokes the saved common task for all its roles.
+    to_overview(page)
     page.get_by_role('button', name='Team erstellen', exact=True).click()
     page.get_by_label('Teamname', exact=True).fill('Quellenrunde')
     page.get_by_role('button', name='Agent hinzufügen', exact=True).click()

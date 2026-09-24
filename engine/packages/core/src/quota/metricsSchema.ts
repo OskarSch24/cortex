@@ -81,11 +81,6 @@ export interface TaskMetric {
   reviewedBy?: string;
 }
 
-export interface MetricsFile {
-  metrics: TaskMetric[];
-  version: 1;
-}
-
 function groupBy(metrics: TaskMetric[], key: (m: TaskMetric) => string): Record<string, TaskMetric[]> {
   const grouped: Record<string, TaskMetric[]> = {};
   for (const m of metrics) {
@@ -98,16 +93,7 @@ function groupBy(metrics: TaskMetric[], key: (m: TaskMetric) => string): Record<
 export const groupMetricsByAccount = (metrics: TaskMetric[]) =>
   groupBy(metrics, (m) => `${m.provider}:${m.account}`);
 
-export const groupMetricsByModel = (metrics: TaskMetric[]) =>
-  groupBy(metrics, (m) => m.model ?? `${m.provider} default`);
-
-export const groupMetricsByRule = (metrics: TaskMetric[]) =>
-  groupBy(metrics, (m) => m.ruleId ?? 'auto');
-
 export const groupMetricsByKind = (metrics: TaskMetric[]) => groupBy(metrics, (m) => m.kind ?? 'unknown');
-
-export const groupMetricsByDate = (metrics: TaskMetric[]) =>
-  groupBy(metrics, (m) => new Date(m.timestamp).toISOString().slice(0, 10));
 
 export interface MetricStats {
   total: number;

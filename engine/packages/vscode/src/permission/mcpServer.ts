@@ -13,57 +13,30 @@
  *
  * Bundled separately from the extension — it runs as its own process.
  */
-import { createConnection } from 'node:net';
-import { createInterface } from 'node:readline';
+import { askLoopback, runStdioMcpServer } from '../mcp/stdioServer.js';
 
 const PORT = Number(process.env.CORTEX_PERMISSION_PORT ?? 0);
 const TOKEN = process.env.CORTEX_PERMISSION_TOKEN ?? '';
 const ASK_TIMEOUT_MS = 10 * 60_000;
 
-interface JsonRpcMessage {
-  jsonrpc: '2.0';
-  id?: number | string;
-  method?: string;
-  params?: Record<string, unknown>;
-  result?: unknown;
-  error?: { code: number; message: string };
-}
-
-function send(message: JsonRpcMessage): void {
-  process.stdout.write(JSON.stringify(message) + '\n');
-}
+type Decision = { allow: boolean; message?: string };
 
 /** Asks the extension host; denies if it cannot be reached or does not answer. */
-async function askHost(payload: Record<string, unknown>): Promise<{ allow: boolean; message?: string }> {
-  if (!PORT || !TOKEN) return { allow: false, message: 'cortex is not reachable' };
-  return new Promise((resolve) => {
-    const socket = createConnection({ port: PORT, host: '127.0.0.1' });
-    const done = (value: { allow: boolean; message?: string }) => {
-      socket.destroy();
-      clearTimeout(timer);
-      resolve(value);
-    };
-    const timer = setTimeout(
-      () => done({ allow: false, message: 'timed out waiting for a decision' }),
-      ASK_TIMEOUT_MS,
-    );
-
-    socket.on('error', () => done({ allow: false, message: 'cortex is not reachable' }));
-    socket.on('connect', () => socket.write(JSON.stringify({ token: TOKEN, ...payload }) + '\n'));
-
-    let buffer = '';
-    socket.on('data', (chunk) => {
-      buffer += chunk.toString();
-      const nl = buffer.indexOf('\n');
-      if (nl < 0) return;
-      try {
-        const answer = JSON.parse(buffer.slice(0, nl)) as { allow?: boolean; message?: string };
-        done({ allow: answer.allow === true, message: answer.message });
-      } catch {
-        done({ allow: false, message: 'malformed decision' });
-      }
-    });
-    socket.on('close', () => done({ allow: false, message: 'connection closed' }));
+function askHost(payload: Record<string, unknown>): Promise<Decision> {
+  return askLoopback<Decision>({
+    port: PORT,
+    token: TOKEN,
+    payload,
+    timeoutMs: ASK_TIMEOUT_MS,
+    unreachable: { allow: false, message: 'cortex is not reachable' },
+    timedOut: { allow: false, message: 'timed out waiting for a decision' },
+    malformed: { allow: false, message: 'malformed decision' },
+    // Hanging up without an answer is a denial, not a reason to wait ten minutes.
+    closed: { allow: false, message: 'connection closed' },
+    read: (value) => {
+      const answer = value as { allow?: boolean; message?: string };
+      return { allow: answer.allow === true, message: answer.message };
+    },
   });
 }
 
@@ -82,27 +55,16 @@ const TOOL = {
   },
 };
 
-async function handle(message: JsonRpcMessage): Promise<void> {
-  const { id, method, params } = message;
-  if (method === 'initialize') {
-    send({
-      jsonrpc: '2.0',
-      id,
-      result: {
-        protocolVersion: '2024-11-05',
-        capabilities: { tools: {} },
-        serverInfo: { name: 'cortex', version: '1.0.0' },
-      },
-    });
-    return;
-  }
-  if (method === 'notifications/initialized') return;
-  if (method === 'tools/list') {
-    send({ jsonrpc: '2.0', id, result: { tools: [TOOL] } });
-    return;
-  }
-  if (method === 'tools/call') {
-    const args = (params?.arguments ?? {}) as Record<string, unknown>;
+runStdioMcpServer({
+  name: 'cortex',
+  // Fixed, not echoed back like the canvas and search servers do.
+  protocolVersion: '2024-11-05',
+  tools: [TOOL],
+  ping: false,
+  requireId: false,
+  unknownMethod: (method) => `unknown method ${method}`,
+  // Only one tool exists, so the name is not checked.
+  call: async (_name, args) => {
     const decision = await askHost({
       toolName: args.tool_name,
       input: args.input,
@@ -112,25 +74,6 @@ async function handle(message: JsonRpcMessage): Promise<void> {
     const behavior = decision.allow
       ? { behavior: 'allow', updatedInput: args.input }
       : { behavior: 'deny', message: decision.message ?? 'denied by the user' };
-    send({
-      jsonrpc: '2.0',
-      id,
-      result: { content: [{ type: 'text', text: JSON.stringify(behavior) }] },
-    });
-    return;
-  }
-  if (id !== undefined) {
-    send({ jsonrpc: '2.0', id, error: { code: -32601, message: `unknown method ${method}` } });
-  }
-}
-
-createInterface({ input: process.stdin }).on('line', (line) => {
-  if (!line.trim()) return;
-  let message: JsonRpcMessage;
-  try {
-    message = JSON.parse(line) as JsonRpcMessage;
-  } catch {
-    return;
-  }
-  void handle(message);
+    return { content: [{ type: 'text', text: JSON.stringify(behavior) }] };
+  },
 });

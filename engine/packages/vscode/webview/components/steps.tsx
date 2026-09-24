@@ -18,7 +18,7 @@ export function LiveDots() {
 }
 
 // Deliberately basic glyphs: a webview cannot rely on any icon font.
-export const ACTION_GLYPH: Record<string, string> = {
+const ACTION_GLYPH: Record<string, string> = {
   read: '◇',
   write: '✚',
   edit: '✎',
@@ -29,7 +29,7 @@ export const ACTION_GLYPH: Record<string, string> = {
   other: '·',
 };
 
-export const ACTION_LABEL: Record<string, string> = {
+const ACTION_LABEL: Record<string, string> = {
   read: 'read',
   write: 'wrote',
   edit: 'edited',
@@ -43,101 +43,6 @@ export const ACTION_LABEL: Record<string, string> = {
 export function fileName(path: string): string {
   const parts = path.split('/');
   return parts[parts.length - 1] || path;
-}
-
-export function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  const minutes = Math.floor(ms / 60_000);
-  return `${minutes}m ${Math.round((ms % 60_000) / 1000)}s`;
-}
-
-/**
- * The run clock, spelled out. A line you read while you wait should be a
- * sentence, not a stopwatch readout — `1 Min. 2 Sek.`, not `1m 2s`.
- */
-export function formatElapsed(ms: number): string {
-  const seconds = Math.max(0, Math.round(ms / 1000));
-  if (seconds < 60) return `${seconds} Sek.`;
-  const minutes = Math.floor(seconds / 60);
-  const restSeconds = seconds % 60;
-  if (minutes < 60) return restSeconds ? `${minutes} Min. ${restSeconds} Sek.` : `${minutes} Min.`;
-  const hours = Math.floor(minutes / 60);
-  const restMinutes = minutes % 60;
-  return restMinutes ? `${hours} Std. ${restMinutes} Min.` : `${hours} Std.`;
-}
-
-/**
- * What a kind of step reads as once it is over. The collapsed activity line
- * says what happened, not how many times something was called: `4 steps` tells
- * you nothing you can act on, `Hat Dateien gelesen` does.
- */
-const ACTION_SUMMARY: Record<string, string> = {
-  read: 'Dateien gelesen',
-  write: 'Dateien geschrieben',
-  edit: 'Dateien geändert',
-  search: 'Dateien durchsucht',
-  run: 'Befehle ausgeführt',
-  fetch: 'Daten geladen',
-  task: 'Unteragenten beauftragt',
-  other: 'Werkzeuge benutzt',
-};
-
-/** In the order it happened, each kind named once. */
-export function summarizeActivity(steps: ToolStep[], agents: number): string {
-  const phrases: string[] = [];
-  for (const step of steps) {
-    const phrase = ACTION_SUMMARY[step.action ?? 'other'] ?? ACTION_SUMMARY.other!;
-    if (!phrases.includes(phrase)) phrases.push(phrase);
-  }
-  if (agents > 0 && !phrases.includes(ACTION_SUMMARY.task!)) phrases.push(ACTION_SUMMARY.task!);
-  return `Hat ${phrases.join(', hat ')}`;
-}
-
-/** The disclosure on the turn header — points right closed, down open. */
-export function TurnChevron() {
-  return (
-    <svg
-      class="turn-chevron"
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m9 5 7 7-7 7" />
-    </svg>
-  );
-}
-
-/** The magnifier on the activity line: work that was looked up, not shouted. */
-export function ActivityGlyph() {
-  return (
-    <svg
-      class="activity-glyph"
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.8"
-      stroke-linecap="round"
-      aria-hidden="true"
-    >
-      <circle cx="10.5" cy="10.5" r="6.5" />
-      <path d="m16 16 4 4" />
-    </svg>
-  );
-}
-
-export function formatTokens(n: number): string {
-  if (n < 1000) return `${n}`;
-  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(1)}M`;
 }
 
 /**

@@ -10,31 +10,24 @@
  * Eigene Logik hat er nicht: er reicht an Cortex weiter (canvasBridge.ts).
  * Eigenes Paket (esbuild → dist/canvasServer.js), weil er ein eigener Prozess ist.
  */
-import { createConnection } from 'node:net';
-import { createInterface } from 'node:readline';
+import { askLoopback, runStdioMcpServer } from '../mcp/stdioServer.js';
 
 const PORT = Number(process.env.CORTEX_CANVAS_PORT ?? 0);
 const TOKEN = process.env.CORTEX_CANVAS_TOKEN ?? '';
 const TIMEOUT_MS = 90_000;
 
-interface Rpc { jsonrpc: '2.0'; id?: number | string; method?: string; params?: Record<string, unknown> }
-const send = (message: Record<string, unknown>) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\n');
+type Answer = { png?: string; text: string; error?: string };
 
-function askCortex(code?: string): Promise<{ png?: string; text: string; error?: string }> {
-  if (!PORT || !TOKEN) return Promise.resolve({ text: '', error: 'Cortex ist nicht erreichbar.' });
-  return new Promise(resolve => {
-    const socket = createConnection({ port: PORT, host: '127.0.0.1' });
-    let buffer = '';
-    const done = (v: { png?: string; text: string; error?: string }) => { clearTimeout(timer); socket.destroy(); resolve(v); };
-    const timer = setTimeout(() => done({ text: '', error: 'Cortex hat nicht rechtzeitig geantwortet.' }), TIMEOUT_MS);
-    socket.on('error', () => done({ text: '', error: 'Cortex ist nicht erreichbar.' }));
-    socket.on('connect', () => socket.write(JSON.stringify({ token: TOKEN, code }) + '\n'));
-    socket.on('data', chunk => {
-      buffer += chunk.toString();
-      const nl = buffer.indexOf('\n');
-      if (nl < 0) return;
-      try { done(JSON.parse(buffer.slice(0, nl))); } catch { done({ text: '', error: 'Antwort von Cortex unlesbar.' }); }
-    });
+function askCortex(code?: string): Promise<Answer> {
+  return askLoopback<Answer>({
+    port: PORT,
+    token: TOKEN,
+    payload: { code },
+    timeoutMs: TIMEOUT_MS,
+    unreachable: { text: '', error: 'Cortex ist nicht erreichbar.' },
+    timedOut: { text: '', error: 'Cortex hat nicht rechtzeitig geantwortet.' },
+    malformed: { text: '', error: 'Antwort von Cortex unlesbar.' },
+    read: (answer) => answer as Answer,
   });
 }
 
@@ -65,26 +58,11 @@ async function call(name: string, args: Record<string, unknown>) {
   return { content };
 }
 
-createInterface({ input: process.stdin }).on('line', async line => {
-  let msg: Rpc;
-  try { msg = JSON.parse(line); } catch { return; }
-  if (msg.id === undefined) return;
-  switch (msg.method) {
-    case 'initialize':
-      send({ id: msg.id, result: { protocolVersion: (msg.params?.protocolVersion as string) ?? '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'cortex_canvas', version: '1.0.0' } } });
-      break;
-    case 'tools/list':
-      send({ id: msg.id, result: { tools: TOOLS } });
-      break;
-    case 'tools/call': {
-      const params = msg.params ?? {};
-      send({ id: msg.id, result: await call(String(params.name), (params.arguments as Record<string, unknown>) ?? {}) });
-      break;
-    }
-    case 'ping':
-      send({ id: msg.id, result: {} });
-      break;
-    default:
-      send({ id: msg.id, error: { code: -32601, message: `Unbekannte Methode ${msg.method}` } });
-  }
+runStdioMcpServer({
+  name: 'cortex_canvas',
+  tools: TOOLS,
+  call,
+  ping: true,
+  requireId: true,
+  unknownMethod: (method) => `Unbekannte Methode ${method}`,
 });

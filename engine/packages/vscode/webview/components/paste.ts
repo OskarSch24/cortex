@@ -3,8 +3,8 @@
  * darin zu stehen. Im Feld bleibt Platz für die eigentliche Anweisung; der
  * Block geht beim Senden vollständig mit.
  */
-export const PASTE_BLOCK_LINES = 20;
-export const PASTE_BLOCK_CHARS = 1500;
+const PASTE_BLOCK_LINES = 20;
+const PASTE_BLOCK_CHARS = 1500;
 
 export function isLongPaste(text: string): boolean {
   return text.length > PASTE_BLOCK_CHARS || text.split('\n').length > PASTE_BLOCK_LINES;

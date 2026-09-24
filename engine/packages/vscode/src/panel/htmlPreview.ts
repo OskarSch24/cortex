@@ -2,10 +2,11 @@ import { createReadStream } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type OutgoingHttpHeaders, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { extname, relative, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream';
 import { projectFile } from './workspace.js';
+import { sameSecret } from '../util/secrets.js';
 
 /**
  * Die gerenderte Vorschau einer HTML-Datei im Dock.
@@ -175,12 +176,6 @@ async function handle(root: string, token: string, req: IncomingMessage, res: Se
 function refuse(res: ServerResponse, status: number): void {
   res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(status === 404 ? 'Nicht gefunden.' : status === 403 ? 'Nicht erlaubt.' : 'Ungültige Anfrage.');
-}
-
-function sameSecret(given: string, token: string): boolean {
-  const a = Buffer.from(given);
-  const b = Buffer.from(token);
-  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /** `.env`, `.git/config` und alles darunter — `.` und `..` sind nur Wegangaben. */

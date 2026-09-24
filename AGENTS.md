@@ -44,6 +44,12 @@ Bei `auf-ansage` gilt eine Freigabe für die Aufgabe, in der sie erteilt wurde �
 nicht für die nächste. Den Wert liest der Agent aus der Einstellungsdatei; im
 Zweifel gilt die Vorgabe.
 
+Recherche der Cortex-Agenten läuft **immer im eingebauten Browser** (MCP-Server
+`cortex_browser`, `desktop/src/agentBrowser.ts`): eigene Tabs im Hintergrund,
+mehrere nebeneinander, während der Nutzer in seinem eigenen Browser arbeitet.
+Außer bei `immer` laufen Playwright und Chrome DevTools deshalb headless und
+docken nie an das laufende Chrome an (`vscode/src/plugins/browserPolicy.ts`).
+
 Was der Agent öffnet, schließt er danach wieder. Bestehende Sitzungen und
 Fenster des Nutzers bleiben unangetastet — das gilt in jeder Stufe, auch bei
 `immer`.

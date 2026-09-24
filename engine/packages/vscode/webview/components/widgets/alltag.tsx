@@ -1,5 +1,6 @@
 /** Die zehn Alltags-Widgets. Entwurf: docs/design/cortex-widgets (Seite „Alltag“). */
 import { useEffect, useState } from 'preact/hooks';
+import { clockTime } from '../../format/time.js';
 import { useWidgetState } from './state.js';
 import {
   Actions, Card, Check, Dot, Foot, Head, Meter, Pill, Seg, Spark, TEXT, TONE, WIcon, list, str, toneOf,
@@ -137,7 +138,7 @@ export function Timer({ w, host }: { w: TimerW; host: WidgetHost }) {
           <span class="cx-w-h2">{w.label}</span>
           {((live && !pausedAt && !done && !stopped) || w.note) && (
             <span class="cx-w-muted cx-w-small cx-w-num">
-              {[live && !pausedAt && !done && !stopped ? `Endet um ${new Date(end).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : '', w.note ?? ''].filter(Boolean).join(' · ')}
+              {[live && !pausedAt && !done && !stopped ? `Endet um ${clockTime(end)}` : '', w.note ?? ''].filter(Boolean).join(' · ')}
             </span>
           )}
           {live && !done && !stopped && (

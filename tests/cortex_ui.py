@@ -57,7 +57,7 @@ with headless_browser() as browser:
     def shot(name):
         page.screenshot(path=str(OUT / (name + '.png')))
     visit()
-    expect(page.get_by_role('heading', name='Woran sollen wir in Studio Website arbeiten?')).to_be_visible()
+    expect(page.get_by_role('heading', name='Was steht in Studio Website an?')).to_be_visible()
     # Der Nachrichtenfilter prüft die Herkunft. Eine fremde Seite im Rahmen (wie
     # die HTML-Vorschau im Dock) darf keine Host-Nachricht vortäuschen; eine von
     # der eigenen Herkunft muss ankommen — sonst bliebe die App ohne Konten,
@@ -71,12 +71,12 @@ with headless_browser() as browser:
           document.body.appendChild(f);
         })""", [sandbox, message])
     post_from_frame('allow-scripts', {'kind': 'projects', 'projects': []})
-    expect(page.get_by_role('heading', name='Woran sollen wir in Studio Website arbeiten?')).to_be_visible()
+    expect(page.get_by_role('heading', name='Was steht in Studio Website an?')).to_be_visible()
     post_from_frame('allow-scripts allow-same-origin', {'kind': 'showPage', 'page': 'plugins'})
     expect(page.get_by_role('heading', name='Plugins', exact=True)).to_be_visible()
     visit()
-    expect(page.get_by_role('heading', name='Woran sollen wir in Studio Website arbeiten?')).to_be_visible()
-    expect(page.locator('.cx-start-cards button')).to_have_count(4)
+    expect(page.get_by_role('heading', name='Was steht in Studio Website an?')).to_be_visible()
+    expect(page.locator('.cx-start-pills button')).to_have_count(4)
     expect(page.get_by_role('complementary', name='Chat-Control-Panel')).to_have_count(0)
     expect(page.get_by_role('button', name='Control Panel', exact=True)).to_have_count(0)
     # Kopfleiste, Werkzeug-Icons und Seitenleisten-Toggle liegen seit dem
@@ -85,7 +85,7 @@ with headless_browser() as browser:
     expect(page.locator('.cx-topbar')).to_have_count(0)
     # Das Plus-Menü: jeder Eintrag muss beim Host ankommen, keiner nur gezeichnet sein.
     page.get_by_role('button', name='Hinzufügen', exact=True).click()
-    expect(page.locator('.add-popup .menu-row')).to_have_count(6)
+    expect(page.locator('.add-popup .menu-row')).to_have_count(7)  # mit „Standort (Maps)“
     # „Bild erstellen“ wechselt nur die Eingabe in den Bildmodus; das × führt zurück.
     page.get_by_role('menuitem', name='Bild erstellen').click()
     expect(page.locator('.cx-img-chip')).to_be_visible()
@@ -154,7 +154,7 @@ with headless_browser() as browser:
     assert messages('setModes')[-1]['permissionMode'] == 'full' and messages('setModes')[-1]['ask'] is False
     assert not messages('setAskPermission')
 
-    page.get_by_role('button', name='Untersuche und verstehe Code', exact=True).click()
+    page.get_by_role('button', name='Code verstehen', exact=True).click()
     expect(page.locator('.composer textarea')).to_have_value(re.compile('Analysiere dieses Projekt'))
     open_models()
     expect(page.locator('.cx-rz-group')).to_have_count(5)
@@ -203,7 +203,7 @@ with headless_browser() as browser:
     expect(dock).to_be_visible()
     expect(dock.get_by_role('button', name='App.tsx schließen')).to_be_visible()
     assert len(messages('openWorkspaceFile')) == sent, 'Projektdatei ging am Dock vorbei'
-    dock.get_by_role('button', name='Dock schließen').click()
+    dock.get_by_role('button', name='Rechte Seitenleiste ausblenden').click()
     expect(controls).to_be_visible()
     # Ältere Einträge tragen „~/…“ statt eines Projektpfads: die gehen an den
     # Host, der „~“ auflöst — nicht ungeprüft ans Dock.
@@ -236,6 +236,7 @@ with headless_browser() as browser:
     page.evaluate("window.postMessage({kind:'toolbar',action:'files'}, '*')")
     expect(controls).to_have_count(0)
     expect(page.get_by_role('complementary', name='Arbeitsbereich')).to_be_visible()
+    page.wait_for_timeout(450)  # das Dock fährt herein, erst dann steht die Chatspalte
     # Chat-Darstellung nach Codex (components/chat.tsx): eigene Nachricht als
     # Blase rechts, Zeit und Kopieren beim Überfahren darunter, Antwort als
     # Fließtext über die volle Spalte, fertige Arbeit gefaltet hinter
@@ -248,7 +249,8 @@ with headless_browser() as browser:
     assert abs(body['x'] - column['x']) < 2, 'Antwort nutzt nicht die volle Spalte'
     page.locator('.cx-c-user').first.hover()
     expect(page.locator('.cx-c-user-foot').first).to_have_css('opacity', '1')
-    expect(page.locator('.tl-assistant .cx-c-rule').first).to_be_visible()
+    # Unter „… lang gearbeitet“ steht keine Linie mehr: die Zusammenfassung ist eine runde Pille.
+    expect(page.locator('.tl-assistant .cx-c-rule').first).to_be_hidden()
     expect(page.locator('.assistant-head')).to_have_count(0)
     worked = page.locator('.cx-c-worked').first
     expect(worked).to_contain_text('lang gearbeitet')
@@ -272,7 +274,10 @@ with headless_browser() as browser:
     # lässt sich die Bewegung zeigen, statt sie verschwinden zu lassen.
     expect(page.locator('.cx-sidebar.closed')).to_have_count(1)
     page.wait_for_timeout(360)
-    assert page.locator('.cx-sidebar').bounding_box()['x'] <= -249, 'Leiste ist nicht ausgefahren'
+    # Sie fährt hinter die schmale Icon-Leiste, die an ihrer Stelle stehen bleibt.
+    rail = page.locator('.cx-mini-rail').bounding_box()
+    side = page.locator('.cx-sidebar').bounding_box()
+    assert side['x'] + side['width'] <= rail['x'] + rail['width'] + 1, 'Leiste ist nicht ausgefahren'
     before = page.locator('.cx-conversation').bounding_box()
     page.mouse.move(5, 400)
     expect(page.locator('.cx-sidebar.peek')).to_be_visible()
@@ -423,7 +428,7 @@ with headless_browser() as browser:
     # Das Plus bietet dieselben Wege wie die Knöpfe der Fensterleiste.
     page.get_by_label('Etwas hinzufügen').click()
     picks = dock.locator('.cx-dock-picks button')
-    assert [t.split('\n')[0] for t in picks.all_inner_texts()] == ['Dateien', 'Browser', 'Terminal', 'Änderungen', 'Excalidraw']
+    assert [t.split('\n')[0] for t in picks.all_inner_texts()] == ['Dateien', 'Subagenten', 'Browser', 'Terminal', 'Änderungen', 'Excalidraw', 'Video (Remotion)']
     page.get_by_role('menuitem', name='Terminal').click()
     assert messages('openTerminal')
     expect(dock.locator('.cx-dock-picks')).to_have_count(0)

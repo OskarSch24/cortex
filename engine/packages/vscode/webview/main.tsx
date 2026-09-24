@@ -1,5 +1,6 @@
 import { render } from 'preact';
 import { App } from './App.js';
+import { setClaudeModels, type ModelOption } from '../../core/src/models/catalog.js';
 
 // Nachrichten nimmt die Oberfläche nur von ihrem Host an. Die HTML-Vorschau im
 // Dock ist eine fremde Seite in einem Rahmen; ohne diesen Filter könnte sie per
@@ -24,5 +25,14 @@ window.addEventListener('message', (e) => {
 // Ein Ziehen, das außerhalb des Fensters endet, meldet nie „vorbei“. Während
 // eines echten Ziehens feuern keine Mausbewegungen — kommt eine, ist keins mehr.
 window.addEventListener('mousemove', () => document.documentElement.classList.remove('cx-drop-hover'), { passive: true });
+
+// Neue Claude-Modelle kennt zuerst der Host (src/claudeCatalog.ts); mit den
+// Konten kommt seine Liste, damit Knopf und Menü sie auch hier beschriften.
+// Läuft vor den Listenern der Ansichten, die die Konten danach zeichnen.
+window.addEventListener('message', (e) => {
+  if (e.data?.kind !== 'accounts') return;
+  const claude = (e.data.accounts as Array<{ provider: string; models?: ModelOption[] }>).find(a => a.provider === 'claude');
+  if (claude?.models) setClaudeModels(claude.models);
+});
 
 render(<App />, document.getElementById('root')!);

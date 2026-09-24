@@ -27,10 +27,11 @@ with headless_browser(port=PORT) as browser:
           return { background: style.backgroundColor, border: style.borderTopColor,
                    blur: style.backdropFilter, font: style.fontFamily, corner: style.borderRadius };
         }''')
-        assert values['background'] == 'rgb(45, 45, 45)', values
-        assert values['border'] == 'rgb(62, 62, 62)', values
-        assert values['blur'] == 'none' and '-apple-system' in values['font'], values
-        assert values['corner'] in ('12px', '15px'), values
+        # Cortex-Popover: eigene Fläche (--cx-popover), feine Linie, Manrope, Inselradius.
+        assert values['background'] == 'rgb(29, 32, 36)', values
+        assert values['border'] == 'rgba(236, 237, 239, 0.09)', values
+        assert values['blur'] == 'none' and values['font'].startswith('Manrope'), values
+        assert values['corner'] == '14px', values
 
     # The plus popup keeps real actions and supports keyboard navigation.
     plus = page.get_by_role('button', name='Hinzufügen', exact=True)

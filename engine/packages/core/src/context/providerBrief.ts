@@ -168,7 +168,3 @@ export function buildProviderBrief(options: ProviderBriefOptions): string {
   if (lines.length === 0) return '';
   return lines.map((line) => `- ${line.text}`).join('\n');
 }
-
-export const UNIVERSAL_BRIEF_LINES = UNIVERSAL;
-export const PROVIDER_BRIEF_LINES = PER_PROVIDER;
-export const PERMISSION_BRIEF_LINES = PERMISSION_LINES;

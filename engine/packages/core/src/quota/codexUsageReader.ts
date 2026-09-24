@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { UsageWindow } from './quotaTracker.js';
+import { isRecord } from '../util/guards.js';
 
 /**
  * Codex writes rate-limit snapshots into its session rollout files under
@@ -68,8 +69,8 @@ function deepFind(obj: unknown, key: string, depth: number): Record<string, unkn
   if (depth < 0 || obj === null || typeof obj !== 'object') return undefined;
   const record = obj as Record<string, unknown>;
   const direct = record[key];
-  if (direct && typeof direct === 'object' && !Array.isArray(direct)) {
-    return direct as Record<string, unknown>;
+  if (isRecord(direct)) {
+    return direct;
   }
   for (const value of Object.values(record)) {
     const found = deepFind(value, key, depth - 1);

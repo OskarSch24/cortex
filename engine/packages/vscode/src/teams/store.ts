@@ -1,16 +1,14 @@
-import { linkSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { linkSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { teamProfileSignature, validateTeam, type AgentTeam, type TeamRun } from './types.js';
 import { validateAutomation } from '../automations/cron.js';
+import { alive } from '../util/process.js';
+import { writeFileAtomic } from '../util/atomicWrite.js';
 
 interface TeamFile { version: 1; revision: number; teams: AgentTeam[]; runs: TeamRun[] }
 const changedMessage = 'Die Teams wurden inzwischen geändert. Lade den aktuellen Stand, bevor du speicherst.';
 const busyMessage = 'Ein anderes Cortex-Fenster speichert gerade die Teams. Versuche es erneut.';
-const alive = (pid: number): boolean => {
-  try { process.kill(pid, 0); return true; }
-  catch (error) { return (error as NodeJS.ErrnoException).code !== 'ESRCH'; }
-};
 
 /** Shared profiles use file-level CAS; a host may update only the runs it owns. */
 export class TeamStore {
@@ -197,11 +195,7 @@ export class TeamStore {
     const keep = new Set(state.runs.filter(run => run.status !== 'running').slice(-30).map(run => run.id));
     state.runs = state.runs.filter(run => run.status === 'running' || keep.has(run.id));
     state.revision++;
-    const temporary = this.path + '.tmp-' + randomUUID();
-    try {
-      writeFileSync(temporary, JSON.stringify(state, null, 2), { mode: 0o600, flag: 'wx' });
-      renameSync(temporary, this.path);
-    } finally { rmSync(temporary, { force: true }); }
+    writeFileAtomic(this.path, JSON.stringify(state, null, 2), { mode: 0o600, fsync: false, syncDir: false, temporary: this.path + '.tmp-' + randomUUID() });
   }
 
   private locked<T>(operation: () => T): T {

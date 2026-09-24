@@ -1,9 +1,9 @@
-import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { AppCheck } from '@cortex/core';
 import { checkXcode } from '../panel/xcode.js';
+import { tryExec } from '../util/exec.js';
 
 /**
  * Voraussetzungen, die ein Plugin auf diesem Mac braucht, obwohl es keinen
@@ -13,25 +13,24 @@ import { checkXcode } from '../panel/xcode.js';
  */
 export type AppCheckId = 'xcode' | 'jetbrains' | 'kubectl' | 'firebase';
 
-const run = (cmd: string, args: string[]) =>
-  new Promise<string | undefined>((resolve) => execFile(cmd, args, { timeout: 4000 }, (error, stdout) => resolve(error ? undefined : stdout.trim())));
+const run = (cmd: string, args: string[]) => tryExec(cmd, args, 4000);
 
 /** Rein rechnend, damit sich jede Lage ohne echte Programme prüfen lässt. */
-export function describeJetbrains(processes: string | undefined): AppCheck {
+function describeJetbrains(processes: string | undefined): AppCheck {
   const running = !!processes && /jetbrains|intellij|webstorm|pycharm|goland|clion|rider|phpstorm|rubymine|datagrip|android studio|fleet/i.test(processes);
   return running
     ? { ok: true, running: true, detail: 'Eine JetBrains-IDE läuft. Das MCP-Plugin der IDE muss eingeschaltet sein.' }
     : { ok: false, detail: 'Keine JetBrains-IDE geöffnet. Öffne IntelliJ, WebStorm oder eine andere JetBrains-IDE mit eingeschaltetem MCP-Server.' };
 }
 
-export function describeKubectl(path: string | undefined, context: string | undefined): AppCheck {
+function describeKubectl(path: string | undefined, context: string | undefined): AppCheck {
   if (!path) return { ok: false, detail: '„kubectl“ ist auf diesem Mac nicht installiert — etwa mit „brew install kubectl“.' };
   return context
     ? { ok: true, running: true, detail: `kubectl ist bereit, aktueller Kontext „${context}“.` }
     : { ok: false, detail: 'kubectl ist installiert, aber es ist kein Cluster-Kontext eingerichtet.' };
 }
 
-export function describeFirebase(config: string | undefined): AppCheck {
+function describeFirebase(config: string | undefined): AppCheck {
   let signedIn = false;
   try {
     const parsed = config ? (JSON.parse(config) as { tokens?: unknown; user?: unknown }) : undefined;

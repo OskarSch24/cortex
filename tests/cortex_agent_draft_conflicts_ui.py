@@ -1,6 +1,7 @@
 """A dirty profile must never resurrect a concurrently paused automation."""
 from playwright.sync_api import expect
 from headless_browser import headless_browser
+from cortex_agents_nav import to_overview
 from cortex_control_styles import assert_controls_styled
 import re
 
@@ -19,6 +20,8 @@ with headless_browser(port=PORT) as browser:
 
     def saved():
         return page.evaluate('window.__cortexTeams.state.teams[0]')
+
+    to_overview(page)
 
     page.get_by_role('button', name='Agent erstellen', exact=True).click()
     page.get_by_role('button', name=re.compile('^Ohne Vorlage')).click()

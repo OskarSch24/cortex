@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { StudioHost, StudioUnavailableError } from './studioHost.js';
+import { StudioHost } from './studioHost.js';
 import { StudioEditorProvider } from './studioEditor.js';
 import { CONNECTOR_NAME, STUDIO_API_DIR, setStudioHost } from './connector.js';
 import { existsSync, watch } from 'node:fs';

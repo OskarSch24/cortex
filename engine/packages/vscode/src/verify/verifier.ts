@@ -1,4 +1,3 @@
-import * as vscode from 'vscode';
 import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -13,6 +12,8 @@ import {
   type VerifyCommand,
   type VerifyReport,
 } from '@cortex/core';
+import { git } from '../util/exec.js';
+import { ProjectScoped } from '../context/projectScoped.js';
 
 const exec = promisify(execFile);
 
@@ -27,22 +28,11 @@ const DISCOVERY_TTL_MS = 60_000;
  * did not already have. Nothing runs in plan mode, because a run that was not
  * allowed to change the workspace has nothing to verify.
  */
-export class Verifier {
+export class Verifier extends ProjectScoped<Verifier> {
   private discovered?: { commands: VerifyCommand[]; at: number; root: string };
 
-  private projects = new Map<string, Verifier>();
-
-  constructor(private output: vscode.OutputChannel, private projectRoot?: string) {}
-
-  forRoot(root: string): Verifier {
-    if (this.projectRoot === root) return this;
-    let project = this.projects.get(root);
-    if (!project) { project = new Verifier(this.output, root); this.projects.set(root, project); }
-    return project;
-  }
-
-  private get root(): string | undefined {
-    return this.projectRoot ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  protected forProject(root: string): Verifier {
+    return new Verifier(this.output, root);
   }
 
   private readManifest(root: string): RepoManifest {
@@ -86,7 +76,7 @@ export class Verifier {
     const root = this.root;
     if (!root) return [];
     try {
-      const { stdout } = await exec('git', ['status', '--porcelain'], { cwd: root, timeout: 3000 });
+      const stdout = await git(root, ['status', '--porcelain'], { timeout: 3000 });
       return stdout
         .split('\n')
         .map((l) => l.slice(3).trim())

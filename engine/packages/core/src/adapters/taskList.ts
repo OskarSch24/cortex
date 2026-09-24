@@ -1,3 +1,5 @@
+import type { AdapterEvent } from '../types.js';
+
 /**
  * The model's own task list, normalized.
  *
@@ -89,4 +91,17 @@ export function taskProgress(items: TaskItem[]): TaskProgress {
 export function sameTasks(a: TaskItem[], b: TaskItem[]): boolean {
   if (a.length !== b.length) return false;
   return a.every((item, i) => item.text === b[i]!.text && item.status === b[i]!.status);
+}
+
+/**
+ * Remembers the list last sent, so the panel hears about the plan only when it
+ * changed. An empty list never replaces a real one.
+ */
+export function taskListTracker(): (items: TaskItem[]) => AdapterEvent | undefined {
+  let last: TaskItem[] = [];
+  return (items) => {
+    if (items.length === 0 || sameTasks(items, last)) return undefined;
+    last = items;
+    return { type: 'tasks', items };
+  };
 }

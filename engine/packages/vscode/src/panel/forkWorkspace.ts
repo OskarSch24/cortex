@@ -1,23 +1,17 @@
 /** Isolated forks retain the current files without stashing or checking out the source. */
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, writeFile, lstat, readlink, symlink, chmod, rm, realpath, readdir, unlink } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { git as runGit } from '../util/exec.js';
+import { isInside } from '../util/paths.js';
 
-const exec = promisify(execFile);
 async function git(cwd: string, args: string[]): Promise<string> {
-  return (await exec('git', args, { cwd, timeout: 30_000, maxBuffer: 64 * 1024 * 1024 })).stdout;
+  return runGit(cwd, args, { timeout: 30_000, maxBuffer: 64 * 1024 * 1024 });
 }
 const digest = (data: Uint8Array | string) => createHash('sha256').update(data).digest('hex');
 
-function inside(root: string, path: string): boolean {
-  const rel = relative(root, path);
-  return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
-}
-
 async function safeParents(root: string, destination: string): Promise<void> {
-  if (!inside(root, destination)) throw new Error('Ungültiger Zielpfad im Abzweig.');
+  if (!isInside(root, destination)) throw new Error('Ungültiger Zielpfad im Abzweig.');
   let current = root;
   for (const part of relative(root, dirname(destination)).split(sep).filter(Boolean)) {
     current = join(current, part);
@@ -42,11 +36,11 @@ async function isolateLinks(source: string, target: string): Promise<void> {
   for (const path of links) {
     const rel = relative(target, path), link = await readlink(path);
     const sourceDestination = resolve(dirname(join(source, rel)), link);
-    if (!isAbsolute(link) && !inside(source, sourceDestination)) throw new Error(`Externer symbolischer Link kann nicht isoliert werden: ${rel}`);
+    if (!isAbsolute(link) && !isInside(source, sourceDestination)) throw new Error(`Externer symbolischer Link kann nicht isoliert werden: ${rel}`);
     let resolved: string;
     try { resolved = await realpath(sourceDestination); }
     catch { throw new Error(`Defekter symbolischer Link kann nicht isoliert werden: ${rel}`); }
-    if (!inside(source, resolved)) throw new Error(`Externer symbolischer Link kann nicht isoliert werden: ${rel}`);
+    if (!isInside(source, resolved)) throw new Error(`Externer symbolischer Link kann nicht isoliert werden: ${rel}`);
     if (isAbsolute(link)) {
       const local = relative(dirname(path), join(target, relative(source, resolved))) || '.';
       await unlink(path);
@@ -58,7 +52,7 @@ async function isolateLinks(source: string, target: string): Promise<void> {
     let resolved: string;
     try { resolved = await realpath(path); }
     catch { throw new Error(`Das Linkziel wurde nicht in den Abzweig kopiert: ${relative(target, path)}`); }
-    if (!inside(target, resolved)) throw new Error(`Link verlässt den isolierten Abzweig: ${relative(target, path)}`);
+    if (!isInside(target, resolved)) throw new Error(`Link verlässt den isolierten Abzweig: ${relative(target, path)}`);
   }
 }
 
@@ -66,7 +60,7 @@ export async function createForkWorkspace(cwd: string, storageDir: string): Prom
   const root = await realpath((await git(cwd, ['rev-parse', '--show-toplevel'])).trim());
   const source = await realpath(cwd);
   const subdir = relative(root, source);
-  if (subdir === '..' || subdir.startsWith(`..${sep}`) || isAbsolute(subdir)) throw new Error('Projekt liegt außerhalb des Git-Arbeitsbaums.');
+  if (!isInside(root, source)) throw new Error('Projekt liegt außerhalb des Git-Arbeitsbaums.');
   // Submodules need their own worktree policy; an empty submodule is not a faithful copy.
   const modules = await git(root, ['ls-files', '--stage']);
   if (/^160000 /m.test(modules)) throw new Error('Projekte mit Git-Submodulen müssen vor dem Abzweigen separat kopiert werden.');
@@ -89,7 +83,7 @@ export async function createForkWorkspace(cwd: string, storageDir: string): Prom
     }
     for (const name of untracked) {
       const path = resolve(root, name), rel = relative(root, path);
-      if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error('Ungültiger Dateipfad im Projekt.');
+      if (!isInside(root, path)) throw new Error('Ungültiger Dateipfad im Projekt.');
       const info = await lstat(path), dest = join(target, rel);
       await safeParents(target, dest);
       await mkdir(dirname(dest), { recursive: true });

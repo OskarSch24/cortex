@@ -258,10 +258,6 @@ export function Button({ children, onClick, kind = 'default', icon, disabled, ti
   return <button type="button" class={`cxs-button ${kind}`} disabled={disabled} title={title} onClick={e => { e.stopPropagation(); onClick?.(); }}>{icon && <Glyph name={icon} size={14} />}{children}</button>;
 }
 
-export function IconButton({ icon, label, onClick, size = 14 }: { icon: string; label: string; onClick?: () => void; size?: number }) {
-  return <button type="button" class="cxs-icon-button" aria-label={label} title={label} onClick={e => { e.stopPropagation(); onClick?.(); }}><Glyph name={icon} size={size} /></button>;
-}
-
 export function TextField({ value, onCommit, placeholder, width, mono, suffix, type = 'text', min, max, label }: {
   value: string | number;
   onCommit: (value: string) => void;
@@ -330,10 +326,6 @@ export function Search({ value, onInput, placeholder, class: klass = '' }: { val
   return <label class={`cxs-search ${klass}`}><Glyph name="search" size={14} /><input value={value} placeholder={placeholder} aria-label={placeholder} onInput={e => onInput(e.currentTarget.value)} /></label>;
 }
 
-export function Keys({ keys }: { keys: string }) {
-  return <kbd class="cxs-keys">{keys}</kbd>;
-}
-
 export function Radio({ checked, onChange, children, icon, sub }: { checked: boolean; onChange: () => void; children: ComponentChildren; icon?: string; sub?: ComponentChildren }) {
   return <label class="cxs-radio">
     <input type="radio" checked={checked} onChange={onChange} />
@@ -341,6 +333,16 @@ export function Radio({ checked, onChange, children, icon, sub }: { checked: boo
     {icon && <Glyph name={icon} size={16} />}
     <span>{children}{sub && <small>{sub}</small>}</span>
   </label>;
+}
+
+/** Ein Knopf nur aus Symbol; die Beschriftung steht im Tooltip und für Screenreader. */
+export function IconButton({ icon, label, size = 14, onClick }: { icon: string; label: string; size?: number; onClick?: () => void }) {
+  return <button type="button" class="cxs-icon-button" aria-label={label} title={label} onClick={e => { e.stopPropagation(); onClick?.(); }}><Glyph name={icon} size={size} /></button>;
+}
+
+/** Schlichte Umschalter ohne Tab-Rolle, etwa für Zeiträume oder Gruppierungen. */
+export function PlainTabs<T extends string | number>({ value, options, onChange, class: klass }: { value: T; options: Array<{ value: T; label: ComponentChildren }>; onChange: (value: T) => void; class?: string }) {
+  return <div class={klass ? `cxs-plain-tabs ${klass}` : 'cxs-plain-tabs'}>{options.map(o => <button type="button" key={o.value} class={o.value === value ? 'on' : ''} onClick={() => onChange(o.value)}>{o.label}</button>)}</div>;
 }
 
 export function Link({ children, onClick }: { children: ComponentChildren; onClick: () => void }) {

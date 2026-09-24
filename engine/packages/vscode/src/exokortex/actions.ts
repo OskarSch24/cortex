@@ -15,33 +15,6 @@ import type { ExokortexPfade } from './status.js';
 
 const LAUNCHAGENT = 'com.exokortex.chats';
 
-export interface Aktion {
-  /** Was in der Leiste steht. */
-  label: string;
-  /** Ein Satz darunter, wenn er etwas erklärt, das der Knopf nicht sagt. */
-  hinweis?: string;
-  /** Wie lange es ungefähr dauert — damit niemand einen Sechs-Minuten-Lauf
-   *  für hängengeblieben hält. */
-  dauer?: string;
-}
-
-export const AKTIONEN: Record<Exclude<ExokortexAction, 'konnektorenSync'>, Aktion> = {
-  pruefen: { label: 'Jetzt prüfen' },
-  chatsEinspeisen: {
-    label: 'Chats einspeisen',
-    hinweis: 'Ohne Ruhefrist, auch Chats von gerade eben.',
-    dauer: '~6 Min., wenn etwas anliegt',
-  },
-  nachmessen: {
-    label: 'Abnahme nachmessen',
-    hinweis: 'Misst alle 17 Prüfungen des Bestands neu.',
-    dauer: '~80 Sek.',
-  },
-  indexNeu: { label: 'Graphindex neu bauen', dauer: '~5 Sek.' },
-  laufAn: { label: 'Stündlichen Lauf einschalten' },
-  laufAus: { label: 'Stündlichen Lauf ausschalten' },
-};
-
 /** Der Befehl hinter einer Aktion. `undefined` heißt: Cortex macht das selbst. */
 export function befehl(action: ExokortexAction, pfade: ExokortexPfade): [string, string[]] | undefined {
   const bruecke = (datei: string, ...args: string[]): [string, string[]] =>
@@ -68,7 +41,7 @@ export function befehl(action: ExokortexAction, pfade: ExokortexPfade): [string,
   }
 }
 
-export interface LaufErgebnis {
+interface LaufErgebnis {
   code: number | null;
   ausgabe: string;
 }

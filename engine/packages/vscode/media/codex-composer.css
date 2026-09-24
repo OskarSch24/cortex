@@ -204,3 +204,17 @@
   .cx-shell .composer .bar-gap { flex: 0 0 100%; height: 0; }
   .cx-shell .composer .model-picker { flex: 1; }
 }
+
+/* Angehängtes Video: Standbild aus QuickLook, darauf ein kleines Abspielzeichen. */
+.cx-shell .composer .attachment-row.has-preview.is-video { position: relative; }
+.cx-shell .composer .attachment-row.has-preview.is-video::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #000000a6 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 7v10l8-5z' fill='white'/%3E%3C/svg%3E") center / 14px no-repeat;
+  pointer-events: none;
+}

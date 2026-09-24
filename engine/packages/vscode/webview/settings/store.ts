@@ -47,7 +47,7 @@ export function appSetting<T>(key: string, fallback: T): T {
   return (key in app ? app[key] : fallback) as T;
 }
 
-export function useSettingsStore() {
+function useSettingsStore() {
   const [, tick] = useState(0);
   useEffect(() => {
     const fn = () => tick(n => n + 1);
@@ -87,7 +87,7 @@ export function useNative<T>(key: string, fallback: T): [T, (value: T) => void, 
    dann gilt die Marke aus cortex.css und nicht eine Kopie ihrer Werte.        */
 
 export const THEME_DEFAULTS = {
-  dunkel: { hintergrund: '#181818', vordergrund: '#EDEDEE', akzent: 'cortex', kontrast: 50 },
+  dunkel: { hintergrund: '#111316', vordergrund: '#EDEDEE', akzent: 'cortex', kontrast: 50 },
   hell: { hintergrund: '#F7F7F8', vordergrund: '#1A1C1F', akzent: 'cortex', kontrast: 50 },
 } as const;
 
@@ -99,20 +99,26 @@ export const ACCENTS: Record<string, { label: string; dunkel: string; hell: stri
   koralle: { label: 'Koralle', dunkel: '#E08A7A', hell: '#A8483A' },
 };
 
+/**
+ * `system` ist der Schlüssel der Vorgabe — so hieß er schon, als die Vorgabe
+ * die Systemschrift war. Gespeicherte Werte bleiben dadurch gültig und zeigen
+ * die neue Cortex-Schrift; die Systemschrift steht jetzt unter `apple`.
+ */
 export const UI_FONTS: Record<string, string> = {
-  system: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif",
+  system: "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  apple: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif",
   inter: "Inter, 'SF Pro Text', sans-serif",
   helvetica: "'Helvetica Neue', Helvetica, Arial, sans-serif",
   georgia: "Georgia, 'Times New Roman', serif",
 };
 export const CODE_FONTS: Record<string, string> = {
-  system: "'SF Mono', 'SFMono-Regular', Menlo, monospace",
+  system: "'JetBrains Mono', 'SF Mono', Menlo, monospace",
+  sfmono: "'SF Mono', 'SFMono-Regular', Menlo, monospace",
   menlo: 'Menlo, monospace',
-  jetbrains: "'JetBrains Mono', 'SF Mono', monospace",
   fira: "'Fira Code', 'SF Mono', monospace",
 };
 
-export function themeMode(): 'hell' | 'dunkel' {
+function themeMode(): 'hell' | 'dunkel' {
   const design = appSetting<string>('darstellung.design', 'dunkel');
   if (design === 'hell') return 'hell';
   if (design === 'system') {
@@ -142,7 +148,9 @@ function applyAppearance(): void {
   root.dataset.cxTheme = mode;
   // Selecting the built-in dark preset must use the same sampled surfaces as
   // an untouched installation. An explicitly chosen custom colour stays intact.
-  const customBackground = hintergrund && hintergrund.toLowerCase() !== defaults.hintergrund.toLowerCase() ? hintergrund : undefined;
+  // #181818 war die dunkle Vorgabe vor der Cortex-Palette; wer sie über die
+  // Voreinstellung gespeichert hat, bekommt die neue Vorgabe, keinen Sonderwert.
+  const customBackground = hintergrund && ![defaults.hintergrund.toLowerCase(), '#181818'].includes(hintergrund.toLowerCase()) ? hintergrund : undefined;
   const bg = customBackground ?? (light ? defaults.hintergrund : undefined);
   const fg = vordergrund ?? (light ? defaults.vordergrund : undefined);
   set('--cx-bg', bg);
@@ -152,7 +160,15 @@ function applyAppearance(): void {
     set('--cx-rail', mix(bg, light ? '#000000' : '#ffffff', light ? 0.035 : 0.06));
     set('--cx-raised', mix(bg, light ? '#000000' : '#ffffff', light ? 0.02 : 0.03));
     set('--cx-hover', mix(bg, light ? '#000000' : '#ffffff', light ? 0.06 : 0.09));
-  } else { set('--cx-rail'); set('--cx-raised'); set('--cx-hover'); }
+    // Der Grund zwischen den Inseln: im Hellen eine Spur dunkler als die Flächen, im Dunkeln deutlich tiefer.
+    set('--cx-ground', mix(bg, '#000000', light ? 0.055 : 0.4));
+    set('--cx-popover', light ? '#ffffff' : mix(bg, '#ffffff', 0.06));
+    set('--cx-code-bg', mix(bg, '#000000', light ? 0.035 : 0.25));
+  } else { set('--cx-rail'); set('--cx-raised'); set('--cx-hover'); set('--cx-ground'); set('--cx-popover'); set('--cx-code-bg'); }
+  // Schleier und gedämpfter Text leiten sich von der Vordergrundfarbe ab.
+  const ink = fg ?? (light ? defaults.vordergrund : undefined);
+  set('--cx-ink', ink ? [1, 3, 5].map(i => parseInt(ink.slice(i, i + 2), 16)).join(' ') : undefined);
+  set('--cx-soft', ink ? mix(ink, bg ?? defaults.hintergrund, 0.22) : undefined);
   if (bg) {
     const surface = light ? '#000000' : '#ffffff';
     set('--cx-composer', light ? '#ffffff' : mix(bg, surface, 0.125));

@@ -136,7 +136,7 @@ with headless_browser() as browser:
     rows.filter(has_text='Design System').click()
     expect(pop).to_have_count(0)
     expect(chip).to_have_text('Design System')
-    expect(page.get_by_role('heading', name='Woran sollen wir in Design System arbeiten?')).to_be_visible()
+    expect(page.get_by_role('heading', name='Was steht in Design System an?')).to_be_visible()
 
     # ── Ohne Projekt ─────────────────────────────────────────────────────────
     chip.click()

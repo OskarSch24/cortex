@@ -1,4 +1,4 @@
-import type { McpServerDef } from '@cortex/core';
+import { syncMcpToProfile, type AccountProfile, type McpServerDef } from '@cortex/core';
 import * as vscode from 'vscode';
 import { readBrowserAccess, withBrowserPolicy } from './browserPolicy.js';
 import { CONNECTOR_NAME, currentStudioHost, studioReachable, withBuiltInConnectors } from '../database/connector.js';
@@ -32,4 +32,13 @@ export function profileServers(defined: Record<string, McpServerDef>): Record<st
     if (credentials.missing(name, def).length) delete applied[name];
   }
   return applied;
+}
+
+/**
+ * Schreibt die Menge in jedes Profil, der Reihe nach. Ein Konto, dessen Profil
+ * sich nicht schreiben lässt, hält die übrigen nicht auf — sein Fehler steht im
+ * Ergebnis, in derselben Reihenfolge wie die Konten.
+ */
+export function mirrorToProfiles<A extends AccountProfile>(accounts: A[], servers: Record<string, McpServerDef>): Array<{ account: A; error?: string }> {
+  return accounts.map((account) => ({ account, error: syncMcpToProfile(account, servers) }));
 }

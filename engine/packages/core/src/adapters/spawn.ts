@@ -1,5 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import { terminateChild } from '../util/process.js';
+import { CLI_KILL_GRACE_MS } from '../util/timeouts.js';
 
 export type SpawnEvent =
   | { kind: 'line'; stream: 'stdout' | 'stderr'; line: string }
@@ -57,12 +59,7 @@ export async function* spawnLines(
     notify?.();
   };
 
-  const onAbort = () => {
-    child.kill('SIGTERM');
-    setTimeout(() => {
-      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
-    }, 3000).unref();
-  };
+  const onAbort = () => terminateChild(child, CLI_KILL_GRACE_MS);
   if (opts.signal.aborted) onAbort();
   else opts.signal.addEventListener('abort', onAbort, { once: true });
 

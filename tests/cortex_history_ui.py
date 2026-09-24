@@ -83,7 +83,7 @@ with headless_browser() as browser:
     page.goto(BASE)
     page.wait_for_load_state('networkidle')
     page.locator('#harness').evaluate('(element) => element.remove()')
-    page.locator('.cx-nav', has_text='Einstellungen').click()
+    page.locator('.cx-settings-btn').click()
     page.locator('.cxs-nav').get_by_role('button', name='Computerverlauf', exact=True).click()
     expect(page.locator('.cxs-page-head h1')).to_have_text('Computerverlauf')
     expect(page.locator('.cxs-history-local')).to_contain_text('Keine Verbindung zu ChatGPT')

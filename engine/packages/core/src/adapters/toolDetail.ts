@@ -1,3 +1,5 @@
+import type { AdapterEvent } from '../types.js';
+
 /**
  * Turns a tool call's raw input into something a human can read at a glance.
  *
@@ -247,4 +249,18 @@ export function describeToolUse(name: string, rawInput: unknown, cwd?: string): 
     return { action: 'other' };
   }
   return { action: 'other', detail: clip(json, 1, 160) };
+}
+
+/** The timeline row for a described tool call — every provider sends the same shape. */
+export function toolUseEvent(name: string, info: ToolDetail): Extract<AdapterEvent, { type: 'tool-use' }> {
+  return {
+    type: 'tool-use',
+    name,
+    detail: info.detail,
+    preview: info.preview,
+    path: info.path,
+    action: info.action,
+    added: info.added,
+    removed: info.removed,
+  };
 }

@@ -83,6 +83,16 @@ for (const result of builds) for (const file of Object.keys(result.metafile.inpu
 }
 collect(host);
 for (const name of ['@xterm/xterm', '@xterm/addon-fit', 'monaco-editor']) collect(join(desktop, 'node_modules', name));
+// Die beiden Schriften der Oberfläche liegen als Dateien in media/fonts, nicht als Paket.
+for (const [name, file, homepage] of [
+  ['Manrope', 'OFL-Manrope.txt', 'https://github.com/googlefonts/manrope'],
+  ['JetBrains Mono', 'OFL-JetBrainsMono.txt', 'https://github.com/JetBrains/JetBrainsMono'],
+]) {
+  const folder = `font-${name.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  mkdirSync(join(licenseDir, folder), { recursive: true });
+  cpSync(join(host, 'media/fonts', file), join(licenseDir, folder, file));
+  packages.set(`font:${name}`, { name: `${name} (Schrift)`, version: '', license: 'OFL-1.1', homepage, files: [`${folder}/${file}`] });
+}
 writeFileSync(join(licenseDir, 'index.json'), JSON.stringify([...packages.values()].sort((a, b) => a.name.localeCompare(b.name)), null, 2) + '\n');
 writeFileSync(join(licenseDir, 'README.txt'), 'Cortex bundles these runtime dependencies. License and notice files are copied unchanged. Electron and Chromium notices are included separately. Cortex source: MIT; see resources/cortex/LICENSE.\n');
 const manifest = JSON.parse(readFileSync(join(desktop, 'package.json'), 'utf8'));

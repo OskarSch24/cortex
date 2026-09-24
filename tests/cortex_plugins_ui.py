@@ -17,16 +17,16 @@ BASE = 'http://127.0.0.1:4173/dev/preview.html?mode=agent'
 OUT = Path(__file__).resolve().parents[1] / 'docs/screenshots'
 OUT.mkdir(parents=True, exist_ok=True)
 
-# Aus der Referenz gemessen. Toleranz 1 px, weil Unterpixel-Layout rundet.
+# Cortex-Maße (23.09.2026): eine Spalte in einer Karte mit 4 px Innenrand und
+# 1 px Linie, Zeilen direkt untereinander. Toleranz 1 px, weil Unterpixel-Layout rundet.
 BUDGET = {
     'Inhaltsspalte': 728,
-    'Rasterspalte': 344,
-    'Rasterspalt': 40,
+    'Rasterspalte': 718,
     'Zeilenhöhe': 60,
-    'Zeilenraster': 68,
+    'Zeilenraster': 60,
     'Kachel': 32,
     'Kachel Leiste': 36,
-    'Suchfeld': 32,
+    'Suchfeld': 36,
     'Kachel gross': 56,
     'Banner': 240,
 }
@@ -125,7 +125,8 @@ with headless_browser() as browser:
     # In der Fixture ist YouTube noch nicht verbunden — also höchstens eine Kachel, hier keine.
     assert len(youtube_tiles) <= 1, youtube_tiles
     page.locator('.cx-plugin-search input').fill('youtube')
-    expect(page.locator('.cx-plugin-row')).to_have_count(1)
+    # Die Suche findet auch OmniGrab („Videos von YouTube …“) — gezählt werden die YouTube-Karten.
+    expect(page.locator('.cx-plugin-row', has=page.get_by_role('button', name=re.compile('^YouTube')))).to_have_count(1)
     page.locator('.cx-plugin-search input').fill('')
 
     # ── Eigene Server mit Zustand ─────────────────────────────────────────────
@@ -175,9 +176,11 @@ with headless_browser() as browser:
     }''')
     assert cells, 'kein Raster mit drei Zeilen gefunden'
     budget('Rasterspalte', cells['first']['width'])
-    budget('Rasterspalt', cells['second']['x'] - (cells['first']['x'] + cells['first']['width']))
+    # Eine Spalte: die zweite Zeile steht bündig unter der ersten.
+    assert abs(cells['second']['x'] - cells['first']['x']) < 1, cells
+    checked.append('eine Spalte')
     budget('Zeilenhöhe', cells['first']['height'])
-    budget('Zeilenraster', cells['third']['y'] - cells['first']['y'])
+    budget('Zeilenraster', cells['second']['y'] - cells['first']['y'])
     budget('Kachel', rect('.cx-plugin-row .cx-plugin-tile')['w'])
     budget('Kachel Leiste', rect('.cx-plugin-installed .cx-plugin-tile')['w'])
     # Die Trennlinie unter jeder Abschnittsüberschrift ist genau ein Pixel.
@@ -336,7 +339,8 @@ with headless_browser() as browser:
     expect(page.locator('.cx-plugin-section', has=page.get_by_role('heading', name='Einrichtung offen'))).to_have_count(0)
     expect(page.locator('.cx-plugin-installed .cx-plugin-badge')).to_have_count(0)
     page.locator('.cx-plugin-search input').fill('youtube')
-    expect(page.locator('.cx-plugin-row')).to_have_count(1)
+    # Die Suche findet auch OmniGrab („Videos von YouTube …“) — gezählt werden die YouTube-Karten.
+    expect(page.locator('.cx-plugin-row', has=page.get_by_role('button', name=re.compile('^YouTube')))).to_have_count(1)
     expect(page.locator('.cx-plugin-row .cx-plugin-state')).to_have_text('Verbunden')
     page.get_by_role('button', name=re.compile(r'^YouTube')).first.click()
     expect(page.get_by_role('tab', name='Google-Konto')).to_have_attribute('aria-selected', 'true')

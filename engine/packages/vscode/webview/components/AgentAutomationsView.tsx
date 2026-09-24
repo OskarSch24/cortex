@@ -1,27 +1,16 @@
-import { useEffect, useState } from 'preact/hooks';
-import type { HostToWebview } from '../../src/panel/protocol.js';
-import type { TeamsState } from '../../src/teams/types.js';
+import { useState } from 'preact/hooks';
 import { Button } from '../settings/ui.js';
-import { vscode } from '../vscodeApi.js';
+import { useHostMessage } from '../hooks/useHostMessage.js';
+import { useTeamsState } from '../hooks/useTeamsState.js';
 import { automationDate, automationScheduleLabel } from './AgentAutomationEditor.js';
 import { Glyph } from './CortexIcons.js';
 
 export function AgentAutomationsView({ onOpenProfile, onManageAgents }: {
   onOpenProfile: (id: string) => void; onManageAgents: () => void;
 }) {
-  const [state, setState] = useState<TeamsState>();
+  const state = useTeamsState({ newestOnly: true });
   const [error, setError] = useState('');
-  useEffect(() => {
-    const receive = (event: MessageEvent<HostToWebview>) => {
-      if (event.data.kind === 'teamsState') {
-        const incoming = event.data.state;
-        setState(current => current && current.revision > incoming.revision ? current : incoming);
-      } else if (event.data.kind === 'teamError') setError(event.data.message);
-    };
-    window.addEventListener('message', receive);
-    vscode.postMessage({ kind: 'getTeams' });
-    return () => window.removeEventListener('message', receive);
-  }, []);
+  useHostMessage('teamError', msg => setError(msg.message));
   const profiles = state?.teams.filter(team => team.automation?.schedule || team.automation?.webhook) ?? [];
   const active = profiles.filter(team => team.automation?.schedule?.enabled || team.automation?.webhook?.enabled).length;
   const issue = error || state?.automations?.error || state?.error;

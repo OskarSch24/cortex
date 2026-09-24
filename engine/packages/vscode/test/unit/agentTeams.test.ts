@@ -18,7 +18,18 @@ it('rejects dependency cycles, dangling handoffs, duplicate identities and unsup
   expect(() => validateTeam({ ...valid(), agents: [agent('a', ['b']), agent('b', ['a'])] })).toThrow('Kreis');
   expect(() => validateTeam({ ...valid(), agents: [agent('a', ['missing'])] })).toThrow('fehlenden');
   expect(() => validateTeam({ ...valid(), agents: [agent('a'), agent('a')] })).toThrow('eindeutig');
-  expect(() => validateTeam({ ...valid(), agents: [{ ...agent('a'), target: { provider: 'openrouter', account: 'reviewer' } }] })).toThrow('keine Teamaufträge');
+  expect(() => validateTeam({ ...valid(), agents: [{ ...agent('a'), target: { provider: 'mistral' as never, account: 'x' } }] })).toThrow('keine Teamaufträge');
+});
+
+it('accepts explicitly assigned OpenRouter agents and validates the web search choice', () => {
+  // OpenRouter bekommt nie automatisch Arbeit, lässt sich aber ausdrücklich zuweisen (z. B. DeepSeek als Suchagent).
+  const openrouter = { ...agent('suche'), target: { provider: 'openrouter' as const, account: 'or', model: 'deepseek/deepseek-v4-flash' }, mcpServers: undefined, webSearch: 'exa-instant' as const };
+  expect(validateTeam({ ...valid(), agents: [openrouter] }).agents[0]?.webSearch).toBe('exa-instant');
+  expect(validateTeam({ ...valid(), agents: [{ ...agent('a'), webSearch: 'off' }] }).agents[0]?.webSearch).toBe('off');
+  // Standard wird nicht gespeichert: alte und neue Profile sehen gleich aus.
+  expect(validateTeam({ ...valid(), agents: [{ ...agent('a'), webSearch: 'standard' }] }).agents[0]).not.toHaveProperty('webSearch');
+  expect(() => validateTeam({ ...valid(), agents: [{ ...agent('a'), webSearch: 'google' as never }] })).toThrow('Websuche ist ungültig');
+  expect(() => validateTeam({ ...valid(), agents: [{ ...agent('a'), target: { provider: 'copilot', account: 'gh' }, mcpServers: undefined, webSearch: 'exa-instant' }] })).toThrow('nicht umstellen');
 });
 
 it('persists roles, markdown, account identity and explicit empty MCP scope, but no credentials', () => {

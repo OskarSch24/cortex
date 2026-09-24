@@ -126,7 +126,8 @@ with headless_browser() as browser:
     assert sent[0]['agentIds'] == ['a-1', 'a-2'], sent[0]
     assert sent[0]['swarmId'], sent[0]
 
-    # Läuft der Schwarm, wird aus derselben Karte die Laufansicht.
+    # Läuft der Schwarm, schrumpft die Karte auf eine Zeile: gearbeitet wird
+    # im Hintergrund, die Rollen stehen in der Übersicht (seit 24.09.2026).
     running = {'id': 'run-1', 'teamId': sent[0]['swarmId'], 'teamName': 'Schwarm', 'task': sent[0]['task'],
                'status': 'running', 'startedAt': 0, 'jobs': [
                    {'agentId': 'swarm-agent-1', 'agentName': 'Fehlerreproduktion', 'status': 'completed'},
@@ -134,8 +135,9 @@ with headless_browser() as browser:
     page.evaluate(
         "(run) => window.dispatchEvent(new MessageEvent('message', {data: {kind: 'teamsState',"
         " state: {teams: [], runs: [run], servers: [], skills: [], revision: 2}}}))", running)
-    expect(card).to_contain_text('1 fertig · 1 arbeitet · 0 wartet')
-    expect(card).to_contain_text('liest parts.tsx')
+    expect(card).to_contain_text('Agenten-Schwarm läuft · 1 von 2 arbeiten')
+    expect(card).to_contain_text('1 fertig · 0 warten · im Hintergrund, siehe Übersicht')
+    expect(card).not_to_contain_text('liest parts.tsx')
     stop = card.get_by_role('button', name='Alle stoppen')
     expect(stop).to_be_visible()
     stop.click()

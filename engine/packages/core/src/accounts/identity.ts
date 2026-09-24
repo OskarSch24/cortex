@@ -1,6 +1,18 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AccountProfile } from '../types.js';
+import { grokAuthFile } from '../adapters/grok.js';
+import { readCopilotConfig } from '../adapters/copilot.js';
+import { readJson } from '../util/jsonFile.js';
+import { jwtClaims } from '../util/jwt.js';
+
+/** Was Grok in seine auth.json schreibt — je nach Version an anderer Stelle. */
+type GrokAuth = Record<string, unknown> & {
+  email?: unknown;
+  user?: { email?: unknown };
+  account?: { email?: unknown };
+  id_token?: unknown;
+  tokens?: { id_token?: unknown };
+};
 
 /**
  * Best-effort identity (usually the login email) for an account, read from
@@ -16,10 +28,8 @@ export async function getAccountIdentity(
     switch (account.provider) {
       case 'grok': {
         if (!account.homeDir) return undefined;
-        const nested = join(account.homeDir, '.grok', 'auth.json');
-        const flat = join(account.homeDir, 'auth.json');
-        if (!existsSync(nested) && !existsSync(flat)) return undefined;
-        const parsed = JSON.parse(readFileSync(existsSync(nested) ? nested : flat, 'utf8'));
+        const parsed = readJson<GrokAuth>(grokAuthFile(account.homeDir));
+        if (parsed === undefined) return undefined;
         const email = parsed.email ?? parsed.user?.email ?? parsed.account?.email;
         if (typeof email === 'string' && email.includes('@')) return email;
         // Grok stores userinfo beside the access token inside the issuer entry.
@@ -37,9 +47,8 @@ export async function getAccountIdentity(
       }
       case 'codex': {
         if (!account.homeDir) return undefined;
-        const file = join(account.homeDir, 'auth.json');
-        if (!existsSync(file)) return undefined;
-        const parsed = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
+        const parsed = readJson<Record<string, unknown>>(join(account.homeDir, 'auth.json'));
+        if (parsed === undefined) return undefined;
         if (typeof parsed.email === 'string') return parsed.email;
         const idToken = (parsed.tokens as Record<string, unknown> | undefined)?.id_token;
         if (typeof idToken === 'string') return emailFromJwt(idToken);
@@ -49,9 +58,8 @@ export async function getAccountIdentity(
         if (!account.homeDir) return undefined;
         // Public CLI preferences only. Never run auth/status or unlock Keychain in the background.
         for (const name of ['.claude.json', 'claude.json']) {
-          const file = join(account.homeDir, name);
-          if (!existsSync(file)) continue;
-          const value = JSON.parse(readFileSync(file, 'utf8'));
+          const value = readJson<{ oauthAccount?: { emailAddress?: unknown } }>(join(account.homeDir, name));
+          if (value === undefined) continue;
           const email = value.oauthAccount?.emailAddress;
           if (typeof email === 'string') return email;
         }
@@ -59,11 +67,8 @@ export async function getAccountIdentity(
       }
       case 'copilot': {
         if (!account.homeDir) return undefined;
-        const file = join(account.homeDir, 'config.json');
-        if (!existsSync(file)) return undefined;
-        // JSONC — strip line comments before parsing.
-        const raw = readFileSync(file, 'utf8').replace(/^\s*\/\/.*$/gm, '');
-        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const parsed = readCopilotConfig(account.homeDir);
+        if (parsed === undefined) return undefined;
         const last = parsed.lastLoggedInUser as Record<string, unknown> | undefined;
         if (last && typeof last.login === 'string') return last.login;
         return undefined;
@@ -77,12 +82,6 @@ export async function getAccountIdentity(
 }
 
 function emailFromJwt(jwt: string): string | undefined {
-  try {
-    const payload = jwt.split('.')[1];
-    if (!payload) return undefined;
-    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
-    return typeof decoded.email === 'string' ? decoded.email : undefined;
-  } catch {
-    return undefined;
-  }
+  const email = jwtClaims(jwt)?.email;
+  return typeof email === 'string' ? email : undefined;
 }

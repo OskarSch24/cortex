@@ -1,8 +1,10 @@
-"""Rendered corner/inset regression against the supplied 2x Codex references.
+"""Rendered corner/inset regression for the Cortex composer at 2x.
 
-Measure pixels as well as layout: a circular 32px radius has the same bounding
-box but fails these silhouette checks. Only the dedicated headless runtime runs.
+Measure pixels as well as layout: the corner is a round 22px radius (44 raster
+pixels at 2x). A different radius has the same bounding box but fails these
+silhouette checks. Only the dedicated headless runtime runs.
 """
+import math
 from io import BytesIO
 from pathlib import Path
 from PIL import Image
@@ -18,13 +20,19 @@ def close(actual, expected):
     assert abs(actual - expected) < .1, (actual, expected)
 
 
+RADIUS = 44  # 22 CSS-Pixel bei 2x
+
+
 def outline(png):
     image = Image.open(BytesIO(png)).convert('RGB')
-    # Measured leftmost solid edge at 2x: ordinary round corners deviate by
-    # up to eight raster pixels here. Allow one antialiasing pixel.
-    for y, expected in ((4, 33), (8, 24), (16, 14), (24, 8), (32, 4)):
-        x = next(x for x in range(80) if min(image.getpixel((x, y))) > 45)
-        assert abs(x - expected) <= 1, (y, x, expected)
+    # Linke Kante der Fläche je Zeile, verglichen mit einem Kreisbogen. Die
+    # Arbeitsfläche dahinter ist dunkler (#111316) als die Eingabe (#1b1e22);
+    # die Kantenglättung darf zwei Rasterpixel abweichen (ein Radius von 18 oder
+    # 26 px läge in der obersten Zeile schon fünf daneben).
+    for y in (4, 8, 16, 24, 32):
+        expected = RADIUS - math.sqrt(RADIUS ** 2 - (RADIUS - y) ** 2)
+        x = next(x for x in range(80) if min(image.getpixel((x, y))) > 24)
+        assert abs(x - expected) <= 2, (y, x, round(expected, 1))
     return image
 
 
@@ -83,8 +91,9 @@ with headless_browser(port=PORT) as browser:
     assert empty.crop((0, 0, 20, 60)).tobytes() == attached.crop((0, 0, 20, 60)).tobytes()
     # The actual image is clipped, not just the border drawn over square pixels.
     clipped = Image.open(BytesIO(thumb.screenshot())).convert('RGB')
+    fill = tuple(int(v) for v in composer.evaluate("e => getComputedStyle(e).backgroundColor.match(/\\d+/g).slice(0, 3)"))
     for x, y in ((2, 2), (241, 2), (2, 241), (241, 241)):
-        assert clipped.getpixel((x, y)) == (53, 53, 53), (x, y, clipped.getpixel((x, y)))
+        assert clipped.getpixel((x, y)) == fill, (x, y, clipped.getpixel((x, y)), fill)
     remove = thumb.get_by_role('button', name='Remove corner-reference.jpg')
     expect(remove).to_have_css('opacity', '0')
     remove.focus()

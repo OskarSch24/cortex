@@ -4,7 +4,7 @@ import type { AccountStatusDto } from '../../src/panel/protocol.js';
 import { vscode } from '../vscodeApi.js';
 import { RuleEditor } from './RuleEditor.js';
 import { TargetChainEditor } from './TargetChainEditor.js';
-import { BRAND_COLOR, BrandMark } from './brandIcons.js';
+import { BrandMark } from './brandIcons.js';
 import { IconDown, IconPlus, IconRoute, IconUp } from './icons.js';
 
 /** The default chain is a row in the same list, so it is picked the same way. */

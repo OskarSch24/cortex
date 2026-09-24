@@ -1,4 +1,4 @@
-import type { ProviderId, Target } from '../types.js';
+import type { Target } from '../types.js';
 import type { TaskMetric } from '../quota/metricsSchema.js';
 import { median } from '../quota/metricsSchema.js';
 import type { Complexity } from './classify.js';
@@ -101,13 +101,4 @@ export function affordability(headroom: number, burn: BurnEstimate): number {
   if (remainingAfter < 10) return 0.5; // would leave it nearly empty
   if (remainingAfter < 25) return 0.85;
   return 1;
-}
-
-export const BURN_PRIORS = PRIOR_BURN;
-export const BURN_KIND_MULTIPLIERS: Record<string, number> = KIND_MULTIPLIER;
-
-/** Per-provider capability ordering used when reporting burn in the UI. */
-export function describeBurn(provider: ProviderId, burn: BurnEstimate): string {
-  const source = burn.measured ? `measured over ${burn.samples} runs` : 'estimated';
-  return `${provider}: ~${burn.pct.toFixed(1)}% of window (${source})`;
 }

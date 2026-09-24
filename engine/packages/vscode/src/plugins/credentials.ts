@@ -17,6 +17,7 @@ import {
   type PluginField,
   type StoredOAuth,
 } from '@cortex/core';
+import type { SecretBackend } from '../storage/secrets.js';
 
 /**
  * Was ein Plugin an Zugangsdaten braucht, liegt im Schlüsselbund — nicht in
@@ -32,13 +33,7 @@ import {
  * ist.
  */
 
-/** Genau das, was diese Klasse vom Schlüsselbund braucht — für Tests ersetzbar. */
-export interface SecretBackend {
-  get(key: string): Thenable<string | undefined>;
-  store(key: string, value: string): Thenable<void>;
-  delete(key: string): Thenable<void>;
-  onDidChange(listener: (event: { key: string }) => void): { dispose(): void };
-}
+export type { SecretBackend } from '../storage/secrets.js';
 
 interface ServerCredentials {
   values?: Record<string, string>;
@@ -53,11 +48,11 @@ interface ServerCredentials {
  * Wo die Dateien liegen, die ein Server als Pfad erwartet. Außerhalb der
  * Profile, weil mehrere Profile denselben Server bekommen; nur für dich lesbar.
  */
-export const PLUGIN_FILES = join(homedir(), '.cortex', 'plugin-files');
+const PLUGIN_FILES = join(homedir(), '.cortex', 'plugin-files');
 
 const KEY = 'cortex.plugins.credentials';
 /** So lange vor Ablauf wird aufgefrischt: ein Zug, der jetzt beginnt, soll nicht mittendrin scheitern. */
-export const REFRESH_WINDOW_MS = 15 * 60_000;
+const REFRESH_WINDOW_MS = 15 * 60_000;
 
 export class PluginCredentials {
   private data: Record<string, ServerCredentials> = {};

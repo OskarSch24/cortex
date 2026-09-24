@@ -18,6 +18,9 @@ def drag(page, handle, dx):
 def files(page):
     page.evaluate("() => window.dispatchEvent(new MessageEvent('message', {data:{kind:'toolbar', action:'files'}}))")
     expect(page.get_by_role('tab', name='Datei öffnen')).to_be_visible()
+    # Das Dock fährt herein (0,40 s); gemessen wird erst, wenn es steht.
+    page.wait_for_function("() => { const d = document.querySelector('.cx-dock'); return d && !d.classList.contains('enter') && d.getBoundingClientRect().width >= 319; }")
+    page.wait_for_timeout(450)
 
 with headless_browser() as browser:
     page = browser.new_page(viewport={'width': 1710, 'height': 1074})
@@ -57,8 +60,9 @@ with headless_browser() as browser:
     assert abs(width(tree) - 230) < 2
     drag(page, handle, -30)
     remembered = [width(sidebar), width(dock), width(tree)]
-    page.get_by_role('button', name='Seitenleiste ausblenden').click()
-    page.wait_for_function("() => document.querySelector('.cx-sidebar').getBoundingClientRect().right < 1")
+    page.get_by_role('button', name='Seitenleiste ausblenden', exact=True).click()
+    # Eingeklappt fährt die Leiste hinter die schmale Icon-Leiste; von ihr bleibt nichts zu sehen.
+    page.wait_for_function("() => { const rail = document.querySelector('.cx-mini-rail'); return rail && document.querySelector('.cx-sidebar').getBoundingClientRect().right <= rail.getBoundingClientRect().right + 1; }")
     page.evaluate("() => window.dispatchEvent(new MessageEvent('message', {data:{kind:'toolbar', action:'sidebar'}}))")
     page.wait_for_function("() => document.querySelector('.cx-sidebar').getBoundingClientRect().left > -1")
     assert abs(width(sidebar) - remembered[0]) < 2
@@ -69,11 +73,18 @@ with headless_browser() as browser:
     for actual, saved in zip([width(sidebar), width(dock), width(tree)], remembered):
         assert abs(actual - saved) < 2, (actual, saved)
 
-    # Both extremes keep the chat usable. The file tree reappears when room returns.
+    # Über die Grenzen hinaus rastet das Dock ein wie bei Codex: zu breit geht
+    # es ins Vollbild, zu schmal klappt es zu. Beim Verlassen des Vollbilds
+    # behält der Chat seine Mindestbreite; der Baum kommt mit dem Platz zurück.
     drag(page, page.get_by_role('separator', name='Dock verbreitern'), -1000)
+    page.get_by_role('button', name='Vollbildmodus beenden').click()
+    page.wait_for_timeout(350)  # der Chat wächst weich zurück
     assert width(page.locator('.cx-conversation')) >= 299
     assert dock.bounding_box()['x'] + width(dock) <= 1711
     drag(page, page.get_by_role('separator', name='Dock verbreitern'), 1000)
+    page.wait_for_function("() => !document.querySelector('.cx-dock')")
+    page.evaluate("() => window.dispatchEvent(new MessageEvent('message', {data:{kind:'toolbar', action:'dock'}}))")
+    page.wait_for_timeout(450)
     assert abs(width(dock) - 320) < 2
     expect(tree).to_be_hidden()
     page.get_by_role('separator', name='Dock verbreitern').dblclick()

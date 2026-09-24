@@ -151,10 +151,10 @@ describe('queue issue regressions', () => {
     const queued = { id: 'q', text: 'Mach weiter', tags: [], modes: { target, effort: 'high' as const, permissionMode: 'safe' as const } };
     expect(chat.steerReason('one', queued)).toBeUndefined();
 
-    // Wer die Reasoning-Stärke nach dem Start ändert, bekommt sonst nur eine
-    // graue Schaltfläche zu sehen.
-    expect(chat.steerReason('one', { ...queued, modes: { ...queued.modes, effort: 'ultra' } }))
-      .toMatch(/Reasoning-Stärke.*automatisch raus/s);
+    // Modell und Reasoning-Stärke aus der Auswahl unten sperren nicht: gesteuert
+    // wird der laufende Agent mit seinen Einstellungen.
+    expect(chat.steerReason('one', { ...queued, modes: { ...queued.modes, effort: 'ultra' } })).toBeUndefined();
+    expect(chat.steerReason('one', { ...queued, modes: { ...queued.modes, target: { provider: 'grok', account: 'privat', model: 'grok-4.6' } } })).toBeUndefined();
     expect(chat.steerReason('one', { ...queued, modes: { ...queued.modes, permissionMode: 'yolo' } }))
       .toMatch(/Berechtigungen/);
     expect(chat.steerReason('one', { ...queued, text: '@codex weiter' })).toMatch(/codex.*claude/s);

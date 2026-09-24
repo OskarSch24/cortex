@@ -6,7 +6,7 @@
  * benutzen willst, ist deine Sache. Schlüssel und Anmeldung bleiben dabei, wo
  * sie sind; ein ausgeschalteter Server geht nur in kein Profil.
  */
-export interface SwitchMemory {
+interface SwitchMemory {
   get<T>(key: string, fallback: T): T;
   update(key: string, value: unknown): Thenable<void>;
 }

@@ -1,10 +1,14 @@
-import { condenseTurn, estimateTokens, embedHistory, flattenWidgets, formatTarget, headWithinTokens, parseMention } from '@cortex/core';
+import { condenseTurn, embedHistory, formatTarget, headWithinTokens } from '@cortex/core';
 import type { BriefSection, ConversationTurn, Target } from '@cortex/core';
 import { STANDARD_BEREICHE, waehleBereiche, type Suchbereich } from './bereiche.js';
 import { schwaerze } from './geheim.js';
+import { gehaltvoll, istMerkwunsch, suchbegriffe, suchtext, themenwechsel } from './suchbegriffe.js';
+import { trefferText } from './trefferText.js';
 import { PROMPT_EINBETTUNG, PROMPT_NOTIZEN, PROMPT_SPEICHERN, PROMPT_SUCHE } from './vorgaben.js';
 
 export { PROMPT_EINBETTUNG, PROMPT_NOTIZEN, PROMPT_SPEICHERN, PROMPT_SUCHE };
+export { gehaltvoll, istMerkwunsch, suchbegriffe, suchtext, themenwechsel } from './suchbegriffe.js';
+export { trefferFuerAnzeige } from './trefferText.js';
 
 /**
  * Das Gedächtnis eines Chats, in zwei Teilen.
@@ -93,7 +97,7 @@ export interface ErinnerungDeps {
 const ERSTAUFBAU_TOKENS = 80_000;
 
 /** Wie lange eine Nachricht höchstens auf den Abruf wartet. */
-export const ABRUF_DECKEL_MS = 2500;
+const ABRUF_DECKEL_MS = 2500;
 
 export class Erinnerung {
   private letzteBegriffe = new Map<string, string[]>();
@@ -282,64 +286,6 @@ export class Erinnerung {
 
 // ── reine Hilfen ──────────────────────────────────────────────────────
 
-const STOPPWOERTER = new Set(
-  (
-    'aber alle allem allen aller alles also auch auf aus bei beim bin bis bitte bist da dabei damit dann das dass dein deine dem den denn der des dessen dich die dies diese diesem diesen dieser dieses dir doch dort du durch ein eine einem einen einer eines einfach er es etwas euch euer für gibt gut hab habe haben hat hatte hatten hier ich ihr im immer in ist ja jetzt kann kannst kein keine können könnte mal man mehr mein meine mich mir mit muss müssen nach nicht nichts noch nun nur ob oder ohne schon sehr sein seine sich sie sind so soll sollte sondern über um und uns unser unsere unter vom von vor war waren was weil weiter welche welcher wenn wer werden wie wieder will wir wird wo wurde zu zum zur zwischen okay ähm äh also gerne genau eben ganz irgendwie eigentlich halt ' +
-    'the and for are but not you your with this that have has from they will would there their what about which when make can like just into than then them these some could other only also how its our out use any may want need should does did done was were been being get got let yes please thanks'
-  ).split(' '),
-);
-
-/**
- * Suchbegriffe aus einer Nachricht, ohne Modellaufruf: Füllwörter raus,
- * Kennungen („apidojo/instagram-scraper“, „WF-E.10“) und lange Wörter zuerst.
- */
-export function suchbegriffe(text: string, max = 10): string[] {
-  const roh = flattenWidgets(text).match(/[\p{L}\p{N}][\p{L}\p{N}\/_.:-]*[\p{L}\p{N}]/gu) ?? [];
-  const gesehen = new Set<string>();
-  const kandidaten: Array<{ wort: string; gewicht: number; pos: number }> = [];
-  roh.forEach((wort, pos) => {
-    const klein = wort.toLowerCase();
-    if (klein.length < 3 || STOPPWOERTER.has(klein) || gesehen.has(klein)) return;
-    if (/^\d+$/.test(klein) && klein.length < 4) return;
-    if (/^https?:/.test(klein)) return;
-    gesehen.add(klein);
-    const kennung = /[\/_.:-]|\d/.test(wort) || /[a-z][A-Z]/.test(wort);
-    kandidaten.push({ wort, gewicht: (kennung ? 100 : 0) + Math.min(wort.length, 20), pos });
-  });
-  return kandidaten
-    .sort((a, b) => b.gewicht - a.gewicht || a.pos - b.pos)
-    .slice(0, max)
-    .map((k) => k.wort);
-}
-
-/** Der Teil einer Nachricht, nach dem gesucht wird: ohne Konto-Präfix und Anhangsliste. */
-export function suchtext(prompt: string): string {
-  // parseMention kennt die Form des Präfixes, auch Kontonamen mit Leerzeichen.
-  return parseMention(prompt.replace(/\n+Attached files:\n[\s\S]*$/, '')).cleaned;
-}
-
-/**
- * Trägt die Nachricht ein eigenes Thema? Kurze Nachfragen („immer noch nicht
- * sauber“, „mach weiter“) sind Fortsetzungen und lösen keinen neuen Abruf aus.
- */
-export function gehaltvoll(text: string, begriffe: string[]): boolean {
-  const woerter = text.split(/\s+/).filter(Boolean).length;
-  const kennung = begriffe.some((b) => /[\/_.:-]|\d/.test(b) || /[a-z][A-Z]/.test(b));
-  return kennung || (woerter >= 4 && begriffe.length >= 3);
-}
-
-/** Ein neues Thema: kaum ein Begriff der neuen Nachricht kam in der letzten Suche vor. */
-export function themenwechsel(vorher: string[], jetzt: string[]): boolean {
-  if (jetzt.length === 0) return false;
-  const alt = new Set(vorher.map((w) => w.toLowerCase()));
-  const gemeinsam = jetzt.filter((w) => alt.has(w.toLowerCase())).length;
-  return gemeinsam / jetzt.length < 0.34;
-}
-
-export function istMerkwunsch(text: string): boolean {
-  return /\b(merk(e)?\s+(dir|euch)|nicht\s+vergessen|behalte?\s+(das|im\s+kopf)|remember\s+(this|that))\b/i.test(text);
-}
-
 function bereinigeZettel(text: string): string | undefined {
   let t = text.trim().replace(/^```(?:markdown|md)?\s*\n/, '').replace(/\n```\s*$/, '').trim();
   const start = t.indexOf('## ');
@@ -347,53 +293,3 @@ function bereinigeZettel(text: string): string | undefined {
   if (!t.includes('## ')) return undefined;
   return headWithinTokens(t, 900);
 }
-
-function trefferText(treffer: Treffer[], e: ErinnerungsEinstellungen): string {
-  const kopf = `${e.promptEinbettung.trim()}\nGanze Fundstelle lesen: Exokortex-Werkzeug «dokument» mit der genannten id.\n`;
-  const zeilen: string[] = [kopf];
-  let budget = e.budget - estimateTokens(kopf);
-  treffer.forEach((t, i) => {
-    const quelle = [t.dokument_titel || t.titel, t.projekt?.replace(/^proj_/, ''), t.pfad].filter(Boolean).join(' · ');
-    const stelle = (t.stelle ?? '')
-      .replace(/\\?"/g, ' ')
-      .replace(/[\[\]{}]/g, ' ')
-      .replace(/\s*,\s*(?=\S)/g, ', ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    const block = `[${i + 1}] ${quelle}\n    ${stelle}\n    id: ${t.id}`;
-    const kosten = estimateTokens(block);
-    if (kosten > budget) return;
-    budget -= kosten;
-    zeilen.push(block);
-  });
-  return zeilen.join('\n');
-}
-
-/** Ein Treffer für die Anzeige im Chat: Titel, Art, Ort, Datum, kurzer Auszug. */
-export function trefferFuerAnzeige(t: Treffer): {
-  id: string; titel: string; quelle: 'chat' | 'dokument'; ort?: string; datum?: string; auszug: string; passung: 'sehr' | 'gut';
-} {
-  const chat = t.projekt === 'proj_cortex_chats';
-  const datum = /(\d{4})-(\d{2})-(\d{2})/.exec(t.pfad ?? '');
-  const ort = chat ? undefined : [PROJEKTNAMEN[t.projekt ?? ''] ?? t.projekt?.replace(/^proj_/, '').replace(/_/g, ' '), t.pfad?.split('/').pop()].filter(Boolean).join(' · ');
-  const auszug = (t.stelle ?? '')
-    .replace(/\\?"/g, ' ')
-    .replace(/[\[\]{}]/g, ' ')
-    .replace(/\s*,\s*(?=\S)/g, ', ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 220);
-  return {
-    id: t.id,
-    titel: (t.dokument_titel || t.titel || 'Ohne Titel').replace(/^@\S+\s+/, ''),
-    quelle: chat ? 'chat' : 'dokument',
-    ort,
-    datum: datum ? `${Number(datum[3])}.${Number(datum[2])}.${datum[1]}` : undefined,
-    auszug,
-    passung: t.wert >= 20 ? 'sehr' : 'gut',
-  };
-}
-
-const PROJEKTNAMEN: Record<string, string> = Object.fromEntries(
-  STANDARD_BEREICHE.flatMap((b) => b.projekte.map((p) => [p, b.name] as const)),
-);

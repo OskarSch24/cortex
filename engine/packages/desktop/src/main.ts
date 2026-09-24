@@ -1,7 +1,7 @@
-import { app, BrowserWindow, WebContentsView, ipcMain, protocol, net, dialog, shell, Menu, safeStorage } from 'electron';
-import { join, dirname, basename, extname } from 'node:path';
+import { app, BrowserWindow, WebContentsView, ipcMain, protocol, net, dialog, Menu, safeStorage } from 'electron';
+import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { activate } from '../../vscode/src/extension.js';
@@ -9,6 +9,8 @@ import * as platform from './platform.js';
 import { createDesktopStorage } from './storage.js';
 import { allowedResource, resourcePath, resourceUrl, previewUrl, injectShell } from './security.js';
 import { DesktopTerminal } from './terminal.js';
+import { agentBrowser, releaseLayout, type AgentBrowserHost, type AgentTab } from './agentBrowser.js';
+import { errorMessage } from '../../vscode/src/util/errors.js';
 
 app.setName('Cortex');
 if (process.env.CORTEX_DATA_DIR) app.setPath('userData', process.env.CORTEX_DATA_DIR);
@@ -32,8 +34,17 @@ let mainWindow: BrowserWindow;
 let primary: any;
 let storage: ReturnType<typeof createDesktopStorage>;
 let extensionContext: any;
-let browser: WebContentsView | undefined;
+// Der eingebaute Browser: mehrere Tabs in einer gemeinsamen Sitzung. Pop-ups
+// (Anmeldefenster wie „Mit Apple anmelden“) werden eigene Tabs und behalten
+// dabei ihre Verbindung zum öffnenden Fenster. Tabs mit `owner` hat ein
+// Agent geöffnet (agentBrowser.ts); sie laufen im Hintergrund weiter.
+type BrowserTab = AgentTab;
+const browserTabs = new Map<string, BrowserTab>();
+let activeTab = '';
 let browserVisible = false;
+let browserBounds: Electron.Rectangle | undefined;
+let browserShown = false;
+const previewSessions = new WeakSet<Electron.Session>();
 let quitting = false;
 let restartOnExit = false;
 let rendererReady = false;
@@ -49,7 +60,6 @@ function sendShell(message: any) {
   if(message.kind === 'diagnostics') message={...message,type:'diagnostics'};
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cortex:shell', message);
 }
-function errorMessage(error: unknown) { return error instanceof Error ? error.message : String(error); }
 function report(error: unknown) { const message=errorMessage(error); console.error(`[Cortex] ${message}`); sendShell({type:'shell-error',message}); }
 function trusted(event: Electron.IpcMainEvent) {
   if(quitting)return undefined;
@@ -110,26 +120,60 @@ function createWindow(title='Cortex') {
   });
   return win;
 }
-function browserState(){return {type:'browser-state',url:browser?.webContents.getURL()||'about:blank',title:browser?.webContents.getTitle()||'Vorschau',canBack:browser?.webContents.navigationHistory.canGoBack()??false,canForward:browser?.webContents.navigationHistory.canGoForward()??false,visible:browserVisible};}
-async function openBrowser(url='about:blank') {
-  const target=previewUrl(url);
-  if(!browser){
-    browser=new WebContentsView({webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true,partition:'persist:cortex-preview'}});
-    browser.setBackgroundColor('#181818');mainWindow.contentView.addChildView(browser);
-    browser.webContents.setWindowOpenHandler(({url})=>{try{void openBrowser(url).catch(report);}catch(error){report(error);}return {action:'deny'};});
-    browser.webContents.on('will-navigate',(event,url)=>{try{previewUrl(url);}catch{event.preventDefault();}});
-    browser.webContents.on('did-navigate',()=>sendShell(browserState()));
-    browser.webContents.on('did-navigate-in-page',()=>sendShell(browserState()));
-    browser.webContents.on('did-finish-load',()=>sendShell(browserState()));
-    browser.webContents.on('page-title-updated',()=>sendShell(browserState()));
-    browser.webContents.session.setPermissionRequestHandler((_contents,_permission,callback)=>callback(false));
-    browser.webContents.session.setPermissionCheckHandler(()=>false);
-  }
-  browserVisible=true;browser.setVisible(false);sendShell({...browserState(),activate:true,loading:true});
-  try{await browser.webContents.loadURL(target);sendShell({...browserState(),loading:false,error:''});}
-  catch(error){sendShell({...browserState(),loading:false,error:errorMessage(error)});}
+function activeBrowser(){return browserTabs.get(activeTab)?.view;}
+function tabSummary(tab:BrowserTab){const contents=tab.view.webContents;const url=contents.isDestroyed()?'about:blank':contents.getURL()||'about:blank';return {id:tab.id,agent:!!tab.owner,title:(contents.isDestroyed()?'':contents.getTitle())||(url==='about:blank'?'Neuer Tab':url),url,loading:tab.loading};}
+function browserState(){const tab=browserTabs.get(activeTab);const contents=tab&&!tab.view.webContents.isDestroyed()?tab.view.webContents:undefined;return {type:'browser-state',url:contents?.getURL()||'about:blank',title:contents?.getTitle()||'Vorschau',canBack:contents?.navigationHistory.canGoBack()??false,canForward:contents?.navigationHistory.canGoForward()??false,visible:browserVisible,loading:tab?.loading??false,error:tab?.error??'',tabs:[...browserTabs.values()].map(tabSummary),active:activeTab};}
+function tabShown(id:string){return id===activeTab&&browserVisible&&browserShown;}
+function placeBrowser(){for(const tab of browserTabs.values()){const current=tab.id===activeTab;if(current&&browserBounds)tab.view.setBounds(browserBounds);const shown=tabShown(tab.id);if(shown)releaseLayout(tab);tab.view.setVisible(shown);}}
+function preparePreviewSession(session:Electron.Session){
+  if(previewSessions.has(session))return;previewSessions.add(session);
+  session.setPermissionRequestHandler((_contents,_permission,callback)=>callback(false));
+  session.setPermissionCheckHandler(()=>false);
+  // Mehrere Passkeys für dieselbe Seite: der Mac fragt, welcher gemeint ist.
+  session.on('select-webauthn-account',(_event,details,callback)=>{let chosen:string|undefined;try{if(details.accounts.length===1)chosen=details.accounts[0]!.credentialId;else if(details.accounts.length>1){const labels=details.accounts.map(account=>account.displayName||account.name||account.credentialId);const choice=dialog.showMessageBoxSync(mainWindow,{type:'question',message:`Passkey für ${details.relyingPartyId}`,detail:'Mit welchem Konto möchtest du dich anmelden?',buttons:[...labels,'Abbrechen'],cancelId:labels.length,defaultId:0});chosen=details.accounts[choice]?.credentialId;}}finally{callback(chosen);}});
 }
-function closeBrowser(){browserVisible=false;browser?.setVisible(false);sendShell(browserState());}
+function createTab(adopt?: Electron.BrowserWindowConstructorOptions & {webContents?: Electron.WebContents}, owner?: string): BrowserTab {
+  const view=adopt?.webContents?new WebContentsView({webContents:adopt.webContents}):new WebContentsView({webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true,partition:'persist:cortex-preview'}});
+  const tab:BrowserTab={id:randomUUID().slice(0,8),view,loading:false,error:'',owner};browserTabs.set(tab.id,tab);
+  const contents=view.webContents;preparePreviewSession(contents.session);
+  view.setBackgroundColor('#111316');view.setVisible(false);if(owner)contents.setBackgroundThrottling(false);mainWindow.contentView.addChildView(view);
+  const update=()=>sendShell(browserState());
+  contents.setWindowOpenHandler(({url,disposition})=>{
+    try{previewUrl(url);}catch{return {action:'deny'};}
+    return {action:'allow',createWindow:options=>{const child=createTab(options as any,tab.owner);if(disposition!=='background-tab'&&!tab.owner){activeTab=child.id;placeBrowser();}sendShell({...browserState(),activate:disposition!=='background-tab'&&!tab.owner});return child.view.webContents;}};
+  });
+  contents.on('will-navigate',(event,url)=>{try{previewUrl(url);}catch{event.preventDefault();}});
+  contents.on('did-start-loading',()=>{tab.loading=true;tab.error='';update();});
+  contents.on('did-stop-loading',()=>{tab.loading=false;update();});
+  contents.on('did-fail-load',(_event,code,description,_url,mainFrame)=>{if(mainFrame&&code!==-3){tab.error=description||'Die Seite ließ sich nicht laden.';update();}});
+  for(const name of ['did-navigate','did-navigate-in-page','did-finish-load','page-title-updated'] as const)contents.on(name as any,update);
+  // Ein Anmeldefenster schließt sich nach getaner Arbeit selbst (window.close()).
+  contents.on('destroyed',()=>{if(browserTabs.has(tab.id))closeTab(tab.id);});
+  return tab;
+}
+function selectTab(id:string){if(!browserTabs.has(id))return;activeTab=id;browserVisible=true;placeBrowser();sendShell({...browserState(),activate:true});}
+function closeTab(id:string){
+  const tab=browserTabs.get(id);if(!tab)return;browserTabs.delete(id);
+  try{mainWindow.contentView.removeChildView(tab.view);}catch{}
+  if(!tab.view.webContents.isDestroyed())tab.view.webContents.close();
+  if(activeTab===id)activeTab=[...browserTabs.keys()].at(-1)||'';
+  if(!browserTabs.size){browserVisible=false;primary?.receive.fire({kind:'closeBrowser'});}
+  placeBrowser();sendShell(browserState());
+}
+async function openBrowser(url='about:blank',newTab=false) {
+  const target=previewUrl(url);
+  const tab=!newTab&&browserTabs.get(activeTab)||createTab();
+  activeTab=tab.id;browserVisible=true;tab.view.setVisible(false);sendShell({...browserState(),activate:true,loading:true});
+  try{await tab.view.webContents.loadURL(target);tab.error='';}
+  catch(error){tab.error=errorMessage(error);}
+  placeBrowser();sendShell(browserState());
+}
+// Was ein Agent im eingebauten Browser tun darf, steht in agentBrowser.ts.
+const agentHost:AgentBrowserHost={
+  tabs:browserTabs,shown:tabShown,validUrl:previewUrl,close:closeTab,show:selectTab,
+  create:owner=>{const tab=createTab(undefined,owner);sendShell(browserState());return tab;},
+};
+function closeBrowser(){browserVisible=false;placeBrowser();sendShell(browserState());}
 async function showEditor(document:any,_options?:any){
   const id=document.uri.toString();documents.set(id,document);platform.notifyEditorState({uri:document.uri,text:document.getText(),active:true});
   sendShell({type:'editor-open',id,path:document.uri.fsPath,text:document.getText(),language:document.languageId,readonly:document.isReadonly??false});
@@ -155,25 +199,24 @@ async function chooseCommand(title:string,items:Array<{label:string;command:stri
   const item=Number.isInteger(index)?items[index]:undefined;
   if(item)return platform.commands.executeCommand(item.command);
 }
-const builtins=['workbench.action.browser.open','workbench.action.browser.closeAll','simpleBrowser.api.open','workbench.action.closePanel','workbench.action.closeSidebar','workbench.action.closeAuxiliaryBar','workbench.action.focusSecondEditorGroup','workbench.action.openSettings','workbench.action.openSettingsJson','workbench.action.openGlobalKeybindings','workbench.view.extensions','workbench.action.quickOpen','workbench.action.showCommands','workbench.action.closeActiveEditor','workbench.action.splitEditor','vscode.diff','_cortex.restartApplication','workbench.action.files.save','editor.action.formatDocument'];
+const builtins=['workbench.action.browser.open','workbench.action.browser.closeAll','simpleBrowser.api.open','workbench.action.closePanel','workbench.action.closeSidebar','workbench.action.closeAuxiliaryBar','workbench.action.focusSecondEditorGroup','workbench.action.openSettings','workbench.action.openSettingsJson','workbench.action.openGlobalKeybindings','workbench.view.extensions','workbench.action.quickOpen','workbench.action.showCommands','workbench.action.closeActiveEditor','workbench.action.splitEditor','vscode.diff','_cortex.restartApplication','_cortex.agentBrowser','workbench.action.files.save','editor.action.formatDocument'];
 async function executeBuiltin(command:string,...args:any[]):Promise<any>{
   switch(command){
-    case 'setContext':context.set(args[0],args[1]);sendShell({type:'context',key:args[0],value:args[1]});return;
     case 'workbench.action.closeSidebar':case 'workbench.action.closeAuxiliaryBar':return; // No external Workbench chrome exists in this host.
     case 'workbench.action.closePanel':sendShell({type:'terminal-hide'});return;
     case 'workbench.action.focusSecondEditorGroup':sendShell({type:'editor-focus'});return;
     case 'workbench.action.browser.open':return openBrowser(args[0]?.url);
     case 'simpleBrowser.api.open':return openBrowser(args[0]?.toString());
     case 'workbench.action.browser.closeAll':closeBrowser();return;
+    case '_cortex.agentBrowser':return agentBrowser(agentHost,String(args[0]??''),args[1]&&typeof args[1]==='object'?args[1]:{});
     case '_cortex.restartApplication':restartOnExit=true;mainWindow.close();return;
-    case 'revealFileInOS':shell.showItemInFolder(args[0].fsPath);return;
     case 'vscode.diff':{
       const left=await platform.workspace.openTextDocument(args[0]);const right=await platform.workspace.openTextDocument(args[1]);
       sendShell({type:'editor-diff',id:randomUUID(),path:args[2]||'Änderungen',original:left.getText(),modified:right.getText(),language:right.languageId,readonly:true});return;
     }
     case 'workbench.action.files.save':for(const document of documents.values())if(document.isDirty)await saveDocument(document);return;
     case 'editor.action.formatDocument':sendShell({type:'editor-format'});return;
-    case 'workbench.action.openSettingsJson':return platform.window.showTextDocument(await platform.workspace.openTextDocument(join(app.getPath('userData'),'Standalone','settings.json')));
+    case 'workbench.action.openSettingsJson':return platform.window.showTextDocument(await platform.workspace.openTextDocument(storage.settingsPath));
     case 'workbench.action.openSettings':primary?.webview.postMessage({kind:'showPage',page:'settings'});return;
     case 'workbench.view.extensions':primary?.webview.postMessage({kind:'showPage',page:'plugins'});return;
     case 'workbench.action.openGlobalKeybindings':return chooseCommand('Tastaturkurzbefehle',[{label:'⌘N · Neuer Chat',command:'cortex.newConversation'},{label:'⌘, · Einstellungen',command:'workbench.action.openSettings'},{label:'⌘S · Datei speichern',command:'workbench.action.files.save'},{label:'⌘⇧P · Befehle',command:'workbench.action.showCommands'},{label:'⌘J · Terminal',command:'cortex.showTerminal'}]);
@@ -204,11 +247,14 @@ async function shellMessage(message:any){
     case 'terminal-new':platform.window.createTerminal({name:'Cortex',cwd:platform.workspace.workspaceFolders?.[0]?.uri.fsPath??homedir()}).show();return;
     case 'terminal-hide':primary?.receive.fire({kind:'closeTerminal'});return;
     case 'browser-navigate':await openBrowser(String(message.url));return;
-    case 'browser-back':browser?.webContents.navigationHistory.goBack();return;
-    case 'browser-forward':browser?.webContents.navigationHistory.goForward();return;
-    case 'browser-reload':browser?.webContents.reload();return;
+    case 'browser-new-tab':await openBrowser(String(message.url||'about:blank'),true);return;
+    case 'browser-select-tab':selectTab(String(message.id));return;
+    case 'browser-close-tab':closeTab(String(message.id));return;
+    case 'browser-back':activeBrowser()?.webContents.navigationHistory.goBack();return;
+    case 'browser-forward':activeBrowser()?.webContents.navigationHistory.goForward();return;
+    case 'browser-reload':activeBrowser()?.webContents.reload();return;
     case 'browser-close':primary?.receive.fire({kind:'closeBrowser'});closeBrowser();return;
-    case 'browser-bounds':if(browser){const {width,height}=mainWindow.getContentBounds();const zoom=mainWindow.webContents.getZoomFactor();const scaled=(value:unknown)=>Math.round((Number(value)||0)*zoom);const x=Math.max(0,Math.min(width,scaled(message.x))),y=Math.max(0,Math.min(height,scaled(message.y)));browser.setBounds({x,y,width:Math.max(0,Math.min(width-x,scaled(message.width))),height:Math.max(0,Math.min(height-y,scaled(message.height)))});browser.setVisible(browserVisible&&!!message.visible);}return;
+    case 'browser-bounds':{const {width,height}=mainWindow.getContentBounds();const zoom=mainWindow.webContents.getZoomFactor();const scaled=(value:unknown)=>Math.round((Number(value)||0)*zoom);const x=Math.max(0,Math.min(width,scaled(message.x))),y=Math.max(0,Math.min(height,scaled(message.y)));browserBounds={x,y,width:Math.max(0,Math.min(width-x,scaled(message.width))),height:Math.max(0,Math.min(height-y,scaled(message.height)))};browserShown=!!message.visible;placeBrowser();}return;
     case 'editor-active':if(document)platform.notifyEditorState({uri:document.uri,active:true});return;
     case 'editor-selection':if(document&&message.selection)platform.notifyEditorState({uri:document.uri,selection:{start:{line:message.selection.startLine,character:message.selection.startCharacter},end:{line:message.selection.endLine,character:message.selection.endCharacter}},active:true});return;
     case 'editor-change':if(document&&typeof message.text==='string')platform.notifyEditorState({uri:document.uri,text:message.text,active:true});return;
@@ -217,7 +263,23 @@ async function shellMessage(message:any){
   }
 }
 
+/**
+ * Passkeys mit Touch ID im eingebauten Browser. Electron speichert sie im
+ * Schlüsselbund, gebunden an die Secure Enclave dieses Macs. Das geht nur, wenn
+ * die App mit der Schlüsselbund-Berechtigung signiert ist (Provisioning-Profil,
+ * siehe scripts/assemble.sh); dann legt die Signatur webauthn.json in die
+ * Ressourcen. Ohne sie bleibt Touch ID aus, statt Seiten einen Weg anzubieten,
+ * der beim ersten Versuch scheitert. Passkeys aus dem iCloud-Schlüsselbund
+ * erreicht Electron nicht: Apple gibt sie nur zugelassenen Browsern frei.
+ */
+function configurePasskeys(){
+  const marker=join(process.resourcesPath,'webauthn.json');
+  if(process.platform!=='darwin'||!existsSync(marker))return;
+  try{const {keychainAccessGroup}=JSON.parse(readFileSync(marker,'utf8'));if(typeof keychainAccessGroup==='string'&&keychainAccessGroup)app.configureWebAuthn({touchID:{keychainAccessGroup,promptReason:'dich bei $1 mit deinem Passkey anzumelden'}});}
+  catch(error){report(error);}
+}
 async function boot(){
+  configurePasskeys();
   storage=createDesktopStorage({userDataPath:app.getPath('userData'),isolated:!!process.env.CORTEX_DATA_DIR,encryption:safeStorage});
   storage.onSettingsError(({message})=>report(message));
   protocol.handle('cortex-app',async request=>{
@@ -233,9 +295,9 @@ async function boot(){
   ipcMain.on('cortex:drop',(event,paths)=>{const panel=trusted(event);if(panel&&Array.isArray(paths)){const valid=paths.filter(path=>typeof path==='string'&&existsSync(path));if(valid.length)panel.webview.postMessage({kind:'attachments',paths:valid});}});
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {label:'Cortex',submenu:[{role:'about'},{label:'Einstellungen …',accelerator:'CmdOrCtrl+,',click:()=>void executeBuiltin('workbench.action.openSettings').catch(report)},{type:'separator'},{role:'services'},{type:'separator'},{role:'hide'},{role:'hideOthers'},{role:'unhide'},{type:'separator'},{label:'Cortex beenden',accelerator:'CmdOrCtrl+Q',click:()=>mainWindow.close()}]},
-    {label:'Ablage',submenu:[{label:'Neuer Chat',accelerator:'CmdOrCtrl+N',click:()=>void platform.commands.executeCommand('cortex.newConversation').catch(report)},{label:'Datei öffnen …',accelerator:'CmdOrCtrl+O',click:()=>void dialog.showOpenDialog(mainWindow,{properties:['openFile']}).then(result=>result.filePaths[0]&&platform.commands.executeCommand('vscode.open',platform.Uri.file(result.filePaths[0]))).catch(report)},{label:'Speichern',accelerator:'CmdOrCtrl+S',click:()=>void executeBuiltin('workbench.action.files.save').catch(report)},{role:'close'}]},
+    {label:'Ablage',submenu:[{label:'Neuer Chat',accelerator:'CmdOrCtrl+N',click:()=>void platform.commands.executeCommand('cortex.newConversation').catch(report)},{label:'Datei öffnen …',accelerator:'CmdOrCtrl+O',click:()=>void dialog.showOpenDialog(mainWindow,{properties:['openFile']}).then(result=>result.filePaths[0]&&platform.commands.executeCommand('vscode.open',platform.Uri.file(result.filePaths[0]))).catch(report)},{label:'Speichern',accelerator:'CmdOrCtrl+S',click:()=>void executeBuiltin('workbench.action.files.save').catch(report)},{label:'Neuer Browser-Tab',accelerator:'CmdOrCtrl+T',click:()=>void openBrowser('about:blank',true).catch(report)},{role:'close'}]},
     {label:'Bearbeiten',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},
-    {label:'Ansicht',submenu:[{label:'Befehle …',accelerator:'CmdOrCtrl+Shift+P',click:()=>void executeBuiltin('workbench.action.showCommands').catch(report)},{label:'Terminal',accelerator:'CmdOrCtrl+J',click:()=>void platform.commands.executeCommand('cortex.showTerminal').catch(report)},{type:'separator'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'}]},
+    {label:'Ansicht',submenu:[{label:'Befehle …',accelerator:'CmdOrCtrl+Shift+P',click:()=>void executeBuiltin('workbench.action.showCommands').catch(report)},{label:'Terminal',accelerator:'CmdOrCtrl+J',click:()=>void platform.commands.executeCommand('cortex.showTerminal').catch(report)},{label:'Seitenleiste ein-/ausblenden',accelerator:'CmdOrCtrl+Alt+B',click:()=>void platform.commands.executeCommand('cortex.toggleDock').catch(report)},{type:'separator'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'}]},
     {label:'Fenster',submenu:[{role:'minimize'},{role:'zoom'},{role:'front'}]},
     {label:'Hilfe',submenu:[{label:'Über Cortex',click:()=>app.showAboutPanel()}]},
   ]));

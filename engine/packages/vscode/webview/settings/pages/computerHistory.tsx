@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { HistoryQuestionResult, HistoryRequest, HistoryResponse, HistorySettings, HistoryState } from '../../../src/history/types.js';
 import { Glyph } from '../../components/CortexIcons.js';
+import { clockTime } from '../../format/time.js';
 import { vscode } from '../../vscodeApi.js';
 import { Button, Card, Empty, Page, Row, Search, Section, Select, Toggle, useDismiss } from '../ui.js';
 
@@ -16,7 +17,7 @@ function bounds(period: Period, date: string): { from?: number; to?: number } {
   return { from: start.getTime(), to: end.getTime() - 1 };
 }
 const dayLabel = (time: number) => new Date(time).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-const timeLabel = (time: number) => new Date(time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+const timeLabel = clockTime;
 
 /** Separate local-only channel: never writes a conversation or generic settings. */
 export function ComputerverlaufPage() {

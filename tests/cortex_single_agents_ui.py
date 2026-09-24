@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 from playwright.sync_api import expect
 from headless_browser import headless_browser
+from cortex_agents_nav import to_overview
 from cortex_control_styles import assert_controls_styled
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,6 +30,7 @@ with headless_browser(port=PORT) as browser:
 
     expect(page.get_by_role('button', name='Agent erstellen', exact=True)).to_be_visible()
     expect(page.get_by_role('button', name='Team erstellen', exact=True)).to_be_visible()
+    to_overview(page)
     page.get_by_role('button', name='Agent erstellen', exact=True).click()
     gallery = page.get_by_role('region', name='Agentenvorlagen', exact=True)
     expect(gallery).to_be_visible()
@@ -58,6 +60,7 @@ with headless_browser(port=PORT) as browser:
     select('MCP-Auswahl des Agenten', 'Keine')
     page.locator('.cx-team-checks[aria-label="Skills des Agenten"]').get_by_role('checkbox', name='Recherche', exact=True).check()
     instructions.fill('# Eigene Prüfung\nPrüfe zuerst die Anforderungen und anschließend die Fehlerpfade.')
+    to_overview(page)
     page.get_by_role('button', name='Team erstellen', exact=True).click()
     expect(page.get_by_role('alert')).to_contain_text('ungespeicherte Änderungen')
     page.get_by_role('button', name='Weiter bearbeiten', exact=True).click()
@@ -75,7 +78,9 @@ with headless_browser(port=PORT) as browser:
     assert agent['dependsOn'] == [] and agent['mcpServers'] == []
     assert agent['skillPaths'] == ['/demo/skills/research/SKILL.md']
     assert solo['projectPath'] == '/demo/cortex'
+    to_overview(page)
     expect(page.get_by_role('region', name='Agenten', exact=True).get_by_role('button')).to_contain_text('Mein Reviewer')
+    to_overview(page)
     expect(page.get_by_role('region', name='Teams', exact=True).get_by_text('Noch keine Teams.', exact=True)).to_be_visible()
     page.locator('.cx-teams').evaluate('(element) => { element.scrollTop = 0; }')
     assert_controls_styled(page)
@@ -84,6 +89,7 @@ with headless_browser(port=PORT) as browser:
     assert page.locator('.cx-teams').evaluate('e => e.scrollWidth <= e.clientWidth + 1')
     page.set_viewport_size({'width': 1440, 'height': 1080})
 
+    page.get_by_role('region', name='Agenten', exact=True).get_by_role('button').click()
     page.get_by_label('Auftrag für den Agenten', exact=True).fill('Prüfe die Anmeldung.')
     page.get_by_role('button', name='Agent starten', exact=True).click()
     expect(page.get_by_role('status')).to_contain_text('Agent gestartet.')
@@ -101,6 +107,7 @@ with headless_browser(port=PORT) as browser:
     expect(page.locator('.cx-team-result strong')).to_have_text('Fehlerpfade')
 
     # Adding a saved agent is a snapshot: IDs and handoffs belong to the new team.
+    to_overview(page)
     page.get_by_role('button', name='Team erstellen', exact=True).click()
     page.get_by_label('Teamname', exact=True).fill('Prüfteam')
     page.get_by_role('button', name='Gespeicherten Agenten hinzufügen', exact=True).click()
@@ -117,6 +124,7 @@ with headless_browser(port=PORT) as browser:
     assert copied['id'] != agent['id'] and copied['dependsOn'] == []
     assert copied['target'] == agent['target'] and copied['mcpServers'] == []
     assert copied['skillPaths'] == agent['skillPaths']
+    to_overview(page)
     page.get_by_role('region', name='Agenten', exact=True).get_by_role('button').click()
     expect(instructions).to_have_value(agent['instructions'])
     page.get_by_role('button', name='Löschen', exact=True).click()
@@ -124,10 +132,13 @@ with headless_browser(port=PORT) as browser:
     expect(page.get_by_role('status')).to_contain_text('Agent gelöscht.')
     assert len(page.evaluate('window.__cortexTeams.state.runs')) == 2
     assert page.evaluate('window.__cortexTeams.state.teams[0].kind') == 'team'
+    to_overview(page)
     page.get_by_role('region', name='Teams', exact=True).get_by_role('button').click()
     expect(page.get_by_role('tab')).to_have_count(2)
     page.get_by_role('tab', name=re.compile('Mein Reviewer')).click()
     expect(instructions).to_have_value('# Abgewandelte Teamrolle')
+
+    to_overview(page)
 
     page.get_by_role('button', name='Agent erstellen', exact=True).click()
     page.get_by_role('button', name=re.compile('^Ohne Vorlage')).click()

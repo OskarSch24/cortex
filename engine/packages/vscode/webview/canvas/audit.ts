@@ -15,6 +15,8 @@
  * Rein, ohne Excalidraw — prüfbar in test/unit/canvas-audit.test.ts.
  */
 
+import { rectContains, rectsOverlap, type Rect } from './geometry.js';
+
 export interface El {
   id: string; type: string; x: number; y: number; width: number; height: number;
   isDeleted?: boolean; containerId?: string | null; text?: string; originalText?: string;
@@ -23,7 +25,7 @@ export interface El {
   version?: number; versionNonce?: number; updated?: number;
   [key: string]: unknown;
 }
-export interface Rect { x: number; y: number; w: number; h: number }
+export type { Rect };
 export interface Issue { kind: 'overlap' | 'overflow'; a: string; b?: string }
 
 /** Was Platz belegt. Linien, Pfeile und Freihand nicht — die dürfen kreuzen. */
@@ -33,9 +35,8 @@ const GAP = 16;
 const TOLERANCE = 2;
 
 export const rectOf = (e: El): Rect => ({ x: Math.min(e.x, e.x + e.width), y: Math.min(e.y, e.y + e.height), w: Math.abs(e.width), h: Math.abs(e.height) });
-const overlaps = (a: Rect, b: Rect, pad = 0) =>
-  a.x < b.x + b.w + pad - TOLERANCE && b.x < a.x + a.w + pad - TOLERANCE && a.y < b.y + b.h + pad - TOLERANCE && b.y < a.y + a.h + pad - TOLERANCE;
-const contains = (a: Rect, b: Rect) => a.x <= b.x + TOLERANCE && a.y <= b.y + TOLERANCE && a.x + a.w >= b.x + b.w - TOLERANCE && a.y + a.h >= b.y + b.h - TOLERANCE;
+const overlaps = (a: Rect, b: Rect, pad = 0) => rectsOverlap(a, b, pad, TOLERANCE);
+const contains = (a: Rect, b: Rect) => rectContains(a, b, TOLERANCE);
 const area = (r: Rect) => r.w * r.h;
 
 /** Die Elemente, die als Fläche zählen: sichtbar, fest, keine Beschriftung in einer Form. */

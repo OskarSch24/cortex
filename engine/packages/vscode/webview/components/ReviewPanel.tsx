@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { FileDiffDto, HostToWebview } from '../../src/panel/protocol.js';
 import type { TouchedFile } from '../../src/panel/transcript.js';
 import { vscode } from '../vscodeApi.js';
-import { Counts, split } from './ChangeCard.js';
+import { Counts, PathLabel } from './ChangeCard.js';
 import { Glyph } from './CortexIcons.js';
 
 /**
@@ -113,7 +113,7 @@ export function ReviewPanel({ touched: files0, code, onClose, onBack }: {
           <div class="cx-review-file-head">
             <button class="cx-review-file-open" aria-expanded={isOpen} onClick={() => toggle(file.path)}>
               <span class={isOpen ? 'cx-review-chevron open' : 'cx-review-chevron'}><Glyph name="chevron" size={11} /></span>
-              <span class="cx-review-path">{split(file.path)}</span>
+              <span class="cx-review-path"><PathLabel path={file.path} /></span>
               {file.binary ? <span class="cx-change-binary">binär</span>
                 : (file.added || file.removed) ? <Counts added={file.added} removed={file.removed} />
                 : <span class="cx-change-binary">{mode.get(file.path) === 'write' ? 'bearbeitet' : 'gelesen'}</span>}

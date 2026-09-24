@@ -108,3 +108,10 @@ export function clipToTokens(text: string, maxTokens: number): string {
   }
   return kept.join('\n') + `\n… +${dropped} more lines`;
 }
+
+/** Keeps the first `maxLines` lines and says how many more there were. */
+export function clipLines(text: string, maxLines: number): string {
+  const lines = text.split('\n');
+  if (lines.length <= maxLines) return text;
+  return lines.slice(0, maxLines).join('\n') + `\n… +${lines.length - maxLines} more lines`;
+}

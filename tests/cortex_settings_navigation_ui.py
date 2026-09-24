@@ -19,7 +19,7 @@ def prepare(page):
     page.goto(BASE)
     page.wait_for_load_state('networkidle')
     page.locator('#harness').evaluate('(el) => el.remove()')
-    page.locator('.cx-nav', has_text='Einstellungen').click()
+    page.locator('.cx-settings-btn').click()
     expect(page.locator('.cxs-nav')).to_be_visible()
 
 

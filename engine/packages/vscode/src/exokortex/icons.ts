@@ -161,8 +161,3 @@ export function appSymbol(
   zwischenspeicher.set(schluessel, uri);
   return uri;
 }
-
-/** Für Tests und nach einer Neuinstallation. */
-export function symboleVergessen(): void {
-  zwischenspeicher.clear();
-}

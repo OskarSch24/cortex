@@ -212,6 +212,17 @@
         "icon": "$(layout-sidebar-left)"
       },
       {
+        "command": "cortex.toggleDock",
+        "title": "Seitenleiste ein-/ausblenden",
+        "category": "Cortex"
+      },
+      {
+        "command": "cortex.showVideo",
+        "title": "Video (Remotion)",
+        "category": "Cortex",
+        "icon": "$(play)"
+      },
+      {
         "command": "cortex.showFiles",
         "title": "Dateien",
         "category": "Cortex",
@@ -246,6 +257,12 @@
         "title": "Transkript-Ansicht",
         "category": "Cortex",
         "icon": "$(list-flat)"
+      },
+      {
+        "command": "cortex.showOverview",
+        "title": "Übersicht",
+        "category": "Cortex",
+        "icon": "$(layout-sidebar-right)"
       },
       {
         "command": "cortex.showCanvas",
@@ -414,8 +431,16 @@
           "group": "1_view@3"
         },
         {
+          "command": "cortex.showOverview",
+          "group": "1_view@3"
+        },
+        {
           "command": "cortex.showCanvas",
           "group": "1_view@4"
+        },
+        {
+          "command": "cortex.showVideo",
+          "group": "1_view@5"
         },
         {
           "command": "cortex.closeBrowser",
@@ -518,6 +543,17 @@
           ],
           "default": "panel",
           "markdownDescription": "Wo `Terminal öffnen` das Projektterminal ablegt."
+        },
+        "cortex.openrouterDefaultModel": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "OpenRouter-Modell, das antwortet, wenn Chat oder Agent kein Modell nennen (ID wie `anthropic/claude-opus-5`). Leer = ein kostenloses Modell. Die Zweitmeinung nutzt immer kostenlose Modelle."
+        },
+        "cortex.openrouterModels": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "markdownDescription": "OpenRouter-Modelle, die im Modellmenü stehen (IDs wie `openai/gpt-5.6-terra`). Leer = eine kleine Auswahl aktueller Modelle. Bearbeitbar unter Einstellungen → Konto → OpenRouter."
         },
         "cortex.pollUsage": {
           "type": "boolean",
@@ -734,6 +770,12 @@
       }
     },
     "keybindings": [
+      {
+        "command": "cortex.toggleDock",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b",
+        "when": "cortex.chatToolsVisible"
+      },
       {
         "command": "cortex.restartApplication",
         "key": "ctrl+alt+shift+r",

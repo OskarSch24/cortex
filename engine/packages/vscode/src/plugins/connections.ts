@@ -9,7 +9,7 @@ import { probeServer, type McpServerDef, type PluginConnection, type ProbeOption
  */
 
 /** Genau das, was diese Klasse vom globalState braucht. */
-export interface ConnectionMemory {
+interface ConnectionMemory {
   get<T>(key: string, fallback: T): T;
   update(key: string, value: unknown): Thenable<void>;
 }
@@ -20,7 +20,7 @@ export const STALE_AFTER_MS = 10 * 60_000;
 /** Nie mehr Prüfungen auf einmal — jede lokale startet einen Prozess, oft über npx. */
 const PARALLEL = 3;
 
-export type Prober = (def: McpServerDef, options: { timeoutMs?: number; readiness?: ProbeOptions['readiness'] }) => Promise<ProbeResult>;
+type Prober = (def: McpServerDef, options: { timeoutMs?: number; readiness?: ProbeOptions['readiness'] }) => Promise<ProbeResult>;
 
 export class PluginConnections {
   private results: Record<string, PluginConnection>;
@@ -139,7 +139,7 @@ export class PluginConnections {
   }
 }
 
-export function toConnection(result: ProbeResult, now = Date.now()): PluginConnection {
+function toConnection(result: ProbeResult, now = Date.now()): PluginConnection {
   if (result.ok) {
     return {
       status: 'verbunden',

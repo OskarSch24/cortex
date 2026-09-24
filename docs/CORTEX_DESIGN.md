@@ -13,7 +13,7 @@ Eine IDE für eigene KI-Abos mit mehreren getrennten Konten pro Anbieter. Die Ar
 - Oben: direkte Schalter für Dateien, Änderungen, Vorschau, Terminal und Editor. Auf schmalen Ansichten bleiben verständlich beschriftete Icons/Tooltips.
 - Rechts: Dateipanel mit Filter, Ordnernavigation und veränderbarer Breite. Dateien öffnen den echten Code-OSS-Editor neben dem Chat. Vorschau und Terminal verwenden ebenfalls native Editorbereiche, deren Breite sich über die Workbench einstellen lässt.
 - Verbindungen: Anbieter nebeneinander, darunter einzelne Konten mit Identität und ehrlich ausgewiesenem Status. Mehrere Profile desselben Anbieters bleiben getrennt. Quoten ohne verlässliche Daten werden nicht erfunden.
-- Stil: kühle, nahezu schwarze Flächen, weiße Primäraktionen, dünne Trennlinien, ruhige Typografie. Anbieterfarben sind auf ihre Marken beschränkt. Kein beige/goldenes UI-Thema.
+- Stil: abgerundete Inseln auf dunklem Grund, weiße Primäraktionen, dünne Trennlinien, Manrope und JetBrains Mono. Anbieterfarben sind auf ihre Marken beschränkt. Kein beige/goldenes UI-Thema. Einzelheiten: „Eigenes Erscheinungsbild“ weiter unten.
 
 Die zuletzt gelieferten sechs Screenshots von Codex und Claude Code sind die konkrete Referenz für den Aufbau. Zusätzliche Recherche:
 
@@ -67,6 +67,58 @@ Zusätzlich geprüft: Der frisch installierte Grok-Client antwortet ohne Anmeldu
 
 Der abschließende visuelle Test der installierten App und wiederholter Neustarts ist noch offen: Die macOS-Oberfläche war gesperrt und ließ sich durch die Computersteuerung nicht öffnen. Deshalb ist insbesondere „keine Passwortabfrage bei mehreren Neustarts“ noch nicht live bestätigt.
 
+
+## Eigenes Erscheinungsbild (2026-09-23)
+
+Cortex soll öffentlich auf GitHub stehen und nicht mehr wie eine Kopie der
+Codex-App aussehen. Der **Aufbau bleibt**: Seitenleiste mit Projekten und
+Aufgaben links, Arbeitsfläche in der Mitte, Dock und Editor rechts, Terminal
+unten, Einstellungen mit eigener Leiste. Geändert ist die Oberfläche. Entwurf
+auf der Design-Fläche „Cortex Redesign“, zweite Fassung.
+
+- **Inseln statt Flächen, die aneinanderstoßen.** Seitenleiste, Arbeitsfläche,
+  Dock, Editor-/Browserbereich und Terminal sind abgerundete Inseln (Radius
+  14 px) auf einem dunkleren Grund (`--cx-ground`), 8 px Abstand zueinander
+  und zum Fensterrand (`--cx-gap`). Die rechten Inseln beginnen unter dem
+  44-px-Band der Titelleiste; darin liegen die Werkzeug-Icons frei auf dem Grund.
+- **Runde Formen.** Zeilen 9 px, Karten 16 px, Eingabefeld 22 px, Knöpfe,
+  Chips und Reiter ganz rund (`--cx-r-*` in `media/cortex.css`).
+- **Eigene Schrift.** Manrope für die Oberfläche, JetBrains Mono für Code,
+  Pfade und Terminal. Beide liegen unter `media/fonts/` (SIL Open Font License,
+  Lizenztexte daneben, in der Desktop-App unter `resources/licenses/font-*`).
+  Der Schlüssel `system` in den Darstellungseinstellungen meint die Vorgabe und
+  zeigt jetzt diese Schriften; die Systemschrift heißt `apple`, SF Mono `sfmono`.
+- **Kühles Graphit** statt des warmen Grautons: Grund `#0a0b0d`, Arbeitsfläche
+  `#111316`, Seitenleiste `#15171a`. Grün (`--cx-green`) nur für „läuft“,
+  Bernstein (`--cx-amber`) nur für „braucht dich“, etwa Vollzugriff. Eine früher
+  gespeicherte Vorgabe `#181818` gilt als die neue Vorgabe.
+- **Einklappen überall.** Die Abschnitte „Angeheftet“ und „Projekte“ klappen an
+  ihrer Überschrift zu und zeigen dann ihre Anzahl; zugeklappte Projekte zeigen,
+  wie viele Aufgaben sie haben. Der Zustand bleibt gemerkt. Eingeklappt lässt die
+  Seitenleiste eine schmale Icon-Leiste mit denselben Wegen stehen. In den
+  Einstellungen klappen die Gruppen der Leiste zu; die Gruppe der offenen Seite
+  bleibt immer offen, bei einer Suche sind alle offen.
+- **Startseite.** Kleines Gehirn, die Frage „Was steht in … an?“, darunter das
+  Eingabefeld in der Mitte und vier runde Einstiege statt der Kachelreihe. Die
+  Projektwahl sitzt als Chip im Eingabefeld statt als Streifen darüber.
+- **Einstellungen** stehen als Zahnrad neben der Kontokarte unten in der Leiste.
+- **Plugins** stehen in einer Spalte innerhalb einer Karte statt in zwei freien Spalten.
+
+Die Regeln liegen in `media/cortex-look.css`; sie wird nach allen anderen
+Stylesheets geladen. Die Farbwerte stehen als Tokens oben in `media/cortex.css`,
+die des Desktop-Rahmens in `engine/packages/desktop/renderer/shell.css` und
+die Farben von Monaco und xterm in `renderer/shell.ts`. Die Abschnitte weiter
+unten beschreiben, wie Verhalten und Maße aus Codex entstanden sind. Die
+Maße gelten weiter, wo die Oberfläche sie nicht ausdrücklich ändert.
+
+Die Oberflächentests messen jetzt diese Werte statt der Codex-Vorlage:
+runde Knöpfe (`cortex_control_styles.py`), die Ecke des Eingabefelds als
+22-px-Kreisbogen (`cortex_composer_geometry_ui.py`), die Plugins in einer
+Spalte (`cortex_plugins_ui.py`), die um die Inseln verschobenen Einstellungen
+(`cortex_settings_ui.py`) sowie Farben und Radien der Menüs und der
+Befehlsliste (`cortex_menus_ui.py`, `cortex_slash_commands_ui.py`). Farben
+laufen dafür über feste Tokens statt `color-mix()`, damit die Tests
+`rgb()`-Werte vergleichen können; die hellen Varianten setzt `store.ts`.
 
 ## Startseite nach Codex-Referenz (2026-09-08)
 

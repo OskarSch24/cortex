@@ -18,6 +18,7 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
+import { errorMessage } from '../util/errors.js';
 
 interface JsonRpcMessage {
   jsonrpc: '2.0';
@@ -289,7 +290,7 @@ async function answer(id: number | string, name: string, args: Record<string, un
     const text = await HANDLERS[name]!(args);
     send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } });
   } catch (error) {
-    const text = error instanceof Error ? error.message : String(error);
+    const text = errorMessage(error);
     send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }], isError: true } });
   } finally {
     pending--;

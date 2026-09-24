@@ -14,9 +14,4 @@ const parsed = parseCatalog(JSON.stringify(catalogJson));
 
 export const CATALOG: PluginEntry[] = parsed.ok ? parsed.catalog.entries : [];
 
-/** Nur für die Prüfung interessant: was der Parser nicht übernehmen konnte. */
-export const CATALOG_SKIPPED: string[] = parsed.ok ? parsed.skipped : [];
-
-export const CATALOG_ERROR: string | undefined = parsed.ok ? undefined : parsed.error;
-
 export const byId = (id: string): PluginEntry | undefined => CATALOG.find((e) => e.id === id);

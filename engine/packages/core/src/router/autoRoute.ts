@@ -4,7 +4,7 @@ import type { QuotaTracker } from '../quota/quotaTracker.js';
 import type { TaskMetric } from '../quota/metricsSchema.js';
 import type { Classification, Complexity, TaskKind } from './classify.js';
 import { calibrateAffinity } from './learning.js';
-import { affordability, estimateBurn, type BurnEstimate } from './burn.js';
+import { TIER_BY_COMPLEXITY_BURN as TIER_BY_COMPLEXITY, affordability, estimateBurn, type BurnEstimate } from './burn.js';
 import { stickyBonus, type StickyBonus } from './cacheAffinity.js';
 import { formatTokens } from '../context/tokens.js';
 
@@ -52,13 +52,6 @@ const TIER_EFFORT: Record<Tier, Effort> = {
   light: 'minimal',
   standard: 'medium',
   heavy: 'high',
-};
-
-const TIER_BY_COMPLEXITY: Record<Complexity, Tier> = {
-  trivial: 'light',
-  simple: 'light',
-  moderate: 'standard',
-  hard: 'heavy',
 };
 
 const TIER_RANK: Record<Tier, number> = { light: 0, standard: 1, heavy: 2 };
@@ -320,5 +313,3 @@ export function autoRoute(
 }
 
 export const AUTO_TIER_MODELS = TIER_MODELS;
-export const AUTO_TIER_BY_COMPLEXITY = TIER_BY_COMPLEXITY;
-export const AUTO_TIER_EFFORT = TIER_EFFORT;

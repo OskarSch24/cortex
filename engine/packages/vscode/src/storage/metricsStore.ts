@@ -46,22 +46,4 @@ export class MetricsStore {
     await this.ctx.globalState.update(KEY, []);
     this.emitter.fire();
   }
-
-  byDateRange(days: number): TaskMetric[] {
-    const now = Date.now();
-    const cutoff = now - days * 24 * 60 * 60 * 1000;
-    return this.all().filter((m) => m.timestamp >= cutoff);
-  }
-
-  sinceYesterday(): TaskMetric[] {
-    return this.byDateRange(1);
-  }
-
-  last7Days(): TaskMetric[] {
-    return this.byDateRange(7);
-  }
-
-  last30Days(): TaskMetric[] {
-    return this.byDateRange(30);
-  }
 }

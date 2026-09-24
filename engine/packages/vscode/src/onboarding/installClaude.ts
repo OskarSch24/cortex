@@ -1,10 +1,10 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdir } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { managedClaudeRoot } from '../paths.js';
 
-export const CLAUDE_PACKAGE = '@anthropic-ai/claude-code@2.1.263';
+export const CLAUDE_PACKAGE = '@anthropic-ai/claude-code@2.1.280';
 const run = promisify(execFile);
 export type InstallerCommand = (file: string, args: string[], options: { timeout: number; maxBuffer: number; env: NodeJS.ProcessEnv }) => Promise<{ stdout: string; stderr: string }>;
 
@@ -12,7 +12,7 @@ export type InstallerCommand = (file: string, args: string[], options: { timeout
 export async function installManagedClaude(
   progress: (message: string) => void,
   execute: InstallerCommand = (file, args, options) => run(file, args, options),
-  root = join(homedir(), '.cortex', 'runtime', 'claude'),
+  root = managedClaudeRoot(),
 ): Promise<{ path: string; version: string }> {
   await mkdir(root, { recursive: true });
   progress('Claude Code wird in Cortex’ eigener Laufzeit installiert …');

@@ -7,7 +7,7 @@ import type { PluginStatus } from '../../../../core/src/plugins/installed.js';
 import { pluginOverview, statusHint } from '../../components/pluginOverview.js';
 import { vscode } from '../../vscodeApi.js';
 import type { SettingsContext } from '../SettingsApp.js';
-import { useHost } from '../SettingsApp.js';
+import { useHost, useHostMessage } from '../../hooks/useHostMessage.js';
 import { useApp, useNative } from '../store.js';
 import { Button, Card, Empty, Link, Page, Row, Search, Section, Select, Tabs, Toggle } from '../ui.js';
 
@@ -76,19 +76,12 @@ export function PluginsSettingsPage({ ctx }: { ctx: SettingsContext }) {
   // Dieselben Nachrichten wie die Plugin-Seite, samt Live-Stand: eine Prüfung
   // oder ein Schalter zeigt sich hier, ohne die Seite neu zu öffnen.
   const [plugins, setPlugins] = useState<PluginsMsg>({});
-  useEffect(() => {
-    const listen = (event: MessageEvent) => {
-      const msg = event.data as HostToWebview;
-      if (msg?.kind === 'plugins') setPlugins(msg);
-      if (msg?.kind === 'pluginLive') {
-        const { kind: _kind, ...live } = msg;
-        setPlugins(prev => ({ ...prev, ...live }));
-      }
-    };
-    window.addEventListener('message', listen);
-    vscode.postMessage({ kind: 'getPlugins' });
-    return () => window.removeEventListener('message', listen);
-  }, []);
+  useHostMessage('plugins', msg => setPlugins(msg));
+  useHostMessage('pluginLive', msg => {
+    const { kind: _kind, ...live } = msg;
+    setPlugins(prev => ({ ...prev, ...live }));
+  });
+  useEffect(() => { vscode.postMessage({ kind: 'getPlugins' }); }, []);
   const connectors = useHost<ConnectorsMsg>('connectors', { kind: 'getConnectors' }, {});
   const [tab, setTab] = useState<'plugins' | 'apps' | 'mcps' | 'skills'>(ctx.sub[0] === 'mcps' ? 'mcps' : 'plugins');
   const [query, setQuery] = useState('');

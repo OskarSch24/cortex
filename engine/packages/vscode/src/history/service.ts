@@ -1,11 +1,15 @@
-import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { HistoryStore, HISTORY_BUSY, type HistorySecrets } from './store.js';
 import type { HistoryEntry, HistoryQuestionResult, HistorySettings, HistoryState, NativeHistorySample, NativeHistoryStatus } from './types.js';
+import { SerialQueue } from '../util/serialQueue.js';
+import { CANCELED, LOCAL_ERROR, MODEL_ERROR } from './messages.js';
+import { runHistoryHelper, type NativeCommand, type NativeHistoryCall } from './nativeHelper.js';
+import { clean, nativeStatus, settings } from './sanitize.js';
+import { fold, inRange, relativeRange, retrievalContext, selectForQuestion } from './retrieval.js';
 
-type NativeCommand = 'status' | 'permission' | 'sample' | 'summarize' | 'ask';
-export type NativeHistoryCall = (command: NativeCommand, input: unknown, signal: AbortSignal) => Promise<unknown>;
-export interface ComputerHistoryOptions {
+export type { NativeHistoryCall } from './nativeHelper.js';
+
+interface ComputerHistoryOptions {
   directory: string;
   helperPath: string;
   secrets: HistorySecrets;
@@ -16,80 +20,6 @@ export interface ComputerHistoryOptions {
   nativeCall?: NativeHistoryCall;
   now?: () => number;
   samplingIntervalMs?: number;
-}
-
-const LOCAL_ERROR = 'Der lokale Computerverlauf ist gerade nicht verfügbar. Es wurden keine Daten an einen Anbieter gesendet.';
-const MODEL_ERROR = 'Das lokale Apple-Sprachmodell ist nicht verfügbar. Die Frage wurde an keinen Cloudanbieter gesendet.';
-const CANCELED = 'Die lokale Verarbeitung wurde abgebrochen.';
-const fold = (text: string) => text.toLocaleLowerCase('de').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-const clean = (value: unknown, max: number) => typeof value === 'string' ? value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').trim().slice(0, max) : '';
-
-function settings(value?: Partial<HistorySettings>): HistorySettings {
-  return {
-    enabled: value?.enabled === true,
-    allowedApps: Array.isArray(value?.allowedApps) ? [...new Set(value.allowedApps.filter((id): id is string => typeof id === 'string' && /^[a-zA-Z0-9._-]{1,300}$/.test(id)))].slice(0, 100) : [],
-    retentionDays: typeof value?.retentionDays === 'number' && Number.isFinite(value.retentionDays) ? Math.max(1, Math.min(90, Math.round(value.retentionDays))) : 30,
-  };
-}
-
-function nativeStatus(value: unknown): NativeHistoryStatus {
-  const result = value as NativeHistoryStatus | undefined;
-  if (!result || typeof result.permission !== 'boolean' || !['available', 'unavailable'].includes(result.model) || !Array.isArray(result.apps)) throw new Error(LOCAL_ERROR);
-  return {
-    permission: result.permission,
-    model: result.model,
-    modelReason: clean(result.modelReason, 500) || undefined,
-    apps: result.apps.filter(app => app && typeof app.id === 'string' && typeof app.name === 'string' && typeof app.supported === 'boolean')
-      .slice(0, 300).map(app => ({ id: clean(app.id, 300), name: clean(app.name, 300), supported: app.supported, reason: clean(app.reason, 300) || undefined })),
-  };
-}
-
-/** No shell, network SDK, provider routing, transcript, or external memory system. */
-export function runHistoryHelper(helperPath: string, command: NativeCommand, input: unknown, signal: AbortSignal): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) { reject(new Error(CANCELED)); return; }
-    const body = input === undefined ? '' : JSON.stringify(input);
-    if (Buffer.byteLength(body) > 48_000) { reject(new Error(LOCAL_ERROR)); return; }
-    const child = spawn(helperPath, [command], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
-    let complete = false;
-    let bytes = 0;
-    let stderrBytes = 0;
-    const chunks: Buffer[] = [];
-    let killTimer: ReturnType<typeof setTimeout> | undefined;
-    const stop = () => {
-      if (child.exitCode !== null || child.signalCode !== null) return;
-      child.kill('SIGTERM');
-      killTimer = setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL'); }, 1000);
-      killTimer.unref();
-    };
-    const finish = (error?: string, value?: unknown) => {
-      if (complete) return;
-      complete = true;
-      clearTimeout(timer);
-      signal.removeEventListener('abort', abort);
-      if (error) { stop(); reject(new Error(error)); } else resolve(value);
-    };
-    const abort = () => finish(CANCELED);
-    const timer = setTimeout(() => finish(LOCAL_ERROR), command === 'ask' || command === 'summarize' ? 60_000 : 15_000);
-    timer.unref();
-    signal.addEventListener('abort', abort, { once: true });
-    child.stdout.on('data', (chunk: Buffer) => {
-      bytes += chunk.length;
-      if (bytes > 128_000) finish(LOCAL_ERROR); else if (!complete) chunks.push(chunk);
-    });
-    // Never forward stderr: native diagnostics must not disclose captured text.
-    child.stderr.on('data', (chunk: Buffer) => { stderrBytes += chunk.length; if (stderrBytes > 16_000) finish(LOCAL_ERROR); });
-    child.stdin.on('error', () => finish(LOCAL_ERROR));
-    child.on('error', () => finish(LOCAL_ERROR));
-    child.on('close', code => {
-      if (killTimer) clearTimeout(killTimer);
-      if (complete) return;
-      if (code !== 0) { finish(LOCAL_ERROR); return; }
-      try { finish(undefined, JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
-      catch { finish(LOCAL_ERROR); }
-    });
-    child.stdin.end(body);
-  });
 }
 
 export class ComputerHistoryService {
@@ -105,7 +35,7 @@ export class ComputerHistoryService {
   private timer?: ReturnType<typeof setInterval>;
   private busy = false;
   private controllers = new Set<AbortController>();
-  private mutations: Promise<unknown> = Promise.resolve();
+  private readonly mutations = new SerialQueue();
   private activeEntry?: HistoryEntry;
   private lastSnapshot = '';
   private lastSummaryAt = 0;
@@ -144,9 +74,7 @@ export class ComputerHistoryService {
     this.captureStatus = '';
   }
   private mutate<T>(work: () => Promise<T>): Promise<T> {
-    const result = this.mutations.then(work, work);
-    this.mutations = result.catch(() => undefined);
-    return result;
+    return this.mutations.run(work);
   }
   private async refreshStatus(): Promise<void> {
     const revision = this.revision;
@@ -185,7 +113,7 @@ export class ComputerHistoryService {
     } catch (error) { this.storageReady = false; throw error; }
   }
   async state(query = '', from?: number, to?: number): Promise<HistoryState> {
-    await this.mutations;
+    await this.mutations.idle();
     await this.refreshStatus();
     let entries: HistoryEntry[] = [];
     try { entries = await this.read(); } catch (error) { this.report(error); }
@@ -343,7 +271,7 @@ export class ComputerHistoryService {
     const revision = this.revision;
     const valid = () => revision === this.revision && !this.disposed;
     try {
-      await this.mutations;
+      await this.mutations.idle();
       if (!valid()) return { ...empty, error: CANCELED };
       await this.refreshStatus();
       if (!valid()) return { ...empty, error: CANCELED };
@@ -351,16 +279,9 @@ export class ComputerHistoryService {
       const all = (await this.read()).filter(entry => inRange(entry, from, to));
       if (!valid()) return { ...empty, error: CANCELED };
       if (!all.length) return { ...empty, answer: 'Für diesen Zeitraum sind keine lokalen Verlaufseinträge vorhanden.' };
-      const stopwords = new Set('was wie wo wann wer warum habe hab hast hat haben ich du wir der die das den dem des ein eine einen einem und oder mit von für zu an in im am ist war heute gestern what did i do the a to my on at'.split(' '));
-      const terms = [...new Set(fold(question).match(/[\p{L}\p{N}]{3,}/gu) ?? [])].filter(term => !stopwords.has(term));
-      const ranked = all.map(entry => {
-        const haystack = fold(`${entry.appName} ${entry.title} ${entry.summary ?? ''} ${entry.text}`);
-        return { entry, score: terms.reduce((score, term) => score + (haystack.includes(term) ? 1 : 0), 0) };
-      }).sort((a, b) => b.score - a.score || b.entry.endedAt - a.entry.endedAt);
-      const hasMatches = ranked.some(item => item.score > 0);
-      const selected = ranked.filter(item => !hasMatches || item.score > 0).slice(0, 5).map(item => item.entry);
+      const { selected, terms } = selectForQuestion(question, all);
       // A small retrieval context only. No full-store prompt and no normal chat event.
-      const context = selected.map((entry, index) => `[${index + 1}] ${new Date(entry.startedAt).toISOString()} · ${entry.appName.slice(0, 80)} · ${entry.title.slice(0, 160)}\n${relevantExcerpt(entry, terms)}`).join('\n\n').slice(0, 5000);
+      const context = retrievalContext(selected, terms);
       const output = await this.call('ask', { question, context }) as { text?: unknown };
       if (!valid()) return { ...empty, error: CANCELED };
       const answer = clean(output?.text, 8000);
@@ -376,38 +297,4 @@ export class ComputerHistoryService {
     this.cancel();
     void this.store.close();
   }
-}
-
-function inRange(entry: HistoryEntry, from?: number, to?: number): boolean {
-  return (!Number.isFinite(from) || entry.endedAt >= from!) && (!Number.isFinite(to) || entry.startedAt <= to!);
-}
-
-function relevantExcerpt(entry: HistoryEntry, terms: string[]): string {
-  const summary = entry.summary ?? '';
-  const folded = fold(entry.text);
-  const matches = terms.map(term => folded.indexOf(term)).filter(index => index >= 0);
-  if (!matches.length) return (summary || entry.text).slice(0, 680);
-  // A summary can mention the topic while omitting the exact person/date asked
-  // for. Always retain matching source text, even if the summary also matches.
-  const prefix = summary ? `Zusammenfassung: ${summary.slice(0, 140)}\nQuelle: ` : '';
-  const budget = 680 - prefix.length - 1;
-  const candidates = matches.map(index => Math.max(0, index - 120));
-  const score = (start: number) => terms.filter(term => folded.slice(start, start + budget).includes(term)).length;
-  const start = candidates.sort((a, b) => score(b) - score(a))[0]!;
-  return `${prefix}${start ? '…' : ''}${entry.text.slice(start, start + budget)}`;
-}
-
-function relativeRange(question: string, now: number): { from: number; to: number } | undefined {
-  const text = fold(question);
-  let daysAgo: number | undefined;
-  if (/\bvorgestern\b|\bday before yesterday\b/.test(text)) daysAgo = 2;
-  else if (/\bgestern\b|\byesterday\b/.test(text)) daysAgo = 1;
-  else if (/\bheute\b|\btoday\b/.test(text)) daysAgo = 0;
-  if (daysAgo === undefined) return undefined;
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - daysAgo);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  return { from: start.getTime(), to: end.getTime() - 1 };
 }

@@ -85,6 +85,8 @@ export interface Target {
 export interface TaskRequest {
   /** External MCPs for this run: undefined inherits provider config; {} disables them. */
   mcpServers?: Record<string, import('./mcp/mcpSync.js').McpServerDef>;
+  /** Websuche eines Agenten; undefined lässt den Anbieter wie er ist. */
+  webSearch?: import('./adapters/webSearch.js').WebSearchSetup;
   /** Maximum provider silence, excluding user approval waits. */
   idleTimeoutMs?: number;
   effort?: Effort;

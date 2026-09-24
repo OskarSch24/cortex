@@ -9,6 +9,8 @@ import {
 import { isCleanRun, sampleConfidence } from '../../../core/src/router/learning.js';
 import { formatCost } from '../../../core/src/accounts/billing.js';
 import type { AccountStatusDto } from '../../src/panel/protocol.js';
+import { metricDuration } from '../format/duration.js';
+import { metricTokens } from '../format/tokens.js';
 import { vscode } from '../vscodeApi.js';
 import { BRAND_COLOR, BrandMark } from './brandIcons.js';
 import { IconAnalytics } from './icons.js';
@@ -20,20 +22,6 @@ const RANGES: Array<{ key: Range; label: string }> = [
   { key: '30d', label: '30 days' },
   { key: 'all', label: 'all time' },
 ];
-
-/** 24816 → 24.8k. These are five-figure numbers now that cache reads count. */
-function tokens(n: number | undefined): string {
-  if (!n) return '0';
-  if (n < 1000) return String(n);
-  if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`;
-  return `${(n / 1_000_000).toFixed(1)}M`;
-}
-
-function fmtDuration(ms: number | undefined): string {
-  if (!ms) return '—';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return ms >= 60_000 ? `${(ms / 60_000).toFixed(1)}m` : `${(ms / 1000).toFixed(1)}s`;
-}
 
 /** Three bands, coloured the way the quota bars are: green is the good end. */
 function rateClass(pct: number): string {
@@ -157,10 +145,10 @@ function MetricRow({ m }: { m: TaskMetric }) {
             : undefined
         }
       >
-        {tokens(m.inputTokens)}→{tokens(m.outputTokens)}
+        {metricTokens(m.inputTokens)}→{metricTokens(m.outputTokens)}
       </div>
       <div class="metric-cost">{formatCost(m.costUsd, m.metered)}</div>
-      <div class="metric-duration">{fmtDuration(m.durationMs)}</div>
+      <div class="metric-duration">{metricDuration(m.durationMs)}</div>
       <div class="metric-burn" title="Share of this account's tightest quota window">
         {typeof m.burnPct === 'number' ? `${m.burnPct.toFixed(1)}%` : '—'}
       </div>
@@ -212,7 +200,7 @@ function KindSection({ metrics }: { metrics: TaskMetric[] }) {
                 <span class={`learn-fill ${rateClass(clean)}`} style={{ width: `${clean}%` }} />
               </span>
               <span class="learn-pct">{Math.round(clean)}% clean</span>
-              <span class="learn-sub">{fmtDuration(stats.medianDurationMs)} median</span>
+              <span class="learn-sub">{metricDuration(stats.medianDurationMs)} median</span>
               <span class="learn-sub" title="Cleanest account on this kind of work">
                 {best ? `best: ${best.key}` : ''}
               </span>
@@ -302,15 +290,15 @@ export function AnalyticsView({
             <div class="usage-card-label">Tasks</div>
             <div class="usage-card-pct">{stats.total}</div>
             <div class="usage-card-reset">
-              {Math.round(stats.successRate)}% finished · {tokens(stats.totalTokens)} tokens read and
+              {Math.round(stats.successRate)}% finished · {metricTokens(stats.totalTokens)} tokens read and
               written
             </div>
           </div>
 
           <div class="usage-card">
             <div class="usage-card-label">Median run</div>
-            <div class="usage-card-pct">{fmtDuration(stats.medianDurationMs)}</div>
-            <div class="usage-card-reset">{fmtDuration(stats.avgDurationMs)} average</div>
+            <div class="usage-card-pct">{metricDuration(stats.medianDurationMs)}</div>
+            <div class="usage-card-reset">{metricDuration(stats.avgDurationMs)} average</div>
           </div>
 
           {/* Context served from the provider's cache instead of read again.
@@ -410,7 +398,7 @@ export function AnalyticsView({
                               {Math.round(itemStats.cacheHitRate)}% reused
                             </span>
                           )}
-                          <span>{fmtDuration(itemStats.medianDurationMs)}</span>
+                          <span>{metricDuration(itemStats.medianDurationMs)}</span>
                           <span>
                             {itemStats.costReported
                               ? formatCost(

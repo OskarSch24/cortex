@@ -1,20 +1,39 @@
 import { CODEX_MODELS, supportedEffort } from '../models/catalog.js';
-import { spawn } from 'node:child_process';
 import { codexImageEvent } from './images.js';
 import { accessSync, constants, existsSync, lstatSync, mkdirSync, statSync, symlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { LoginFlow, ProviderAdapter, RunRequest } from './adapter.js';
-import { scopedMcpUnsupportedMessage } from '../mcp/runPolicy.js';
+import { codexWebSearch } from './webSearch.js';
 import { EventQueue, JsonRpcProcess, type RpcNotification } from './jsonRpc.js';
 import { getNumber, getObject, getString } from './ndjson.js';
-import { detectCodexLimit, isTransientFailure } from './limits.js';
-import { describeToolUse } from './toolDetail.js';
-import { sameTasks, tasksFromCodexPlan } from './taskList.js';
-import { PermissionGate, codexApprovalKind } from './permission.js';
+import { detectCodexLimit } from './limits.js';
+import { describeToolUse, toolUseEvent } from './toolDetail.js';
+import { taskListTracker, tasksFromCodexPlan } from './taskList.js';
+import { codexApprovalKind } from './permission.js';
+import { createRunGate, deferDenial } from './runGate.js';
 import { approvalSignature } from './approvalSignature.js';
 import { buildChildEnv } from '../accounts/env.js';
+import { CODEX_IDLE_MS } from '../util/timeouts.js';
+import { exitsZero } from '../util/process.js';
+import {
+  WEB_SEARCH_SETUP_FAILED,
+  appendTail,
+  exitOutcome,
+  limitOrError,
+  scopedMcpRefusal,
+  setupFailure,
+  usageOf,
+} from './outcome.js';
 import type { AdapterEvent, PermissionMode, ResolvedAccount, Usage } from '../types.js';
+
+/** Wo Codex seinen Zustand hält, wenn CODEX_HOME nichts anderes sagt. */
+function codexHome(env: NodeJS.ProcessEnv = {}): string {
+  return env.CODEX_HOME ?? join(homedir(), '.codex');
+}
+
+/** Der Ordner des Werkzeug-Hosts innerhalb eines CODEX_HOME. */
+const pluginHostDir = (home: string): string => join(home, 'plugins', '.plugin-appserver');
 
 /**
  * Codex' Werkzeuge für Dateizugriff laufen in einem eigenen Prozess
@@ -31,9 +50,9 @@ export function usableCodexPluginHost(directory: string): boolean {
   catch { return false; }
 }
 
-export function shareCodexPluginHost(homeDir: string | undefined, shared = join(homedir(), '.codex', 'plugins', '.plugin-appserver')): void {
+export function shareCodexPluginHost(homeDir: string | undefined, shared = pluginHostDir(codexHome())): void {
   if (!homeDir) return;
-  const target = join(homeDir, 'plugins', '.plugin-appserver');
+  const target = pluginHostDir(homeDir);
   try {
     if (!usableCodexPluginHost(shared) || existsSync(target) || lstatSync(target, { throwIfNoEntry: false })) return;
     mkdirSync(join(homeDir, 'plugins'), { recursive: true });
@@ -61,11 +80,7 @@ export function codexUsage(usage: Record<string, unknown> | undefined): Usage {
   const input = at('input_tokens');
   const cached = at('cached_input_tokens');
   const output = at('output_tokens') + at('reasoning_output_tokens');
-  const result: Usage = {};
-  if (input > 0) result.inputTokens = input;
-  if (output > 0) result.outputTokens = output;
-  if (cached > 0) result.cachedInputTokens = cached;
-  return result;
+  return usageOf(input, output, cached);
 }
 
 /** Item types worth showing in the tool timeline, mapped to display names. */
@@ -136,13 +151,20 @@ export class CodexAdapter implements ProviderAdapter {
     account: ResolvedAccount,
     signal: AbortSignal,
   ): AsyncGenerator<AdapterEvent> {
-    const mcpError = scopedMcpUnsupportedMessage(this.id, req.mcpServers);
-    if (mcpError) {
-      yield { type: 'error', message: mcpError, retryable: false };
+    const mcpRefusal = scopedMcpRefusal(this.id, req.mcpServers);
+    if (mcpRefusal) {
+      yield mcpRefusal;
+      return;
+    }
+    let webSearch: { args: string[]; env: Record<string, string> };
+    try {
+      webSearch = codexWebSearch(req.webSearch);
+    } catch (error) {
+      yield setupFailure(error, WEB_SEARCH_SETUP_FAILED);
       return;
     }
     const events = new EventQueue<AdapterEvent>();
-    const env = this.buildEnv(account, process.env);
+    const env = { ...this.buildEnv(account, process.env), ...webSearch.env };
 
     let threadId: string | undefined;
     let activeTurnId: string | undefined;
@@ -150,7 +172,7 @@ export class CodexAdapter implements ProviderAdapter {
     let finished = false;
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
     let pendingApprovals = 0;
-    const idleMs = req.idleTimeoutMs && Number.isFinite(req.idleTimeoutMs) && req.idleTimeoutMs > 0 ? req.idleTimeoutMs : 180_000;
+    const idleMs = req.idleTimeoutMs && Number.isFinite(req.idleTimeoutMs) && req.idleTimeoutMs > 0 ? req.idleTimeoutMs : CODEX_IDLE_MS;
     const activity = () => {
       if (idleTimer) clearTimeout(idleTimer);
       if (finished || pendingApprovals) return;
@@ -158,40 +180,31 @@ export class CodexAdapter implements ProviderAdapter {
       idleTimer.unref?.();
     };
     let stderrTail = '';
-    let lastTasks: ReturnType<typeof tasksFromCodexPlan> = [];
+    const trackTasks = taskListTracker();
     const openItems = new Map<string, string>();
     const deniedFeedback = new Map<string, { text: string; threadId?: string; turnId?: string }>();
-    const pendingUserPermissions = new Set<string>();
     const deferFeedback = (id: string) => {
       const feedback = deniedFeedback.get(id);
       if (!feedback) return;
       deniedFeedback.delete(id);
-      events.push({ type: 'deferred-instruction', text: feedback.text });
-      events.push({ type: 'notice', text: 'Die Aktion wurde abgelehnt. Deine Begründung wird mit der nächsten Nachricht an den Agenten übergeben.' });
+      deferDenial(events, feedback.text);
     };
 
-    const gate = new PermissionGate({
-      mode: req.permissionMode,
+    const { gate, close: closeGate } = createRunGate({
+      req,
+      events,
       // Codex asks here only when it needs an escalation; edits mode must not
       // silently allow that escalation merely because per-action ask is off.
       ask: req.permissionMode === 'edits' || req.askPermission === true,
-      emit: (request) => { pendingUserPermissions.add(request.id); events.push({ type: 'permission', request }); },
-      resolved: (id, allowed) => { pendingUserPermissions.delete(id); events.push({ type: 'permission-resolved', id, allowed }); },
+      finished: () => finished,
+      onDenialReason: (id, reason) => deniedFeedback.set(id, { text: reason, threadId, turnId: activeTurnId }),
     });
-    if (req.handle) req.handle.respondPermission = (id, decision) => {
-      if (finished || !pendingUserPermissions.delete(id)) return;
-      if (decision.outcome === 'deny' && decision.reason?.trim()) {
-        deniedFeedback.set(id, { text: decision.reason.trim(), threadId, turnId: activeTurnId });
-      }
-      gate.respond(id, decision);
-    };
 
     const finish = (event?: AdapterEvent) => {
       if (finished) return;
       finished = true;
-      pendingUserPermissions.clear();
       if (idleTimer) clearTimeout(idleTimer);
-      gate.close();
+      closeGate();
       for (const id of deniedFeedback.keys()) deferFeedback(id);
       if (event) events.push(event);
       events.end();
@@ -236,32 +249,20 @@ export class CodexAdapter implements ProviderAdapter {
               { ...item, ...(getObject(item, 'arguments') ?? {}) },
               req.cwd,
             );
-            events.push({
-              type: 'tool-use',
-              name,
-              detail: info.detail,
-              preview: info.preview,
-              path: info.path,
-              action: info.action,
-              added: info.added,
-              removed: info.removed,
-            });
+            events.push(toolUseEvent(name, info));
           }
           break;
         }
         case 'turn/plan/updated': {
-          const items = tasksFromCodexPlan(n.params);
-          if (items.length > 0 && !sameTasks(items, lastTasks)) {
-            lastTasks = items;
-            events.push({ type: 'tasks', items });
-          }
+          const tasks = trackTasks(tasksFromCodexPlan(n.params));
+          if (tasks) events.push(tasks);
           break;
         }
         case 'item/completed': {
           const item = getObject(n.params, 'item');
           const itemId = getString(item, 'id');
           if (itemId) openItems.delete(itemId);
-          const image = codexImageEvent(item, env.CODEX_HOME ?? join(homedir(), '.codex'), threadId);
+          const image = codexImageEvent(item, codexHome(env), threadId);
           if (image) events.push(image);
           break;
         }
@@ -272,8 +273,7 @@ export class CodexAdapter implements ProviderAdapter {
             const message = unwrapErrorMessage(
               getString(turn, 'error', 'message') ?? 'codex turn failed',
             );
-            const limit = detectCodexLimit(message);
-            finish(limit ? { type: 'limit', ...limit } : { type: 'error', message, retryable: isTransientFailure(message) });
+            finish(limitOrError(message, detectCodexLimit));
             break;
           }
           finish({ type: 'result', text, usage: codexUsage(getObject(turn, 'usage')), checkpoint: getString(turn, 'id') ?? activeTurnId });
@@ -282,8 +282,7 @@ export class CodexAdapter implements ProviderAdapter {
         case 'error': {
           // The app-server nests it (`params.error.message`); older builds sent it flat.
           const message = unwrapErrorMessage(getString(n.params, 'error', 'message') ?? getString(n.params, 'message') ?? 'codex error');
-          const limit = detectCodexLimit(message);
-          finish(limit ? { type: 'limit', ...limit } : { type: 'error', message, retryable: isTransientFailure(message) });
+          finish(limitOrError(message, detectCodexLimit));
           break;
         }
         default:
@@ -297,10 +296,10 @@ export class CodexAdapter implements ProviderAdapter {
     const effortArgs = effort ? ['-c', `model_reasoning_effort=${effort}`] : [];
     // These are CLI feature config keys (verified with `codex features list`).
     // A standalone installation without the optional host keeps standard tools.
-    const hostDir = join(env.CODEX_HOME ?? join(homedir(), '.codex'), 'plugins', '.plugin-appserver');
+    const hostDir = pluginHostDir(codexHome(env));
     const hostArgs = usableCodexPluginHost(hostDir) ? [] : ['-c', 'features.code_mode_host=false', '-c', 'features.code_mode=false', '-c', 'features.code_mode_only=false'];
 
-    const rpc = new JsonRpcProcess(this.cliPath, [...effortArgs, ...hostArgs, 'app-server'], {
+    const rpc = new JsonRpcProcess(this.cliPath, [...effortArgs, ...hostArgs, ...webSearch.args, 'app-server'], {
       cwd: req.cwd,
       env,
       signal,
@@ -352,19 +351,10 @@ export class CodexAdapter implements ProviderAdapter {
         }, () => deferFeedback(id));
       },
       onStderr: (line) => {
-        if (!line.includes('models cache')) stderrTail = (stderrTail + '\n' + line).slice(-4096);
+        if (!line.includes('models cache')) stderrTail = appendTail(stderrTail, line);
       },
       onExit: () => {
-        if (!finished) {
-          const haystack = `${text}\n${stderrTail}`;
-          const limit = detectCodexLimit(haystack);
-          if (limit) finish({ type: 'limit', ...limit });
-          else if (text) finish({ type: 'result', text });
-          else {
-            const message = stderrTail.trim() || 'codex app-server exited unexpectedly';
-            finish({ type: 'error', message, retryable: isTransientFailure(message) });
-          }
-        }
+        if (!finished) finish(exitOutcome(text, stderrTail, detectCodexLimit, 'codex app-server exited unexpectedly'));
       },
       onSpawnError: (message) => finish({ type: 'error', message, retryable: false }),
     });
@@ -459,9 +449,7 @@ export class CodexAdapter implements ProviderAdapter {
           };
         }
       } catch (e) {
-        const message = unwrapErrorMessage((e as Error).message);
-        const limit = detectCodexLimit(message);
-        finish(limit ? { type: 'limit', ...limit } : { type: 'error', message, retryable: isTransientFailure(message) });
+        finish(limitOrError(unwrapErrorMessage((e as Error).message), detectCodexLimit));
       }
     })();
 
@@ -489,15 +477,7 @@ export class CodexAdapter implements ProviderAdapter {
       instructions:
         'A browser window will open — sign in with the ChatGPT account you want to add. ' +
         'cortex detects the completed login automatically.',
-      verify: () =>
-        new Promise<boolean>((resolve) => {
-          const child = spawn(this.cliPath, ['login', 'status'], {
-            env: { ...process.env, CODEX_HOME: profileDir },
-            stdio: 'ignore',
-          });
-          child.on('error', () => resolve(false));
-          child.on('close', (code) => resolve(code === 0));
-        }),
+      verify: () => exitsZero(this.cliPath, ['login', 'status'], { ...process.env, CODEX_HOME: profileDir }),
     };
   }
 }

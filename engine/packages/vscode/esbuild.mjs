@@ -1,11 +1,12 @@
 import esbuild from 'esbuild';
 import { cpSync, existsSync, readdirSync, rmSync } from 'node:fs';
-import { buildNativeImages } from './scripts/build-native-images.mjs';
+import { buildNativeImages, buildNativeLocation } from './scripts/build-native-images.mjs';
 import { buildNativeHistory } from './scripts/build-native-history.mjs';
 
 const watch = process.argv.includes('--watch');
 const production = process.argv.includes('--production');
 buildNativeImages();
+buildNativeLocation();
 buildNativeHistory();
 
 /** @type {import('esbuild').BuildOptions} */
@@ -53,6 +54,22 @@ const canvasServerConfig = {
   ...permissionServerConfig,
   entryPoints: ['src/canvas/canvasMcp.ts'],
   outfile: 'dist/canvasServer.js',
+};
+
+/** Der Suchserver für Exa Instant (web_search) — ein eigener Prozess wie der Zeichenflächen-Server. */
+/** @type {import('esbuild').BuildOptions} */
+const websearchServerConfig = {
+  ...permissionServerConfig,
+  entryPoints: ['src/websearch/websearchMcp.ts'],
+  outfile: 'dist/websearchServer.js',
+};
+
+/** Der eingebaute Browser als Werkzeug der Agenten (cortex_browser) — ein eigener Prozess wie der Zeichenflächen-Server. */
+/** @type {import('esbuild').BuildOptions} */
+const browserServerConfig = {
+  ...permissionServerConfig,
+  entryPoints: ['src/browser/browserMcp.ts'],
+  outfile: 'dist/browserServer.js',
 };
 
 /** @type {import('esbuild').BuildOptions} */
@@ -116,6 +133,8 @@ if (watch) {
     esbuild.context(permissionServerConfig),
     esbuild.context(youtubeKanalServerConfig),
     esbuild.context(canvasServerConfig),
+    esbuild.context(websearchServerConfig),
+    esbuild.context(browserServerConfig),
     esbuild.context(webviewConfig),
     esbuild.context(canvasConfig),
   ]);
@@ -127,6 +146,8 @@ if (watch) {
     esbuild.build(permissionServerConfig),
     esbuild.build(youtubeKanalServerConfig),
     esbuild.build(canvasServerConfig),
+    esbuild.build(websearchServerConfig),
+    esbuild.build(browserServerConfig),
     esbuild.build(webviewConfig),
     esbuild.build(canvasConfig),
   ]);

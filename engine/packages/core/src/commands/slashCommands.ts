@@ -247,6 +247,17 @@ export const SLASH_COMMANDS: SlashCommand[] = [
       'Draw this on the Excalidraw canvas in Cortex — answer with one cortex-excalidraw block as described in the brief, pick the layout that fits best: {args}',
   },
   {
+    name: 'remotion',
+    label: 'Video erstellen',
+    icon: 'play',
+    kind: 'prompt',
+    usage: '/remotion <Beschreibung>',
+    description: 'Ein Video mit Remotion bauen — live in der Seitenleiste, fertig als MP4',
+    template:
+      'Produce this video with Remotion in the video folder named in the brief — Cortex shows it live in the side panel. Build the scenes, then render it to out/: {args}',
+    emptyArgs: 'a short, polished video from the attached material',
+  },
+  {
     name: 'agent-swarm',
     label: 'Agenten-Schwarm',
     icon: 'swarm',

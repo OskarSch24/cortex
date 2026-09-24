@@ -33,7 +33,7 @@ with headless_browser() as browser:
     expect(page.locator('.cx-c-command-body')).to_have_text('python3 -m pytest /full/project/tests')
 
     def setting(label, value):
-        page.locator('.cx-nav', has_text='Einstellungen').click()
+        page.locator('.cx-settings-btn').click()
         page.get_by_role('button', name='Details der Tätigkeiten', exact=True).click()
         page.get_by_role('option', name=label).click()
         assert page.evaluate("value => window.__hostMessages.some(m => m.kind === 'setNativeSetting' && m.key === 'cortex.activityVerbosity' && m.value === value && m.requestId)", value)

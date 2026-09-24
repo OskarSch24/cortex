@@ -6,7 +6,7 @@
  * lesbar, steht das Widget da; ist er es nicht, bleibt er ein Codeblock mit dem
  * Grund, damit nichts still verschwindet.
  */
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, FunctionComponent } from 'preact';
 import { Component } from 'preact';
 import { parseWidget, widgetProgress, type WidgetSpec } from './spec.js';
 import type { WidgetHost } from './parts.js';
@@ -18,40 +18,44 @@ import {
 
 export type { WidgetHost } from './parts.js';
 
+/** Je Typ seine Karte. Ein neuer Typ in WidgetSpec übersetzt erst, wenn er hier steht. */
+const RENDERERS: { [T in WidgetSpec['type']]: FunctionComponent<{ w: Extract<WidgetSpec, { type: T }>; host: WidgetHost }> } = {
+  weather: Weather,
+  timer: Timer,
+  departures: Departures,
+  converter: Converter,
+  parcel: Parcel,
+  todo: Todo,
+  route: Route,
+  calendar: Calendar,
+  ticker: Ticker,
+  worldclock: Worldclock,
+  'agent-run': AgentRun,
+  'agent-swarm': AgentSwarm,
+  'test-result': TestResult,
+  quota: Quota,
+  server: Server,
+  deploy: Deploy,
+  verification: Verification,
+  'scrape-run': ScrapeRun,
+  workflow: Workflow,
+  'query-result': QueryResult,
+  'graph-node': GraphNode,
+  decision: Decision,
+  'place-naming': PlaceNaming,
+  timeline: Timeline,
+  jobs: Jobs,
+  'design-diff': DesignDiff,
+  palette: Palette,
+  'audio-takes': AudioTakes,
+  kpis: Kpis,
+  quiz: Quiz,
+  'game-theory': GameTheory,
+};
+
 function render(spec: WidgetSpec, host: WidgetHost): ComponentChildren {
-  switch (spec.type) {
-    case 'weather': return <Weather w={spec} host={host} />;
-    case 'timer': return <Timer w={spec} host={host} />;
-    case 'departures': return <Departures w={spec} host={host} />;
-    case 'converter': return <Converter w={spec} host={host} />;
-    case 'parcel': return <Parcel w={spec} host={host} />;
-    case 'todo': return <Todo w={spec} host={host} />;
-    case 'route': return <Route w={spec} host={host} />;
-    case 'calendar': return <Calendar w={spec} host={host} />;
-    case 'ticker': return <Ticker w={spec} host={host} />;
-    case 'worldclock': return <Worldclock w={spec} host={host} />;
-    case 'agent-run': return <AgentRun w={spec} host={host} />;
-    case 'agent-swarm': return <AgentSwarm w={spec} host={host} />;
-    case 'test-result': return <TestResult w={spec} host={host} />;
-    case 'quota': return <Quota w={spec} host={host} />;
-    case 'server': return <Server w={spec} host={host} />;
-    case 'deploy': return <Deploy w={spec} host={host} />;
-    case 'verification': return <Verification w={spec} host={host} />;
-    case 'scrape-run': return <ScrapeRun w={spec} host={host} />;
-    case 'workflow': return <Workflow w={spec} host={host} />;
-    case 'query-result': return <QueryResult w={spec} host={host} />;
-    case 'graph-node': return <GraphNode w={spec} host={host} />;
-    case 'decision': return <Decision w={spec} host={host} />;
-    case 'place-naming': return <PlaceNaming w={spec} host={host} />;
-    case 'timeline': return <Timeline w={spec} host={host} />;
-    case 'jobs': return <Jobs w={spec} host={host} />;
-    case 'design-diff': return <DesignDiff w={spec} host={host} />;
-    case 'palette': return <Palette w={spec} host={host} />;
-    case 'audio-takes': return <AudioTakes w={spec} host={host} />;
-    case 'kpis': return <Kpis w={spec} host={host} />;
-    case 'quiz': return <Quiz w={spec} host={host} />;
-    case 'game-theory': return <GameTheory w={spec} host={host} />;
-  }
+  const View = RENDERERS[spec.type] as FunctionComponent<{ w: WidgetSpec; host: WidgetHost }>;
+  return <View w={spec} host={host} />;
 }
 
 /** Ein Fehler beim Zeichnen darf nur diese Karte kosten, nicht den ganzen Verlauf. */

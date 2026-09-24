@@ -248,6 +248,7 @@ export class Orchestrator {
             cwd: task.cwd,
             idleTimeoutMs: task.idleTimeoutMs,
             mcpServers: task.mcpServers,
+            webSearch: task.webSearch,
             model,
             resumeSessionId: nativeSid,
             resumeAt,

@@ -1,8 +1,6 @@
 import * as vscode from 'vscode';
-import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { promisify } from 'node:util';
 import {
   briefSections,
   classifyTask,
@@ -17,8 +15,9 @@ import {
   type TaskRequest,
   type VerifyCommand,
 } from '@cortex/core';
+import { git as runGit } from '../util/exec.js';
+import { ProjectScoped } from './projectScoped.js';
 
-const exec = promisify(execFile);
 
 /**
  * Gathers the things the model would have known if it were sitting where the
@@ -47,23 +46,12 @@ interface Cached<T> {
   at: number;
 }
 
-export class WorkspaceContext {
+export class WorkspaceContext extends ProjectScoped<WorkspaceContext> {
   private conventionCache?: Cached<ConventionSource[]>;
   private repoCache?: Cached<RepoContext>;
 
-  private projects = new Map<string, WorkspaceContext>();
-
-  constructor(private output: vscode.OutputChannel, private projectRoot?: string) {}
-
-  forRoot(root: string): WorkspaceContext {
-    if (this.projectRoot === root) return this;
-    let project = this.projects.get(root);
-    if (!project) { project = new WorkspaceContext(this.output, root); this.projects.set(root, project); }
-    return project;
-  }
-
-  private get root(): string | undefined {
-    return this.projectRoot ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  protected forProject(root: string): WorkspaceContext {
+    return new WorkspaceContext(this.output, root);
   }
 
   /** What the user is looking at right now — the most perishable, most useful part. */
@@ -107,8 +95,7 @@ export class WorkspaceContext {
 
     const git = async (args: string[]): Promise<string> => {
       try {
-        const { stdout } = await exec('git', args, { cwd: root, timeout: GIT_TIMEOUT_MS });
-        return stdout;
+        return await runGit(root, args, { timeout: GIT_TIMEOUT_MS });
       } catch {
         return '';
       }

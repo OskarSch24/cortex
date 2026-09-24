@@ -29,12 +29,12 @@ const mediaBase = (): string => window.__CORTEX_MEDIA__ ?? '../media/';
  * dagegen aus dem MCP-Handschlag des eingebauten Konnektors und geht unverändert
  * durch — die CSP des Hosts lässt beides zu.
  */
-export const iconUrl = (file: string): string =>
+const iconUrl = (file: string): string =>
   /^data:/.test(file) ? file : `${mediaBase()}plugins/icons/${file}`;
 
 /** Eine stabile, ruhige Fläche für Dienste ohne eigenes Logo. */
 const FALLBACK_HUES = [212, 258, 12, 152, 32, 285, 190];
-export function fallbackColor(seed: string): string {
+function fallbackColor(seed: string): string {
   let hash = 0;
   for (const ch of seed) hash = (hash * 31 + ch.charCodeAt(0)) % 100000;
   return `hsl(${FALLBACK_HUES[hash % FALLBACK_HUES.length]} 32% 62%)`;

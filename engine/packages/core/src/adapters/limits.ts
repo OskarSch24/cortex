@@ -1,4 +1,5 @@
 import type { LimitInfo } from '../types.js';
+import { toEpochMs } from '../util/epoch.js';
 
 /**
  * All limit-message fingerprints live here so upstream copy changes only ever
@@ -65,8 +66,7 @@ export function detectClaudeLimit(text: string): LimitInfo | undefined {
   if (pipe) {
     const epoch = Number(pipe[1]);
     // Epoch may be seconds or milliseconds.
-    const resetAt = epoch > 10_000_000_000 ? epoch : epoch * 1000;
-    return { resetAt, scope: /week|seven.day/i.test(text) ? 'weekly' : 'session', raw: text };
+    return { resetAt: toEpochMs(epoch), scope: /week|seven.day/i.test(text) ? 'weekly' : 'session', raw: text };
   }
   if (/usage limit reached/i.test(text) || /you'?ve (hit|reached) your usage limit/i.test(text)) {
     return { scope: 'unknown', raw: text };
@@ -82,7 +82,7 @@ export function claudeRateLimit(info: Record<string, unknown>, raw: string): Lim
       : /^(daily|one_day)(?:_|$)/.test(window) ? 'daily' : 'unknown';
   const reset = info.resetsAt ?? info.resets_at ?? info.resetAt;
   const numeric = typeof reset === 'number' ? reset : typeof reset === 'string' && /^\d+(?:\.\d+)?$/.test(reset) ? Number(reset) : undefined;
-  const parsed = numeric !== undefined ? (numeric > 10_000_000_000 ? numeric : numeric * 1000)
+  const parsed = numeric !== undefined ? toEpochMs(numeric)
     : typeof reset === 'string' ? Date.parse(reset) : NaN;
   return { scope, resetAt: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined, raw };
 }

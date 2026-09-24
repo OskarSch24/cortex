@@ -13,7 +13,7 @@ export interface ImageOptions {
 
 export interface ImageRegion { x: number; y: number; width: number; height: number }
 
-export function sanitizeImageRegion(raw: unknown): ImageRegion | undefined {
+function sanitizeImageRegion(raw: unknown): ImageRegion | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Record<string, unknown>;
   if (!['x', 'y', 'width', 'height'].every(k => typeof r[k] === 'number' && Number.isFinite(r[k]))) return undefined;
@@ -27,7 +27,7 @@ export function sanitizeImageRegion(raw: unknown): ImageRegion | undefined {
 export const IMAGE_RATIOS = ['1:1', '3:2', '2:3', '16:9', '9:16', '4:3', '3:4', '21:9'] as const;
 
 /** Nur Anbieter mit eingebautem Bildwerkzeug. */
-export const IMAGE_PROVIDERS = ['codex', 'grok'] as const;
+const IMAGE_PROVIDERS = ['codex', 'grok'] as const;
 export type ImageProvider = (typeof IMAGE_PROVIDERS)[number];
 
 export function isImageProvider(provider: string | undefined): provider is ImageProvider {

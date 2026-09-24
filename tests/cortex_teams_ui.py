@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 from playwright.sync_api import expect
 from headless_browser import headless_browser
+from cortex_agents_nav import to_overview
 from cortex_control_styles import assert_controls_styled
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +39,7 @@ with headless_browser(port=PORT) as browser:
       kind: 'accounts', accounts: profiles.map(account => account.provider === 'grok'
         ? {...account, available: true, authState: 'ok'} : account)
     }}))''')
+    to_overview(page)
     page.get_by_role('button', name='Team erstellen', exact=True).click()
     page.get_by_label('Teamname', exact=True).fill('Redaktionsteam')
     page.get_by_label('Beschreibung', exact=True).fill('Recherche, Prüfung und verständliche Ergebnisse.')
@@ -153,6 +155,8 @@ with headless_browser(port=PORT) as browser:
     assert len(page.evaluate('window.__cortexTeams.state.runs')) == 2, 'Deleting a team lost run history'
     assert messages('send') == [], 'Team controls must never submit ordinary chat prompts'
 
+    to_overview(page)
+
     page.get_by_role('button', name='Team erstellen', exact=True).click()
     # MAX_TEAM_AGENTS in src/teams/types.ts — die Grenze steht an einer Stelle.
     for _ in range(19):
@@ -163,6 +167,7 @@ with headless_browser(port=PORT) as browser:
     page.wait_for_load_state('networkidle')
     page.locator('#harness').evaluate('(element) => element.remove()')
     assert_controls_styled(page)
+    to_overview(page)
     page.get_by_role('button', name='Team erstellen', exact=True).click()
     expect(page.get_by_role('button', name='Konto des Agenten', exact=True)).to_be_disabled()
     expect(page.get_by_role('button', name='Team speichern', exact=True)).to_be_disabled()

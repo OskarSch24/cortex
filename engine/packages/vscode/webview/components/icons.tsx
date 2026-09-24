@@ -19,22 +19,6 @@ export const IconPlus = ({ size }: IconProps) => (
   </svg>
 );
 
-export const IconHistory = ({ size }: IconProps) => (
-  <svg {...base(size)}>
-    <circle cx="8" cy="8" r="5.5" />
-    <path d="M8 5v3l2 1.5" />
-  </svg>
-);
-
-export const IconOpenInTab = ({ size }: IconProps) => (
-  <svg {...base(size)}>
-    <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
-    <path d="M8.5 2.5v11M2.5 5.5h11" style="display:none" />
-    <path d="M6 6l4 4M10 6v4h-4" style="display:none" />
-    <path d="M8.5 7.5L12 4M12 4h-2.5M12 4v2.5" />
-  </svg>
-);
-
 export const IconTrash = ({ size }: IconProps) => (
   <svg {...base(size)}>
     <path d="M3.5 5h9M6.5 5V3.5h3V5M5 5l.5 7.5h5L11 5" />
@@ -59,29 +43,10 @@ export const IconStop = ({ size }: IconProps) => (
   </svg>
 );
 
-export const IconBack = ({ size }: IconProps) => (
-  <svg {...base(size)}>
-    <path d="M9.5 3.5L5 8l4.5 4.5" />
-  </svg>
-);
-
-export const IconEdit = ({ size }: IconProps) => (
-  <svg {...base(size)}>
-    <path d="M11.5 2.5l2 2L6 12l-2.7.7L4 10z" />
-  </svg>
-);
-
 export const IconAccounts = ({ size }: IconProps) => (
   <svg {...base(size)}>
     <circle cx="8" cy="5.5" r="2.5" />
     <path d="M3.5 13c.7-2.6 2.3-3.5 4.5-3.5s3.8.9 4.5 3.5" />
-  </svg>
-);
-
-export const IconGear = ({ size }: IconProps) => (
-  <svg {...base(size)}>
-    <circle cx="8" cy="8" r="2.2" />
-    <path d="M8 2.5v1.4M8 12.1v1.4M2.5 8h1.4M12.1 8h1.4M4.1 4.1l1 1M10.9 10.9l1 1M11.9 4.1l-1 1M5.1 10.9l-1 1" />
   </svg>
 );
 

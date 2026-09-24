@@ -122,7 +122,8 @@ with headless_browser() as browser:
 
     # Die übrigen Bereiche der Leiste.
     for label, key in [('Plugins', 'plugins'), ('Einstellungen', 'settings'), ('Exokortex', 'exokortex'), ('Aktive Agenten', 'agenten')]:
-        page.locator('.cx-nav', has_text=label).first.click()
+        # Die Einstellungen stehen als Zahnrad an der Kontokarte, nicht mehr in der Liste.
+        (page.locator('.cx-settings-btn') if key == 'settings' else page.locator('.cx-nav', has_text=label).first).click()
         page.wait_for_timeout(420)
         band_hits(f'seite_{key}')
         report.setdefault('seiten', {})[key] = boxes(page, ['.cx-page', '.cx-page-head', '.cx-page h1', '.cx-page section'])
@@ -136,9 +137,9 @@ with headless_browser() as browser:
     page.locator('.cx-nav', has_text='Neuer Chat').first.click()
     page.wait_for_timeout(320)
     report['raster'] = boxes(page, [
-        '.cx-nav', '.cx-tree-task', '.cx-rail-add', '.cx-count',
+        '.cx-nav', '.cx-tree-task', '.cx-tree-add', '.cx-count',
         '.composer', '.composer textarea', '.composer-bar', '.model-btn', '.mode-btn', '.run-btn',
-        '.cx-start-cards', '.cx-start-cards button', '.cx-conversation',
+        '.cx-start-pills button', '.cx-conversation',
     ])
 
 print(json.dumps(report, indent=1, ensure_ascii=False))

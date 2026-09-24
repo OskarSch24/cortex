@@ -111,11 +111,3 @@ export function stickyBonus(input: StickyInput): StickyBonus {
     moveTokens: input.contextTokens && input.contextTokens > 0 ? input.contextTokens : undefined,
   };
 }
-
-export const CACHE_AFFINITY_CONSTANTS = {
-  CACHE_BONUS,
-  REINGEST_CAP,
-  TOKENS_PER_POINT,
-  TURN_PRIOR_POINTS,
-  TURN_PRIOR_CAP,
-};

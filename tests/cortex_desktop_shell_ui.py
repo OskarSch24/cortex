@@ -103,7 +103,7 @@ try:
         assert fenster['hoehe'] == 44, fenster
         assert fenster['ersterKnoten'] == 'cxd-dragbar', fenster
         assert not fenster['ohneAusnahme'], fenster
-        assert page.evaluate('getComputedStyle(document.body).fontFamily').startswith('-apple-system')
+        assert page.evaluate('getComputedStyle(document.body).fontFamily').startswith('Manrope')
         page.evaluate('window.dispatchEvent(new MessageEvent("message", {data:{kind:"desktop-host-ping",token:"smoke-token"}}))')
         assert last_message('host-roundtrip')['token'] == 'smoke-token'
         emit('context', key='cortex.chatToolsVisible', value=False)
@@ -125,6 +125,27 @@ try:
         assert last_message('browser-navigate')['url'] == 'http://localhost:3000'
         expect(page.get_by_label('Im Browser zurück')).to_be_enabled()
         expect(page.get_by_label('Im Browser vorwärts')).to_be_disabled()
+
+        # Browser-Tabs: jeder steht in der Kopfzeile der rechten Seite; dort
+        # sitzen auch das Plus und die Werkzeug-Icons — eine Leiste, kein Band darüber.
+        emit('browser-state', visible=True, url='https://example.com/', title='Beispiel', canBack=True, canForward=False,
+             active='t1', tabs=[{'id': 't1', 'title': 'Beispiel', 'url': 'https://example.com/'},
+                                {'id': 't2', 'title': 'Anmeldung', 'url': 'https://appleid.apple.com/'}])
+        head = page.locator('.cxd-side-head')
+        expect(head.get_by_role('tab', name='Beispiel')).to_have_attribute('aria-selected', 'true')
+        expect(head.get_by_role('tab', name='Anmeldung')).to_be_visible()
+        assert page.locator('.cxd-tool-slot .cxd-toolbar').count() == 1, 'Werkzeug-Icons gehören in die Kopfzeile'
+        side_box, tools_box = page.locator('.cxd-side').bounding_box(), toolbar.bounding_box()
+        assert side_box['y'] <= 8 and tools_box['y'] >= side_box['y'] and tools_box['y'] + tools_box['height'] <= side_box['y'] + 56, (side_box, tools_box)
+        head.get_by_role('tab', name='Anmeldung').click()
+        assert last_message('browser-select-tab') == {'type': 'browser-select-tab', 'id': 't2'}
+        head.get_by_role('button', name='Neuer Browser-Tab (⌘T)').click()
+        assert last_message('browser-new-tab') == {'type': 'browser-new-tab'}
+        head.get_by_role('button', name='Anmeldung schließen').click()
+        assert last_message('browser-close-tab') == {'type': 'browser-close-tab', 'id': 't2'}
+        emit('browser-state', visible=True, url='https://example.com/', title='Beispiel', canBack=True, canForward=False,
+             active='t1', tabs=[{'id': 't1', 'title': 'Beispiel', 'url': 'https://example.com/'}])
+        expect(head.get_by_role('tab', name='Anmeldung')).to_have_count(0)
 
         # Menus and modal prompts must hide native WebContentsView surfaces;
         # otherwise their native content sits above the HTML dialog.
@@ -216,7 +237,8 @@ try:
         page.screenshot(path=str(screenshot))
         page.set_viewport_size({'width': 760, 'height': 560})
         page.wait_for_function('innerWidth === 760')
-        page.wait_for_function('document.querySelector(".cx-main").getBoundingClientRect().x < 1')
+        # Ohne Seitenleiste beginnt die Arbeitsfläche als Insel 8 px vom Fensterrand.
+        page.wait_for_function('document.querySelector(".cx-main").getBoundingClientRect().x <= 8')
         composer_bounds = page.locator('.composer').bounding_box()
         message_bounds = page.get_by_label('Nachricht', exact=True).bounding_box()
         main_bounds = page.locator('.cx-main').bounding_box()

@@ -701,7 +701,7 @@
     "after": "",
     "spec": {
       "type": "server",
-      "name": "demo-hetzner",
+      "name": "nordwind-hetzner",
       "subtitle": "Erreichbar · 16 Container · Ubuntu 24.04",
       "metrics": [
         {
@@ -1084,7 +1084,7 @@
           2020
         ],
         [
-          "Funke Marketing GbR",
+          "Leuchtturm Marketing GbR",
           "Gründer & CEO",
           2018,
           2019

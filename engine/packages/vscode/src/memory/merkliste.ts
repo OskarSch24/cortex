@@ -8,7 +8,7 @@ import { CHAT_ORDNER } from '../storage/exokortexExport.js';
  * liegt die Merkliste dort — und ist spätestens nach der nächsten Runde
  * über «suche» auffindbar.
  */
-export const MERKLISTE = join(CHAT_ORDNER, 'Erinnerungen', 'merkliste.md');
+const MERKLISTE = join(CHAT_ORDNER, 'Erinnerungen', 'merkliste.md');
 
 export function schreibeMerkliste(eintrag: string, pfad: string = MERKLISTE, jetzt = new Date()): void {
   try {

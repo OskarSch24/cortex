@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import type { CliSight } from '@cortex/core';
 import { runCommand, type CliTarget, type Runner } from './cliSight.js';
+import { errorMessage } from '../util/errors.js';
 
 /**
  * Anmelden über die CLIs selbst — für Anbieter, die nur Programme von ihrer
@@ -21,7 +22,7 @@ export const AGENT_LOGIN_PROVIDERS = ['claude', 'codex'];
 
 export type Spawn = typeof spawn;
 
-export interface AgentLoginDeps {
+interface AgentLoginDeps {
   /** Der Link zur Bestätigung. `opensItself`: die CLI hat den Browser schon geöffnet. */
   onUrl(url: string, opensItself: boolean): void;
   signal?: AbortSignal;
@@ -32,7 +33,7 @@ export interface AgentLoginDeps {
   pollMs?: number;
 }
 
-export type AgentLoginResult =
+type AgentLoginResult =
   | { ok: true; tools?: string[] }
   | { ok: false; cancelled?: boolean; message: string };
 
@@ -146,7 +147,7 @@ export async function claudeMcpLogin(target: CliTarget, server: string, deps: Ag
     }
     return { ok: false, message: 'Im Browser wurde nichts bestätigt.' };
   } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+    return { ok: false, message: errorMessage(e) };
   } finally {
     control.close();
   }
@@ -221,7 +222,7 @@ export async function claudeMcpSight(
     }
     return { sight: { ...base, state: 'fehler', detail: 'Claude Code verbindet noch.' } };
   } catch (e) {
-    return { sight: { ...base, state: 'fehler', detail: e instanceof Error ? e.message : String(e) } };
+    return { sight: { ...base, state: 'fehler', detail: errorMessage(e) } };
   } finally {
     control.close();
   }

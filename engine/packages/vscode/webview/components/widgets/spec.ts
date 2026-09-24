@@ -28,7 +28,7 @@ export interface WorldclockW extends Base { type: 'worldclock'; cities: { name: 
 
 export interface AgentRunW extends Base { type: 'agent-run'; title: string; account?: string; elapsed?: string; steps: { text: string; state: StepState; duration?: string; added?: number; removed?: number }[]; note?: string }
 export interface SwarmRole { name: string; role?: string; instructions?: string }
-export interface AgentSwarmW extends Base { type: 'agent-swarm'; task?: string; count?: number; project?: string; agents?: SwarmRole[]; note?: string }
+export interface AgentSwarmW extends Base { type: 'agent-swarm'; task?: string; count?: number; project?: string; agents?: SwarmRole[]; note?: string; /** Der Nutzer hat den Start schon verlangt: die Karte startet sofort, einmal. */ start?: boolean }
 export interface TestResultW extends Base { type: 'test-result'; title: string; command?: string; duration?: string; groups: { label: string; passed: number; total: number }[]; failures?: { name: string; file?: string; detail?: string }[] }
 export interface QuotaW extends Base { type: 'quota'; accounts: { provider: string; name: string; plan?: string; percent?: number | null; reset?: string; bound?: boolean }[]; note?: string }
 export interface ServerW extends Base { type: 'server'; name: string; subtitle?: string; metrics?: { label: string; value: string | number; unit?: string; percent?: number; series?: number[] }[]; containers?: { name: string; state: 'ok' | 'warn' | 'down'; note?: string }[]; alerts?: { tone: Tone; text: string }[] }
@@ -55,10 +55,15 @@ export type WidgetSpec =
   | GraphNodeW | DecisionW | PlaceNamingW | TimelineW | JobsW | DesignDiffW | PaletteW | AudioTakesW | KpisW
   | QuizW | GameTheoryW;
 
-export const WIDGET_TYPES: readonly string[] = WIDGET_TYPE_NAMES;
+
+type WidgetTypeName = (typeof WIDGET_TYPE_NAMES)[number];
+type Fields = [string, 'a' | 's' | 'n'][];
+
+// Übersetzt nur, solange WidgetSpec und die Typliste im Brief dieselben Namen tragen.
+true satisfies ([WidgetSpec['type']] extends [WidgetTypeName] ? ([WidgetTypeName] extends [WidgetSpec['type']] ? true : never) : never);
 
 /** Pflichtfelder je Typ: [Feld, Art]. Art `a` = nicht leeres Array, `s` = Text oder Zahl, `n` = Zahl. */
-const REQUIRED: Record<string, [string, 'a' | 's' | 'n'][]> = {
+const REQUIRED: Record<string, Fields> = {
   weather: [['location', 's'], ['temp', 's'], ['condition', 's']],
   timer: [['label', 's'], ['durationSec', 'n']],
   departures: [['station', 's'], ['rows', 'a']],
@@ -92,7 +97,7 @@ const REQUIRED: Record<string, [string, 'a' | 's' | 'n'][]> = {
   kpis: [['title', 's'], ['kpis', 'a']],
   quiz: [['topic', 's'], ['question', 's'], ['options', 'a'], ['answer', 'n']],
   'game-theory': [['title', 's'], ['actors', 'a'], ['recommendation', 's']],
-};
+} satisfies Record<WidgetTypeName, Fields>;
 
 export function isWidgetLang(lang: string | undefined): boolean {
   return !!lang && (lang === WIDGET_LANG || lang === 'widget');
@@ -101,7 +106,7 @@ export function isWidgetLang(lang: string | undefined): boolean {
 export type ParsedWidget = { ok: true; spec: WidgetSpec } | { ok: false; error: string };
 
 /** Remove only commas outside strings that precede a closing container. */
-export function repairWidgetJson(source: string): string {
+function repairWidgetJson(source: string): string {
   let result = '', quoted = false, escaped = false;
   for (let i = 0; i < source.length; i++) {
     const char = source[i]!;
@@ -222,7 +227,7 @@ function channel(c: number): number {
   return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
 }
 
-export function hexToRgb(hex: string): [number, number, number] | undefined {
+function hexToRgb(hex: string): [number, number, number] | undefined {
   const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
   if (!m) return undefined;
   const h = m[1]!.length === 3 ? m[1]!.split('').map((c) => c + c).join('') : m[1]!;

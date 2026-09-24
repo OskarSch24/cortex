@@ -24,6 +24,8 @@ export interface LiveRunHandle {
 export interface RunRequest {
   /** Exact external MCP selection, credential-resolved by the host; undefined inherits. */
   mcpServers?: Record<string, import('../mcp/mcpSync.js').McpServerDef>;
+  /** Websuche für diesen Lauf (webSearch.ts); undefined lässt den Anbieter wie er ist. */
+  webSearch?: import('./webSearch.js').WebSearchSetup;
   /** For providers without native resume the orchestrator pre-embeds history here. */
   prompt: string;
   /**

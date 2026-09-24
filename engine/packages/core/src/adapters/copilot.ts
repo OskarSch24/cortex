@@ -1,10 +1,18 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { LoginFlow, ProviderAdapter, RunRequest } from './adapter.js';
 import { runAcp } from './acp.js';
 import { detectCopilotLimit } from './limits.js';
 import { buildChildEnv } from '../accounts/env.js';
 import type { AdapterEvent, ResolvedAccount } from '../types.js';
+import { readJson, stripLineComments } from '../util/jsonFile.js';
+
+/**
+ * Copilots `config.json` im Profil (JSONC). `undefined`, wenn es sie nicht
+ * gibt; ungültiges JSON wirft.
+ */
+export function readCopilotConfig(profileDir: string): Record<string, unknown> | undefined {
+  return readJson<Record<string, unknown>>(join(profileDir, 'config.json'), stripLineComments);
+}
 
 /**
  * Copilot over the Agent Client Protocol (`copilot --acp`): one open session
@@ -56,10 +64,8 @@ export class CopilotAdapter implements ProviderAdapter {
     // completes — a precise auto-detect signal.
     const isLoggedIn = async (): Promise<boolean> => {
       try {
-        const file = join(profileDir, 'config.json');
-        if (!existsSync(file)) return false;
-        const raw = readFileSync(file, 'utf8').replace(/^\s*\/\/.*$/gm, '');
-        const parsed = JSON.parse(raw) as { loggedInUsers?: unknown[] };
+        const parsed = readCopilotConfig(profileDir) as { loggedInUsers?: unknown[] } | undefined;
+        if (!parsed) return false;
         return Array.isArray(parsed.loggedInUsers) && parsed.loggedInUsers.length > 0;
       } catch {
         return false;

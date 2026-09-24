@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { linkSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-
-const alive = (pid: number): boolean => {
-  try { process.kill(pid, 0); return true; }
-  catch (error) { return (error as NodeJS.ErrnoException).code !== 'ESRCH'; }
-};
+import { alive } from '../util/process.js';
 
 interface Owner { pid: number; id: string }
 function readOwner(path: string): Owner | undefined {

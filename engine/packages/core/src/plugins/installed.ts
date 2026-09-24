@@ -1,6 +1,8 @@
 import type { McpServerDef } from '../mcp/mcpSync.js';
 import type { PluginEntry, PluginField } from './catalog.js';
 
+export { withServer, withoutServer } from '../mcp/mcpFile.js';
+
 /**
  * Rein rechnende Schicht — sie läuft im Host *und* im Webview. Deshalb steht
  * hier kein `node:fs`: das Lesen der Platte liegt in `skills.ts`, die nur der
@@ -349,52 +351,3 @@ export function unlistedServers(
     .filter(([name]) => !known.has(name))
     .map(([name, def]) => ({ name, def }));
 }
-
-/**
- * Einen Server in den *Text* von mcp.json schreiben statt in ein geparstes
- * Abbild: die Datei gehört dem Nutzer. `_help`, eigene Felder und die
- * Reihenfolge bleiben so erhalten, auch wenn Cortex sie nie gelesen hat.
- */
-export function withServer(content: string, name: string, def: McpServerDef): string {
-  const doc = parseObject(content);
-  const servers = { ...(asObject(doc.servers) ?? {}) };
-  servers[name] = compact({
-    command: def.command,
-    args: def.args,
-    env: def.env,
-    url: def.url,
-    providers: def.providers,
-  });
-  return stringify({ ...doc, servers });
-}
-
-export function withoutServer(content: string, name: string): string {
-  const doc = parseObject(content);
-  const servers = { ...(asObject(doc.servers) ?? {}) };
-  delete servers[name];
-  return stringify({ ...doc, servers });
-}
-
-const asObject = (v: unknown): Record<string, unknown> | undefined =>
-  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
-
-function parseObject(content: string): Record<string, unknown> {
-  if (!content.trim()) return { servers: {} };
-  const parsed = JSON.parse(content) as unknown;
-  const doc = asObject(parsed);
-  if (!doc) throw new Error('mcp.json is not an object');
-  return doc;
-}
-
-function compact(def: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(def).filter(([, value]) => {
-      if (value === undefined) return false;
-      if (Array.isArray(value)) return value.length > 0;
-      if (value && typeof value === 'object') return Object.keys(value).length > 0;
-      return true;
-    }),
-  );
-}
-
-const stringify = (doc: Record<string, unknown>): string => `${JSON.stringify(doc, null, 2)}\n`;

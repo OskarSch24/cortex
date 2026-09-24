@@ -11,7 +11,7 @@ import {
 export { Erinnerung } from './erinnerung.js';
 
 /** Schlüssel der App-Einstellungen, die keine `cortex.*`-Konfiguration sind (lange Texte, Listen). */
-export const ERINNERUNG_APP_KEYS = {
+const ERINNERUNG_APP_KEYS = {
   promptNotizen: 'erinnerung.prompt.notizen',
   promptSuche: 'erinnerung.prompt.suche',
   promptEinbettung: 'erinnerung.prompt.einbettung',

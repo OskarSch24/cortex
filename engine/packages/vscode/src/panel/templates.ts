@@ -1,6 +1,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import type { TemplateDto } from './protocol.js';
+import { isInside } from '../util/paths.js';
 
 export interface TemplateEntry {
   item: TemplateDto;
@@ -27,12 +28,8 @@ const extensions = { document: '.docx', presentation: '.pptx', spreadsheet: '.xl
 function packageFile(root: string, path: unknown): string | undefined {
   if (typeof path !== 'string' || !path || isAbsolute(path)) return undefined;
   const file = resolve(root, path);
-  const inside = (parent: string, child: string) => {
-    const rel = relative(parent, child);
-    return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
-  };
   try {
-    if (!inside(resolve(root), file) || !inside(realpathSync(root), realpathSync(file))) return undefined;
+    if (!isInside(resolve(root), file) || !isInside(realpathSync(root), realpathSync(file))) return undefined;
     return file;
   } catch { return undefined; }
 }

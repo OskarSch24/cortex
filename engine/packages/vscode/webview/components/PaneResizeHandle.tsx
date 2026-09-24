@@ -35,12 +35,28 @@ export function usePaneBounds() {
   return { ref, ...bounds };
 }
 
-export function PaneResizeHandle({ label, edge = 'left', value, min, max, initial, onChange }: {
+export function PaneResizeHandle({ label, edge = 'left', value, min, max, initial, onChange, onDrag, onRelease }: {
   label: string; edge?: 'left' | 'right'; value: number; min: number; max: number; initial: number; onChange: (width: number) => void;
+  /**
+   * Freies Ziehen: die ungebremste Wunschbreite bei jeder Mausbewegung, ohne
+   * Grenzen. Wer das übergibt, zeichnet selbst und entscheidet beim Loslassen
+   * (`onRelease`), wo die Kante zur Ruhe kommt — so kann eine Fläche über ihre
+   * Grenzen hinaus mitgehen und von dort weich einrasten, statt an der Grenze
+   * stehen zu bleiben und dann zu springen. Tastatur und Doppelklick bleiben
+   * bei `onChange` und den Grenzen.
+   */
+  onDrag?: (raw: number) => void;
+  onRelease?: (raw: number) => void;
 }) {
-  const drag = useRef<{ x: number; width: number }>();
+  const drag = useRef<{ x: number; width: number; raw: number }>();
   const limit = (width: number) => Math.round(Math.max(min, Math.min(Math.max(min, max), width)));
   const stop = () => { drag.current = undefined; document.body.classList.remove('cx-resizing-pane'); };
+  /** Loslassen, Abbruch oder verlorener Zeiger — die Fläche erfährt es genau einmal. */
+  const finish = () => {
+    const raw = drag.current?.raw;
+    stop();
+    if (raw !== undefined) onRelease?.(raw);
+  };
   useEffect(() => stop, []);
   return <div class={`cx-pane-resize ${edge}`} role="separator" aria-label={label} aria-orientation="vertical"
     aria-valuenow={Math.round(value)} aria-valuemin={min} aria-valuemax={Math.max(min, Math.round(max))} tabIndex={0}
@@ -55,14 +71,16 @@ export function PaneResizeHandle({ label, edge = 'left', value, min, max, initia
     onPointerDown={event => {
       if (event.button !== 0) return;
       event.preventDefault();
-      drag.current = { x: event.clientX, width: value };
+      drag.current = { x: event.clientX, width: value, raw: value };
       event.currentTarget.setPointerCapture(event.pointerId);
       document.body.classList.add('cx-resizing-pane');
     }}
     onPointerMove={event => {
       if (!drag.current) return;
-      onChange(limit(drag.current.width + (event.clientX - drag.current.x) * (edge === 'right' ? 1 : -1)));
+      const raw = drag.current.width + (event.clientX - drag.current.x) * (edge === 'right' ? 1 : -1);
+      drag.current.raw = raw;
+      if (onDrag) onDrag(raw); else onChange(limit(raw));
     }}
-    onPointerUp={event => { stop(); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
-    onPointerCancel={stop} onLostPointerCapture={stop} />;
+    onPointerUp={event => { finish(); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
+    onPointerCancel={finish} onLostPointerCapture={finish} />;
 }

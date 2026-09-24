@@ -1,9 +1,16 @@
 import * as vscode from 'vscode';
 import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { effectiveServers, parseMcpFile, type EffectiveServers } from '@cortex/core';
 import type { PluginScopeState } from '../panel/protocol.js';
+import { personalMcpFile, projectMcpFile } from '../paths.js';
+
+/** Die beiden Orte für mcp.json, das Projekt zuerst — ohne Projektordner nur die persönliche. */
+export function mcpPaths(workspaceRoot?: string): Array<{ id: PluginScopeState['id']; path: string }> {
+  const places: Array<{ id: PluginScopeState['id']; path: string }> = [];
+  if (workspaceRoot !== undefined) places.push({ id: 'projekt', path: projectMcpFile(workspaceRoot) });
+  places.push({ id: 'persoenlich', path: personalMcpFile() });
+  return places;
+}
 
 /**
  * Die beiden mcp.json-Dateien, gelesen an genau einer Stelle. Vorher las jede
@@ -13,10 +20,7 @@ import type { PluginScopeState } from '../panel/protocol.js';
  */
 export function readScopes(): PluginScopeState[] {
   const ws = vscode.workspace.workspaceFolders?.[0];
-  const places: Array<{ id: PluginScopeState['id']; path: string }> = [];
-  if (ws) places.push({ id: 'projekt', path: join(ws.uri.fsPath, '.cortex', 'mcp.json') });
-  places.push({ id: 'persoenlich', path: join(homedir(), '.cortex', 'mcp.json') });
-  return places.map(({ id, path }) => {
+  return mcpPaths(ws?.uri.fsPath).map(({ id, path }) => {
     if (!existsSync(path)) return { id, path, exists: false, servers: {} };
     try {
       const parsed = parseMcpFile(readFileSync(path, 'utf8'));

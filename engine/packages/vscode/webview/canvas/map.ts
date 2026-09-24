@@ -273,5 +273,3 @@ export function mapSkeleton(spec: MapSpec, id: (base: string) => string): Skelet
   }
   return out;
 }
-
-export const MAP_SOURCE: string = geo.source;

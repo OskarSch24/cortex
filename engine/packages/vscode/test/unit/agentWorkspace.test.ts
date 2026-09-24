@@ -33,27 +33,27 @@ describe('Cortex task account and project selection', () => {
     await chat.setPinnedTarget(undefined);
     expect(chat.pinnedTarget('work')).toBeUndefined();
     expect(chat.pinnedTarget('personal').account).toBe('private');
-    // Nichts gewählt heißt nicht „kein Modell“: der Knopf zeigt Opus 5.
+    // Nichts gewählt heißt nicht „kein Modell“: der Knopf zeigt das neueste Opus.
     // … und das Modellmenü hakt dann „Standard“ ab.
-    expect(messages).toContainEqual({ kind: 'pinnedTarget', target: { provider: 'claude', account: 'business', model: 'claude-opus-5' }, standard: true });
+    expect(messages).toContainEqual({ kind: 'pinnedTarget', target: { provider: 'claude', account: 'business', model: 'claude-opus-5-5' }, standard: true });
   });
 });
 
-describe('Opus 5 as the model when nothing is chosen', () => {
-  it('shows Opus 5 on the first Claude account that can take a task', () => {
+describe('the newest Opus as the model when nothing is chosen', () => {
+  it('shows the newest Opus on the first Claude account that can take a task', () => {
     const { chat, accounts } = host();
     accounts.unshift({ provider: 'claude', label: 'private', available: false, authState: 'ok' }, { provider: 'codex', label: 'private', available: true, authState: 'ok' });
     expect(chat.pinnedTarget('personal')).toBeUndefined();
-    expect(chat.shownTarget('personal')).toEqual({ provider: 'claude', account: 'business', model: 'claude-opus-5' });
+    expect(chat.shownTarget('personal')).toEqual({ provider: 'claude', account: 'business', model: 'claude-opus-5-5' });
   });
   it('keeps an explicit choice', () => {
     const { chat } = host();
     expect(chat.shownTarget('work')).toEqual({ provider: 'claude', account: 'business', model: 'opus' });
   });
-  it('fills in Opus 5 when a Claude account was chosen without a model', async () => {
+  it('fills in the newest Opus when a Claude account was chosen without a model', async () => {
     const { chat } = host();
     await chat.setPinnedTarget({ provider: 'claude', account: 'business' }, 'personal');
-    expect(chat.shownTarget('personal')).toEqual({ provider: 'claude', account: 'business', model: 'claude-opus-5' });
+    expect(chat.shownTarget('personal')).toEqual({ provider: 'claude', account: 'business', model: 'claude-opus-5-5' });
   });
   it('leaves another provider without a model alone', async () => {
     const { chat } = host();

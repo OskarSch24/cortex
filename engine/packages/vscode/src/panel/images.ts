@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, relative, isAbsolute, resolve } from 'node:path';
+import { jwtClaims } from '@cortex/core';
 import type { ImageOptions, ImageProvider } from './imageOptions.js';
+import { profilesRoot } from '../paths.js';
 export * from './imageOptions.js';
 
 /**
@@ -79,10 +81,8 @@ export function codexPlan(homeDir: string | undefined): string | undefined {
   if (!homeDir) return undefined;
   try {
     const auth = JSON.parse(readFileSync(join(homeDir, 'auth.json'), 'utf8')) as { tokens?: { id_token?: string } };
-    const payload = auth.tokens?.id_token?.split('.')[1];
-    if (!payload) return undefined;
-    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, Record<string, unknown> | undefined>;
-    const plan = claims['https://api.openai.com/auth']?.chatgpt_plan_type;
+    const claims = jwtClaims(auth.tokens?.id_token ?? '') as Record<string, Record<string, unknown> | undefined> | undefined;
+    const plan = claims?.['https://api.openai.com/auth']?.chatgpt_plan_type;
     return typeof plan === 'string' ? plan.toLowerCase() : undefined;
   } catch {
     return undefined;
@@ -125,7 +125,7 @@ export function imageAccountOrder(
 /** Wo die Bildwerkzeuge der Anbieter schreiben. Die Webview darf nur von dort laden. */
 export function imageRoots(accountHomes: Array<string | undefined> = [], persistentRoots: string[] = []): string[] {
   const home = homedir();
-  const roots = [join(home, '.cortex', 'profiles'), join(home, '.codex'), join(home, '.grok'), ...accountHomes.filter((h): h is string => !!h), ...persistentRoots];
+  const roots = [profilesRoot(), join(home, '.codex'), join(home, '.grok'), ...accountHomes.filter((h): h is string => !!h), ...persistentRoots];
   return [...new Set(roots.map((r) => resolve(r)))];
 }
 

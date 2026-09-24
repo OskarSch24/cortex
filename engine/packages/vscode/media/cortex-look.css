@@ -1,0 +1,200 @@
+/* ── Cortex-Oberfläche: Inseln, runde Ecken, einklappbare Bereiche ─────────
+   Der Aufbau bleibt: Seitenleiste links, Arbeitsfläche in der Mitte, Dock
+   rechts, Einstellungen mit eigener Leiste. Jede dieser Flächen ist eine
+   abgerundete Insel auf dem dunkleren Grund (--cx-ground), mit --cx-gap
+   Abstand zueinander und zum Fensterrand. Die Datei wird als letzte geladen;
+   Farben und Radien kommen aus den Tokens in cortex.css.                    */
+
+/* ── Grund und Inseln ─────────────────────────────────────────────────── */
+.cx-shell { box-sizing: border-box; gap: var(--cx-gap); padding: var(--cx-gap); background: var(--cx-ground); }
+.cx-sidebar, .cx-mini-rail, .cx-main, .cxs-nav, .cxs-main {
+  box-sizing: border-box; border: 1px solid var(--cx-line); border-radius: var(--cx-r-island);
+}
+.cx-sidebar { height: auto; padding: 0 8px; background: var(--cx-rail); }
+.cx-shell .cx-sidebar.closed { margin-left: calc(-1 * var(--cx-sidebar-width, 250px) - var(--cx-gap)); }
+.cx-sidebar.peek { top: var(--cx-gap); bottom: var(--cx-gap); left: var(--cx-gap); box-shadow: 0 18px 50px #000a; }
+.cx-main { background: var(--cx-bg); overflow: hidden; }
+/* Im Chat sind Verlauf und Übersichtskarte eine Insel (.cx-chat-island);
+   Dock und Prüfansicht rechts daneben sind eigene. Im Vollbild des Docks
+   löst sich die Chat-Insel auf, ihre Eingabe schwebt dann über dem Dock. */
+.cx-main.has-workspace { background: transparent; border: 0; border-radius: 0; overflow: visible; }
+.cx-workspace { gap: var(--cx-gap); }
+.cx-chat-island { display: flex; flex: 1; min-width: 270px; position: relative; background: var(--cx-bg); border: 1px solid var(--cx-line); border-radius: var(--cx-r-island); }
+@media (max-width: 1000px) { .cx-chat-island { min-width: 0; } }
+.cx-workspace.dock-full > .cx-chat-island { display: contents; }
+.cx-workspace:has(> .cx-dock.overwide, > .cx-dock.morphing) > .cx-chat-island { min-width: 0; overflow: hidden; }
+.cx-dock { border: 1px solid var(--cx-line) !important; border-radius: var(--cx-r-island); overflow: hidden; background: var(--cx-bg); }
+.cx-dock-tabs { margin-top: 0; padding: 8px 8px 8px 10px; border-bottom: 1px solid var(--cx-line); }
+/* Die Übersichtskarte schwebt rechts im Chat, als Karte in seiner Insel. */
+.cx-control-panel { margin-top: 56px; margin-right: 16px; background: var(--cx-composer); border: 1px solid rgb(var(--cx-ink) / 0.07); border-radius: var(--cx-r-card); box-shadow: none; }
+.cx-review { margin: 0; border-color: var(--cx-line); border-radius: var(--cx-r-island); background: var(--cx-bg); }
+.cx-review-head { background: transparent; }
+
+/* ── Seitenleiste ─────────────────────────────────────────────────────── */
+.cx-rail-brand { margin-top: 4px; padding: 0 2px 0 6px; }
+.cx-windowed .cx-rail-brand { margin-top: 28px; }
+.cx-rail-brand > span { font-size: 15.5px; font-weight: 700; letter-spacing: -.2px; }
+.cx-shell .cx-icon { border-radius: 999px; }
+.cx-rail-nav { margin: 8px 0 6px; gap: 1px; }
+.cx-nav { min-height: 32px; border-radius: var(--cx-r-row); padding: 0 10px; font-size: 13.5px; font-weight: 500; }
+.cx-nav, .cx-tree-open { color: var(--cx-soft); }
+.cx-tree-task-open { color: var(--cx-muted); }
+.cx-nav.selected { background: rgb(var(--cx-ink) / 0.07); }
+.cx-count { font: 600 11px var(--cx-body-font); background: transparent; color: var(--cx-dim); padding: 0; }
+.cx-nav .cx-count { color: var(--cx-green); }
+.cx-tree-section { margin-top: 14px; }
+.cx-tree-head { margin-bottom: 2px; }
+.cx-fold-toggle { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; height: 28px; margin: 0 !important; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--cx-dim); font: 600 12px var(--cx-body-font); text-align: left; }
+.cx-fold-toggle:hover { color: var(--cx-muted); }
+.cx-fold-toggle h2 { margin: 0; font: inherit; color: inherit; }
+.cx-fold-chevron, .cxs-nav-chevron { display: inline-flex; transition: transform 210ms cubic-bezier(.16, 1, .3, 1); }
+.cx-fold.open > .cx-tree-head .cx-fold-chevron, .cxs-nav-group.open .cxs-nav-chevron { transform: rotate(90deg); }
+.cx-fold-count, .cxs-nav-count { margin-left: auto; color: var(--cx-dim); font-size: 11.5px; font-weight: 500; }
+.cx-fold.open > .cx-tree-children { grid-template-rows: 1fr; }
+.cx-fold.open > .cx-tree-children > div > .cx-tree-children-inner { opacity: 1; transform: none; transition: opacity 150ms ease 40ms, transform 210ms cubic-bezier(.16, 1, .3, 1); }
+@media (prefers-reduced-motion: reduce) { .cx-fold-chevron, .cxs-nav-chevron { transition: none; } }
+.cx-tree-row, .cx-tree-task, .cx-archive-toggle { border-radius: var(--cx-r-row); }
+.cx-tree-row { min-height: 32px; }
+.cx-tree-open { height: 32px; gap: 10px; padding-left: 10px; font-size: 13.5px; font-weight: 500; }
+.cx-tree-count { margin-left: auto; padding-left: 6px; color: var(--cx-dim); font-size: 11.5px; font-weight: 500; transition: opacity .12s; }
+.cx-tree-row:hover .cx-tree-count, .cx-tree-row:focus-within .cx-tree-count { opacity: 0; }
+.cx-tree-task { min-height: 30px; }
+.cx-tree-task-open { height: 30px; padding-left: 36px; font-size: 13px; font-weight: 500; }
+.cx-loose { margin-top: 14px; }
+/* Unten läuft der Baum weich aus, statt an der Kante abzubrechen. Keine
+   Maske: sie schnitte auch das Kärtchen ab, das aus dem Baum herausragt. */
+.cx-rail-tree::after { content: ''; position: sticky; bottom: -8px; display: block; height: 20px; margin-top: -12px; background: linear-gradient(to bottom, transparent, var(--cx-rail)); pointer-events: none; }
+.cx-loose .cx-tree-open { font: 600 12px var(--cx-body-font); gap: 6px; }
+.cx-loose .cx-tree-open .cx-fold-count { margin-left: 4px; }
+.cx-archive-toggle { font-size: 13px; font-weight: 500; }
+.cx-account-dock { display: flex; align-items: center; gap: 4px; margin: 6px 0 8px; }
+.cx-account-dock .cx-account-launcher { flex: 1; min-width: 0; }
+.cx-account-summary, .cx-account-summary.usage { padding: 0; margin: 0; border-top: 0; }
+.cx-account-summary > svg:last-child { display: none; }
+.cx-usage { border-radius: 12px; padding: 10px 12px; }
+.cx-usage-top strong { font-weight: 600; }
+.cx-usage-track i { background: var(--cx-soft); }
+.cx-settings-btn { width: 34px; height: 34px; }
+.cx-tree-card, .cx-dock-picks, .cx-crumb-menu, .cx-dock-open-menu { border-radius: var(--cx-r-island); }
+
+/* Eingeklappt: eine schmale Insel mit denselben Wegen. Im Fenstermodus
+   beginnt sie unter den Ampelknöpfen. */
+.cx-mini-rail { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 56px; flex-shrink: 0; padding: 10px 0; background: var(--cx-rail); }
+.cx-windowed .cx-mini-rail { padding-top: 38px; }
+.cx-mini-rail .cx-icon { position: relative; width: 40px; height: 40px; border-radius: 12px; }
+.cx-mini-rail .cx-icon.selected { background: rgb(var(--cx-ink) / 0.07); color: var(--cx-text); }
+.cx-mini-brand { margin-bottom: 8px; }
+.cx-mini-sep { width: 24px; height: 1px; margin: 6px 0; background: var(--cx-line); }
+.cx-mini-gap { flex: 1; }
+.cx-mini-dot { position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: var(--cx-green); }
+/* Die schmale Leiste deckt die Ampelknöpfe nicht ab: die Verlaufsknöpfe
+   bleiben an ihrem Platz in der Arbeitsfläche. */
+.cx-sidebar-hidden { --cx-history-left: 14px; }
+
+/* ── Startseite ───────────────────────────────────────────────────────── */
+.cx-welcome { margin: auto 0 26px; }
+.cx-welcome-mark { width: 64px; height: 64px; margin-bottom: 22px; }
+.cx-welcome h1 { font-size: clamp(22px, 2.2vw, 28px); font-weight: 600; letter-spacing: -.02em; }
+/* Überschrift und Eingabe stehen zusammen in der Mitte: die Begrüßung
+   füllt die obere Hälfte von unten, die Eingabe die untere von oben. */
+.is-empty .cx-welcome { flex: 1 1 0; justify-content: flex-end; padding: 30px 30px 30px; min-height: 0; }
+.is-empty .cx-welcome h1 { margin-bottom: 0; }
+.is-empty .cx-welcome-mark { margin-bottom: 20px; }
+.is-empty .cx-compose-area { flex: 1 1 0; max-width: 736px; padding-bottom: 24px; }
+.cx-start-pills { flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.cx-start-pills button { height: 36px; padding: 0 14px; border: 1px solid rgb(var(--cx-ink) / 0.08); border-radius: 999px; background: transparent; color: var(--cx-soft); font: 500 12.5px var(--cx-body-font); }
+.cx-start-pills button > svg { color: var(--cx-muted); }
+.cx-start-pills button:hover { background: rgb(var(--cx-ink) / 0.04); border-color: rgb(var(--cx-ink) / 0.14); color: var(--cx-text); }
+
+/* ── Eingabefeld ──────────────────────────────────────────────────────── */
+:root { --cx-composer-radius: var(--cx-r-input); --cx-composer-corner-shape: round; --cx-composer-shelf-radius: 14px; --cx-composer-text: var(--cx-text); }
+.cx-shell .composer { border-radius: var(--cx-r-input); corner-shape: round; padding: 14px 8px 8px; background: var(--cx-composer); box-shadow: inset 0 0 0 1px rgb(var(--cx-ink) / 0.07); }
+.cx-shell .composer:focus-within { box-shadow: inset 0 0 0 1px rgb(var(--cx-ink) / 0.14); }
+.cx-shell .composer .mode-btn { border-radius: 999px; padding: 0 10px; font: 500 12.5px/20px var(--cx-body-font); }
+.cx-shell .composer .icon-btn { border-radius: 999px; }
+.cx-shell .composer .permission-btn.is-full { color: var(--cx-amber); }
+.cx-shell .composer .model-effort.ultra { color: var(--cx-amber); }
+.cx-shell .composer .cx-project-picker { flex: 0 1 auto; min-width: 0; }
+.cx-shell .composer .cx-project-chip, .cx-shell .is-empty .composer .cx-project-chip { height: 28px; gap: 6px; padding: 0 11px; border: 1px solid rgb(var(--cx-ink) / 0.08); border-radius: 999px; color: var(--cx-soft); font: 500 12.5px/20px var(--cx-body-font); }
+.cx-shell .composer .cx-project-chip:not(:disabled):hover, .cx-shell .composer .cx-project-chip[aria-expanded="true"] { background: rgb(var(--cx-ink) / 0.04); color: var(--cx-text); }
+/* Menüs kommen aus cortex-menus.css; die Projektliste folgt ihnen. */
+.cx-project-pop { border-radius: var(--cx-r-island); background: var(--cx-popover); border-color: rgb(var(--cx-ink) / 0.09); backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+/* ── Verlauf ──────────────────────────────────────────────────────────── */
+/* Die Insel hat schon ihren eigenen Rand; 32 px Luft je Seite genügen. */
+.cx-shell .cx-chat-width { width: calc(100% - 64px); }
+.cx-c-turn, .cx-c-bubble { font-size: 14.5px; line-height: 23px; }
+.cx-c-bubble { border-radius: 20px 20px 6px 20px; background: rgb(var(--cx-ink) / 0.09); }
+.cx-c-user-file { border-radius: 999px; }
+/* „… lang gearbeitet“ und die Schrittgruppen: eine runde Zusammenfassung,
+   aufgeklappt stehen die Schritte darunter. */
+.cx-c-worked { height: 32px; padding: 0 12px; border-radius: 999px; background: rgb(var(--cx-ink) / 0.03); font: 500 12.5px/32px var(--cx-body-font); color: var(--cx-muted); }
+.cx-c-worked:hover, .cx-c-worked.open { background: rgb(var(--cx-ink) / 0.05); color: var(--cx-text); }
+.cx-c-turn > .cx-c-rule { display: none; }
+.cx-c-line { font-size: 14px; }
+.cx-c-preview, .cx-c-command, .md-codeblock, .cx-memory-card { border-radius: var(--cx-r-island); }
+.md-codeblock { background: var(--cx-code-bg); border-color: rgb(var(--cx-ink) / 0.05); }
+.md-codeblock-head { height: 36px; border-bottom: 0; }
+.cx-c-prose .md-inline { font-family: var(--cx-code-font); border-radius: 6px; }
+.md a.md-link { color: #8fb8ff; }
+.cx-jump { background: var(--cx-hover); }
+
+/* ── Dock ─────────────────────────────────────────────────────────────── */
+.cx-dock-tablist { gap: 2px; padding: 3px; border-radius: 999px; background: rgb(var(--cx-ink) / 0.03); }
+.cx-dock-tab { border-radius: 999px; }
+.cx-dock-tab.active { background: rgb(var(--cx-ink) / 0.08); }
+.cx-dock-tab > button:first-child { padding: 5px 4px 5px 11px; font-size: 12px; font-weight: 500; }
+.cx-dock-tab-x { border-radius: 999px; }
+.cx-dock-head { border-bottom: 1px solid var(--cx-line); }
+.cx-dock-open { border-radius: 999px; }
+.cx-dock-open-main { border-radius: 999px 0 0 999px; padding: 5px 10px 5px 12px; }
+.cx-dock-open-more { border-radius: 0 999px 999px 0; }
+.cx-file-row { border-radius: var(--cx-r-row); }
+
+/* ── Plugins: eine Spalte in Karten statt zweier freier Spalten ────────── */
+.cx-plugin-grid { grid-template-columns: minmax(0, 1fr); column-gap: 0; padding: 4px; border: 1px solid var(--cx-line); border-radius: var(--cx-r-card); background: var(--cx-raised); }
+.cx-plugin-row { margin-bottom: 0; border-radius: 12px; }
+.cx-plugin-tile { border-radius: 10px; background: rgb(var(--cx-ink) / 0.04); border-color: transparent; }
+.cx-plugin-tile.lg { border-radius: 16px; }
+.cx-plugin-search input { height: 36px; border-radius: 999px; background: rgb(var(--cx-ink) / 0.04); border-color: transparent; }
+.cx-plugins-head h1 { font-weight: 600; letter-spacing: -.02em; }
+.cx-plugin-section-head h2 { font-weight: 600; }
+
+/* ── Einstellungen ────────────────────────────────────────────────────── */
+.cx-settings-mode .cxs-shell { gap: var(--cx-gap); background: transparent; }
+.cxs-nav { width: 256px; min-width: 256px; height: auto; background: var(--cx-rail); box-shadow: none; padding-top: 12px; }
+.cx-windowed .cxs-nav { padding-top: 36px; }
+.cxs-main { background: var(--cx-bg); overflow: hidden; }
+.cxs-nav-item, .cxs-back { border-radius: var(--cx-r-row); font-weight: 500; }
+.cxs-nav-search { border-radius: 999px; }
+.cxs-nav-head { display: flex; align-items: center; gap: 6px; width: 100%; height: 30px; margin-top: 10px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--cx-dim); text-align: left; cursor: pointer; }
+.cxs-nav-head:hover { color: var(--cx-muted); }
+.cxs-nav-head h3, .cxs-nav-group:first-child .cxs-nav-head h3 { height: auto; margin: 0; padding: 0; color: inherit; font: 600 12px/30px var(--cx-body-font); }
+.cxs-card { border-radius: var(--cx-r-card); }
+.cxs-page-head h1 { font-weight: 600; letter-spacing: -.02em; }
+.cxs-section-head h2 { font-weight: 600; }
+
+/* ── Knöpfe und Schalter: rund, Weiß für die Hauptaktion ──────────────── */
+.cxs-button, .cx-plugin-pill, .cx-editor-button, .cx-c-btn, .cx-dock-text-btn, .cxs-select-button, .cxs-segmented, .cxs-segmented > button { border-radius: 999px; }
+.cx-editor-button { padding: 5px 12px; font-size: 12px !important; }
+.cx-settings-mode { --cxs-switch: var(--cx-switch, var(--cx-accent)); --cxs-link: #8fb8ff; }
+.cxs-toggle.on i { background: var(--cx-bg); box-shadow: none; }
+
+/* ── Konten & Limits ──────────────────────────────────────────────────── */
+.cx-primary, .cx-secondary { border-radius: 999px; padding: 8px 14px; font-weight: 600 !important; }
+.cx-provider-grid { border-radius: var(--cx-r-card); background: var(--cx-raised); }
+.cx-provider-card { background: transparent; border-radius: 0; }
+.cx-provider-count.bound { border-radius: 999px; }
+.cx-accounts-table { border-radius: var(--cx-r-card); border-color: var(--cx-line); }
+.cx-account-filters { gap: 2px; }
+.cx-account-filters button { padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 500; }
+.cx-account-filters button[aria-selected=true] { border-color: transparent; background: rgb(var(--cx-ink) / 0.08); }
+.cx-account-section-heading h2, .cx-page-heading h1 { font-weight: 600; }
+.cx-brand-tile { border-radius: 10px; }
+.cx-modal, .cx-dialog { border-radius: 22px; }
+
+/* ── Hell ─────────────────────────────────────────────────────────────── */
+.cx-rail-brand { color: var(--cx-text); }
+[data-cx-theme=hell] .md a.md-link, [data-cx-theme=hell] .cx-settings-mode { --cxs-link: #2f63c4; }
+[data-cx-theme=hell] .md a.md-link { color: #2f63c4; }
+[data-cx-theme=hell] .cx-sidebar.peek { box-shadow: 0 18px 50px #0003; }

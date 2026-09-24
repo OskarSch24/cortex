@@ -90,7 +90,7 @@
         "ok": false,
         "regel": ">= 99%",
         "herkunft": "Der erste Lauf nahm nur die Ordnernamen auf, der zweite dreizehn handverlesene Knoten aus 136.507 Dateien.",
-        "hinweis": "Vollstaendige Fehlliste: ~/.exokortex/einspeisungen/fehlend_9b3758253184.txt"
+        "hinweis": "Vollstaendige Fehlliste: /Users/x/.exokortex/einspeisungen/fehlend_9b3758253184.txt"
       },
       {
         "name": "Vollstaendigkeit Persönliche Projekte",
@@ -98,7 +98,7 @@
         "ok": false,
         "regel": ">= 99%",
         "herkunft": "Der erste Lauf nahm nur die Ordnernamen auf, der zweite dreizehn handverlesene Knoten aus 136.507 Dateien.",
-        "hinweis": "Vollstaendige Fehlliste: ~/.exokortex/einspeisungen/fehlend_b52ec47f4108.txt"
+        "hinweis": "Vollstaendige Fehlliste: /Users/x/.exokortex/einspeisungen/fehlend_b52ec47f4108.txt"
       }
     ]
   },
@@ -108,11 +108,11 @@
     "fehlende_dateien": 247,
     "fehllisten": [
       {
-        "datei": "~/.exokortex/einspeisungen/fehlend_9b3758253184.txt",
+        "datei": "/Users/x/.exokortex/einspeisungen/fehlend_9b3758253184.txt",
         "anzahl": 59
       },
       {
-        "datei": "~/.exokortex/einspeisungen/fehlend_b52ec47f4108.txt",
+        "datei": "/Users/x/.exokortex/einspeisungen/fehlend_b52ec47f4108.txt",
         "anzahl": 188
       }
     ]
@@ -146,9 +146,9 @@
     }
   ],
   "pfade": {
-    "speicher": "~/.exokortex",
-    "vault": "~/Obsidian-Vault",
-    "chats": "~/Cortex-Chats",
-    "log": "~/Library/Logs/exokortex-chats.log"
+    "speicher": "/Users/x/.exokortex",
+    "vault": "/Users/x/Obsidian-Vault",
+    "chats": "/Users/x/Cortex-Chats",
+    "log": "/Users/x/Library/Logs/exokortex-chats.log"
   }
 }

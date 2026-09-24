@@ -1,8 +1,8 @@
-import { execFile } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { AppCheck } from '@cortex/core';
+import { tryExec } from '../util/exec.js';
 
 /**
  * Xcode als Plugin: der Server ist `xcrun mcpbridge`, die Brücke, die Xcode
@@ -11,14 +11,10 @@ import type { AppCheck } from '@cortex/core';
  * sie gar nicht. Genau das prüft Cortex hier, statt „verbunden“ zu behaupten.
  */
 
-function run(cmd: string, args: string[]): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    execFile(cmd, args, { timeout: 4000 }, (error, stdout) => resolve(error ? undefined : stdout.trim()));
-  });
-}
+const run = (cmd: string, args: string[]) => tryExec(cmd, args, 4000);
 
 /** Die Xcode-Programme, die auf diesem Mac liegen — auch ein noch nicht verschobenes in Downloads. */
-export function findXcodeApps(home = homedir()): string[] {
+function findXcodeApps(home = homedir()): string[] {
   const found: string[] = [];
   for (const dir of ['/Applications', join(home, 'Applications'), join(home, 'Downloads'), join(home, 'Desktop')]) {
     try {
@@ -39,7 +35,7 @@ export function appOfDeveloperDir(developerDir: string | undefined): string | un
   return match?.[1];
 }
 
-export interface XcodeFacts {
+interface XcodeFacts {
   developerDir?: string;
   apps: string[];
   running: boolean;

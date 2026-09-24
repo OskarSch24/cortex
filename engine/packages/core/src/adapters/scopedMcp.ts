@@ -1,8 +1,7 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type { McpServerDef } from '../mcp/mcpSync.js';
-import { isSseUrl } from '../mcp/probe.js';
+import { isSseUrl } from '../mcp/transport.js';
+import { isRecord } from '../util/guards.js';
+import { privateTempFile } from '../util/privateTempFile.js';
 
 export interface ScopedMcpConfig {
   path: string;
@@ -10,13 +9,13 @@ export interface ScopedMcpConfig {
 }
 
 function stringMap(value: unknown): value is Record<string, string> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
+  return isRecord(value)
     && Object.values(value).every(entry => typeof entry === 'string');
 }
 
 /** Validate all entries: silently skipping one would misrepresent the selection. */
 function claudeServers(servers: Record<string, McpServerDef>): Record<string, unknown> {
-  if (servers === null || typeof servers !== 'object' || Array.isArray(servers)) {
+  if (!isRecord(servers)) {
     throw new Error('Die MCP-Auswahl ist ungültig.');
   }
   return Object.fromEntries(Object.entries(servers).map(([name, def]) => {
@@ -53,16 +52,7 @@ function claudeServers(servers: Record<string, McpServerDef>): Record<string, un
  */
 export function createClaudeMcpConfig(servers: Record<string, McpServerDef>): ScopedMcpConfig {
   const content = JSON.stringify({ mcpServers: claudeServers(servers) });
-  const folder = mkdtempSync(join(tmpdir(), 'cortex-run-mcp-'));
-  const path = join(folder, 'mcp.json');
-  const dispose = () => rmSync(folder, { recursive: true, force: true });
-  try {
-    writeFileSync(path, content, { mode: 0o600, flag: 'wx' });
-    return { path, dispose };
-  } catch (error) {
-    dispose();
-    throw error;
-  }
+  return privateTempFile('cortex-run-mcp-', 'mcp.json', content);
 }
 
 /** Keep the host's internal permission/canvas bridges in the same variadic flag. */

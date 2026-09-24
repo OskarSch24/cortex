@@ -1,3 +1,5 @@
+import { isRecord } from '../util/guards.js';
+
 /**
  * Ein OAuth-Client, den du selbst mitbringst — Client-ID und Client-Secret aus
  * der Konsole eines Anbieters, von Hand eingetragen oder als die JSON-Datei, die
@@ -38,7 +40,6 @@ export const OWN_CLIENT_PORT = 38127;
 export type RedirectHost = 'localhost' | '127.0.0.1';
 export const ownClientRedirect = (host: RedirectHost = '127.0.0.1') =>
   `http://${host}:${OWN_CLIENT_PORT}/callback`;
-export const OWN_CLIENT_REDIRECT = ownClientRedirect();
 
 /** Endpunkte und Eigenheiten der Anbieter, deren Clients man selbst anlegt. */
 export const OAUTH_PROVIDERS = {
@@ -71,7 +72,7 @@ export function parseClientJson(content: string): ClientParse {
   } catch {
     return { ok: false, error: 'Die Datei ist kein gültiges JSON.' };
   }
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+  if (!isRecord(raw)) {
     return { ok: false, error: 'Die Datei enthält kein JSON-Objekt.' };
   }
   const doc = raw as Record<string, unknown>;
