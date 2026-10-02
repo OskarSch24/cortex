@@ -5,7 +5,9 @@ export interface QueuedMessage {
   id: string;
   text: string;
   tags: string[];
-  modes: { effort?: Effort; permissionMode?: PermissionMode; askPermission?: boolean; routingMode?: 'auto' | 'manual'; attachments?: string[]; target?: Target; image?: ImageOptions; imageProvider?: string };
+  modes: { effort?: Effort; permissionMode?: PermissionMode; askPermission?: boolean; routingMode?: 'auto' | 'manual'; attachments?: string[]; target?: Target; image?: ImageOptions; imageProvider?: string; imageOptions?: ImageOptions };
+  /** Eine Runde eines Ziels (`/goal`); `auto`: von Cortex geschickt — steht nicht in der sichtbaren Warteschlange. */
+  goal?: { id: string; round: number; auto: boolean };
 }
 export type QueuePauseReason = 'error' | 'stopped' | 'restored' | 'project';
 

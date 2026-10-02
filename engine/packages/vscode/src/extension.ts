@@ -12,6 +12,7 @@ import {
   CopilotAdapter,
   GrokAdapter,
   OpenRouterAdapter,
+  ZaiAdapter,
   Orchestrator,
   QuotaTracker,
   SessionStore,
@@ -57,6 +58,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
   // run on free models; in chat it answers only when picked by hand.
   const openRouter = new OpenRouterAdapter();
   adapters.register(openRouter);
+  // Z.ai ebenso: GLM über die HTTP-API mit dem eigenen Schlüssel.
+  adapters.register(new ZaiAdapter());
 
   const accounts = new AccountStore(ctx);
   // Zugangsdaten der Plugins. Geladen wird sofort; gespiegelt wird erst danach —

@@ -26,7 +26,10 @@ with headless_browser() as browser:
     expect(page.locator('.cx-c-command-body')).to_have_count(0)
     group.locator(':scope > .cx-c-line').click()
     expect(page.locator('.cx-c-group-items')).to_contain_text('Tests ausgeführt')
-    expect(page.locator('.cx-c-group-items')).to_contain_text('Werkzeug verwendet')
+    # Ein unbekanntes Werkzeug nennt seinen Namen und seinen ersten Text — die JSON-Syntax nur aufgeklappt.
+    tool_line = page.locator('.cx-c-group-items .cx-c-step').last
+    expect(tool_line).to_contain_text('Werkzeug „Internal Tool“ verwendet · visible on request')
+    expect(tool_line).not_to_contain_text('secretSyntax')
     expect(page.locator('.cx-c-raw-detail')).to_have_count(0)
     expect(page.locator('.cx-c-filelink').first).to_have_text('index.ts')
     page.locator('.cx-c-step .cx-c-line').first.click()

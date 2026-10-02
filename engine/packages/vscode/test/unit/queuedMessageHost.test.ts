@@ -190,6 +190,23 @@ describe('queue issue regressions', () => {
   });
 });
 
+describe('Chat mit laufendem Schwarm', () => {
+  it('teilt den Ordner mit seinen Rollen, statt auf eine Schreibpause zu warten, die nie kommt', async () => {
+    const { workspaceRunKey } = await import('../../src/panel/forkWorkspace.js');
+    const { chat } = host();
+    // Zwei Rollen arbeiten im Ordner (geteilt), der Schwarm stammt aus Chat „one“.
+    chat.projectRuns.set(await workspaceRunKey('/project'), { writers: 0, readers: 2 });
+    const store = { runs: [{ status: 'running', teamId: 'swarm-one-karte', jobs: [] }], teams: [{ id: 'swarm-one-karte', sharedWorkspace: true }] };
+    chat.teams = () => store;
+    await chat.handleSend('one', 'Wie lange noch?', []);
+    await vi.waitFor(() => expect(chat.runTask).toHaveBeenCalledOnce());
+    // Ein anderer Chat im selben Ordner wartet weiter.
+    await chat.handleSend('two', 'Etwas anderes', []);
+    chat.conversations.get('two').projectPath = '/project';
+    await vi.waitFor(() => expect(chat.queues.pauseReason('two')).toBe('project'));
+  });
+});
+
 describe('Wiederholen nach einem Fehler', () => {
   it('schickt die gescheiterte Nachricht erneut, auch ohne Antwort davor', async () => {
     const { chat } = host();

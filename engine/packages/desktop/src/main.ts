@@ -9,7 +9,7 @@ import * as platform from './platform.js';
 import { createDesktopStorage } from './storage.js';
 import { allowedResource, resourcePath, resourceUrl, previewUrl, injectShell } from './security.js';
 import { DesktopTerminal } from './terminal.js';
-import { agentBrowser, releaseLayout, type AgentBrowserHost, type AgentTab } from './agentBrowser.js';
+import { agentBrowser, liveContents, releaseLayout, type AgentBrowserHost, type AgentTab } from './agentBrowser.js';
 import { errorMessage } from '../../vscode/src/util/errors.js';
 
 app.setName('Cortex');
@@ -121,8 +121,8 @@ function createWindow(title='Cortex') {
   return win;
 }
 function activeBrowser(){return browserTabs.get(activeTab)?.view;}
-function tabSummary(tab:BrowserTab){const contents=tab.view.webContents;const url=contents.isDestroyed()?'about:blank':contents.getURL()||'about:blank';return {id:tab.id,agent:!!tab.owner,title:(contents.isDestroyed()?'':contents.getTitle())||(url==='about:blank'?'Neuer Tab':url),url,loading:tab.loading};}
-function browserState(){const tab=browserTabs.get(activeTab);const contents=tab&&!tab.view.webContents.isDestroyed()?tab.view.webContents:undefined;return {type:'browser-state',url:contents?.getURL()||'about:blank',title:contents?.getTitle()||'Vorschau',canBack:contents?.navigationHistory.canGoBack()??false,canForward:contents?.navigationHistory.canGoForward()??false,visible:browserVisible,loading:tab?.loading??false,error:tab?.error??'',tabs:[...browserTabs.values()].map(tabSummary),active:activeTab};}
+function tabSummary(tab:BrowserTab){const contents=liveContents(tab);const url=contents?.getURL()||'about:blank';return {id:tab.id,agent:!!tab.owner,title:contents?.getTitle()||(url==='about:blank'?'Neuer Tab':url),url,loading:tab.loading};}
+function browserState(){const tab=browserTabs.get(activeTab);const contents=tab&&liveContents(tab);return {type:'browser-state',url:contents?.getURL()||'about:blank',title:contents?.getTitle()||'Vorschau',canBack:contents?.navigationHistory.canGoBack()??false,canForward:contents?.navigationHistory.canGoForward()??false,visible:browserVisible,loading:tab?.loading??false,error:tab?.error??'',tabs:[...browserTabs.values()].map(tabSummary),active:activeTab};}
 function tabShown(id:string){return id===activeTab&&browserVisible&&browserShown;}
 function placeBrowser(){for(const tab of browserTabs.values()){const current=tab.id===activeTab;if(current&&browserBounds)tab.view.setBounds(browserBounds);const shown=tabShown(tab.id);if(shown)releaseLayout(tab);tab.view.setVisible(shown);}}
 function preparePreviewSession(session:Electron.Session){
@@ -155,7 +155,7 @@ function selectTab(id:string){if(!browserTabs.has(id))return;activeTab=id;browse
 function closeTab(id:string){
   const tab=browserTabs.get(id);if(!tab)return;browserTabs.delete(id);
   try{mainWindow.contentView.removeChildView(tab.view);}catch{}
-  if(!tab.view.webContents.isDestroyed())tab.view.webContents.close();
+  liveContents(tab)?.close();
   if(activeTab===id)activeTab=[...browserTabs.keys()].at(-1)||'';
   if(!browserTabs.size){browserVisible=false;primary?.receive.fire({kind:'closeBrowser'});}
   placeBrowser();sendShell(browserState());

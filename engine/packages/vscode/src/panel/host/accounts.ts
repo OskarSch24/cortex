@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ClaudeAdapter, getAccountIdentity, type AdapterRegistry, type Target } from '@cortex/core';
-import { addAccountWizard, addOpenRouterAccount, respondToConnection } from '../../onboarding/addAccount.js';
+import { addAccountWizard, addOpenRouterAccount, addZaiAccount, respondToConnection } from '../../onboarding/addAccount.js';
 import { installManagedClaude } from '../../onboarding/installClaude.js';
 import type { OpenRouterCatalog } from '../../openrouterCatalog.js';
 import type { HostToWebview } from '../protocol.js';
@@ -129,11 +129,12 @@ export const accountTable = {
     respondToConnection(msg.provider as Target['provider'], msg.attemptId, msg.accept);
   },
   addApiKeyAccount: async (msg, { webview }, panel) => {
-    await addOpenRouterAccount(panel.host.accounts, {
+    const connect = msg.provider === 'zai' ? addZaiAccount : addOpenRouterAccount;
+    await connect(panel.host.accounts, {
       key: msg.key,
       label: msg.label,
       accountId: msg.accountId,
-      onProgress: (state, message, detail) => panel.host.post(webview, { kind: 'connectionProgress', provider: 'openrouter', state, message, ...detail }),
+      onProgress: (state, message, detail) => panel.host.post(webview, { kind: 'connectionProgress', provider: msg.provider, state, message, ...detail }),
     });
     panel.host.pushAccounts();
   },

@@ -106,7 +106,7 @@ export function route(
       // A bare "yes, go ahead" carries the weight of the turn it is answering,
       // not its own.
       const previous = options.conversation?.recentComplexity?.[0];
-      if (isContinuation(cleaned) && previous) {
+      if ((task.continuation || isContinuation(cleaned)) && previous) {
         classification = { ...classification, complexity: previous };
       }
       const auto = autoRoute(classification, accounts, quota, {

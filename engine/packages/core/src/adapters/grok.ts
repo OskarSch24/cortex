@@ -6,6 +6,7 @@ import { grokWebSearchArgs } from './webSearch.js';
 import { GROK_MODELS } from '../models/catalog.js';
 import { detectGrokLimit } from './limits.js';
 import { buildChildEnv } from '../accounts/env.js';
+import { MCP_ALLOW_ENV } from '../mcp/runPolicy.js';
 import type { AdapterEvent, ResolvedAccount } from '../types.js';
 
 /**
@@ -33,6 +34,24 @@ export class GrokAdapter implements ProviderAdapter {
     // Schaltern; ein ausdrücklich gesetzter Wert bleibt.
     env.GROK_MANAGED_MCPS_ENABLED ??= '1';
     env.GROK_MANAGED_MCP_GATEWAY_TOOLS_ENABLED ??= '1';
+    // Die Erlaubnisliste gilt nur für den Lauf, der sie setzt (run). Aus
+    // Cortex' eigener Umgebung geerbt, würde sie jeden Chat still beschneiden.
+    delete env[MCP_ALLOW_ENV];
+    return env;
+  }
+
+  /**
+   * Die Umgebung eines Laufs. Mit einer MCP-Auswahl startet Grok nur deren
+   * Server aus dem Profil (das Tor vor jedem, siehe gatedMcpServer); die
+   * Gateway-Konnektoren des Grok-Kontos stehen auf keiner Cortex-Liste und
+   * bleiben dann aus.
+   */
+  runEnv(req: RunRequest, account: ResolvedAccount, base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+    const env = this.buildEnv(account, base);
+    if (req.mcpServers === undefined) return env;
+    env[MCP_ALLOW_ENV] = Object.keys(req.mcpServers).join(',');
+    delete env.GROK_MANAGED_MCPS_ENABLED;
+    delete env.GROK_MANAGED_MCP_GATEWAY_TOOLS_ENABLED;
     return env;
   }
 
@@ -47,7 +66,7 @@ export class GrokAdapter implements ProviderAdapter {
       command: this.cliPath,
       configureGrokSession: true,
       args,
-      env: this.buildEnv(account, process.env),
+      env: this.runEnv(req, account, process.env),
       req,
       signal,
       detectLimit: detectGrokLimit,

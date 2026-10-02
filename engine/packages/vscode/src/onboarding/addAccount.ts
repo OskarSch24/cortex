@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { accessSync, constants, mkdirSync } from 'node:fs';
 import { delimiter, isAbsolute, join } from 'node:path';
-import { ClaudeAdapter, buildChildEnv, shortId, slugify, verifyOpenRouterKey, type AccountProfile, type AdapterRegistry, type ProviderId } from '@cortex/core';
+import { ClaudeAdapter, buildChildEnv, shortId, slugify, verifyOpenRouterKey, verifyZaiKey, type AccountProfile, type AdapterRegistry, type ProviderId } from '@cortex/core';
 import { vendorLogin, verifiedIdentity } from './oauthProcess.js';
 import type { AccountStore } from '../storage/accountStore.js';
 import { profilesRoot } from '../paths.js';
@@ -41,7 +41,7 @@ export async function addAccountWizard(accounts: AccountStore, adapters: Adapter
   let provider = options.provider;
   if (!provider) {
     const choice = await vscode.window.showQuickPick(
-      adapters.all().filter(a => PROVIDERS.includes(a.id) || a.id === 'openrouter').map(a => ({ label: a.displayName, description: a.id === 'openrouter' ? 'mit API-Schlüssel' : undefined, id: a.id })),
+      adapters.all().filter(a => PROVIDERS.includes(a.id) || a.id === 'openrouter' || a.id === 'zai').map(a => ({ label: a.displayName, description: a.id === 'openrouter' || a.id === 'zai' ? 'mit API-Schlüssel' : undefined, id: a.id })),
       { title: 'KI-Abo verbinden', placeHolder: 'Anbieter wählen' },
     );
     if (!choice) return;
@@ -53,6 +53,20 @@ export async function addAccountWizard(accounts: AccountStore, adapters: Adapter
     const key = await vscode.window.showInputBox({ title: 'OpenRouter: API-Schlüssel', prompt: 'Den Schlüssel findest du unter openrouter.ai/keys. Er wird im Schlüsselbund des Systems gespeichert.', password: true, ignoreFocusOut: true, placeHolder: 'sk-or-v1-…' });
     if (!key) return;
     await addOpenRouterAccount(accounts, {
+      key,
+      label: options.label,
+      accountId: options.accountId,
+      onProgress: options.onProgress ?? ((state, message) => {
+        if (state === 'error') void vscode.window.showErrorMessage(message);
+        else if (state === 'connected') void vscode.window.showInformationMessage(message);
+      }),
+    });
+    return;
+  }
+  if (provider === 'zai') {
+    const key = await vscode.window.showInputBox({ title: 'Z.ai: API-Schlüssel', prompt: 'Den Schlüssel findest du unter z.ai/manage-apikey/apikey-list. Er wird im Schlüsselbund des Systems gespeichert.', password: true, ignoreFocusOut: true });
+    if (!key) return;
+    await addZaiAccount(accounts, {
       key,
       label: options.label,
       accountId: options.accountId,
@@ -175,5 +189,48 @@ export async function addOpenRouterAccount(
   await accounts.upsert(profile);
   const credit = info.limit !== undefined ? ` · Limit ${info.limit.toFixed(2)} $` : info.freeTier ? ' · nur Gratis-Modelle' : '';
   progress('connected', `OpenRouter-Schlüssel ${info.label} ist als „${label}“ verbunden${credit}.`, { identity: info.label });
+  return true;
+}
+
+/**
+ * Z.ai wie OpenRouter: nur ein API-Schlüssel. Er wird erst bei Z.ai geprüft
+ * (an der Modellliste, ohne Kontingent) und dann im Schlüsselbund abgelegt.
+ */
+export async function addZaiAccount(
+  accounts: AccountStore,
+  options: { key: string; label?: string; accountId?: string; onProgress?: ConnectOptions['onProgress'] },
+): Promise<boolean> {
+  const progress = options.onProgress ?? (() => {});
+  const key = options.key.trim();
+  if (key.length < 20 || /\s/.test(key)) {
+    progress('error', 'Das sieht nicht nach einem Z.ai-Schlüssel aus. Kopiere ihn vollständig aus z.ai/manage-apikey/apikey-list.');
+    return false;
+  }
+  const existing = options.accountId ? accounts.all().find(a => a.id === options.accountId && a.provider === 'zai') : undefined;
+  if (options.accountId && !existing) return false;
+  progress('connecting', 'Schlüssel wird bei Z.ai geprüft …');
+  let info: Awaited<ReturnType<typeof verifyZaiKey>>;
+  try {
+    info = await verifyZaiKey(key, undefined, AbortSignal.timeout(15_000));
+  } catch (e) {
+    progress('error', (e as Error).name === 'TimeoutError' ? 'Z.ai antwortet nicht. Prüfe die Internetverbindung.' : (e as Error).message);
+    return false;
+  }
+  const label = availableLabel(accounts.all(), 'zai', existing?.label ?? options.label, existing?.id);
+  const id = existing?.id ?? `zai-${shortId()}`;
+  await accounts.setSecret(id, key);
+  await accounts.upsert({
+    ...existing,
+    id,
+    provider: 'zai',
+    label,
+    authMode: 'api-key',
+    hasSecret: true,
+    disabled: false,
+    identity: info.label,
+    verifiedAt: Date.now(),
+    priority: existing?.priority ?? accounts.all().length + 1,
+  });
+  progress('connected', `${info.label} ist als „${label}“ verbunden.`, { identity: info.label });
   return true;
 }

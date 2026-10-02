@@ -4,6 +4,8 @@ import { Widget, type WidgetHost } from './widgets/Widget.js';
 import { isWidgetLang } from './widgets/spec.js';
 import { CanvasCard } from './CanvasCard.js';
 import { isCanvasLang } from '../canvas/spec.js';
+import { GOAL_LANG, readGoalBlock } from '../../../core/src/goal/goal.js';
+import { GoalReportLine } from './goalReport.js';
 
 type Part =
   | { type: 'code'; lang?: string; code: string; open?: boolean }
@@ -87,10 +89,23 @@ function inlineCode(code: string, onLink?: LinkHandler): ComponentChildren {
   );
 }
 
+/**
+ * `code`, **fett**, [text](ziel) oder [text](<ziel mit leerzeichen>), nackte Adressen.
+ * Pfade mit Leerzeichen schreiben Modelle in spitzen Klammern — ohne diese Form
+ * blieb der ganze Link als Rohtext stehen.
+ */
+export const INLINE = /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(\[([^\]\n]+)\]\((?:<([^<>\n]+)>|([^)\s]+))\))|(https?:\/\/[^\s)<>\]]+[^\s)<>\].,;:!?'"])/;
+
+/** Linkziel ohne Kodierung: `%20` im Dateipfad ist ein Leerzeichen. Web-Adressen bleiben, wie sie sind. */
+export function linkDest(raw: string): string {
+  if (/^https?:\/\//.test(raw)) return raw;
+  try { return decodeURI(raw); } catch { return raw; }
+}
+
 /** Inline: `code`, **bold**, [link](ziel), nackte Adressen. Alles als DOM-Knoten — kein rohes HTML. */
 function renderInline(text: string, onLink?: LinkHandler, inLink = false): ComponentChildren[] {
   const out: ComponentChildren[] = [];
-  const re = /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(\[([^\]\n]+)\]\(([^)\s]+)\))|(https?:\/\/[^\s)<>\]]+[^\s)<>\].,;:!?'"])/g;
+  const re = new RegExp(INLINE.source, 'g');
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
@@ -98,8 +113,8 @@ function renderInline(text: string, onLink?: LinkHandler, inLink = false): Compo
     if (m[1]) out.push(inLink ? <code class="md-inline">{m[1].slice(1, -1)}</code> : inlineCode(m[1].slice(1, -1), onLink));
     // Fett darf Code und Links enthalten — der Inhalt läuft noch einmal durch.
     else if (m[2]) out.push(<strong>{renderInline(m[2].slice(2, -2), onLink, inLink)}</strong>);
-    else if (m[3]) out.push(inLink ? m[4]! : link(renderInline(m[4]!, onLink, true), m[5]!, onLink, true));
-    else if (m[6]) out.push(inLink ? m[6] : link(m[6], m[6], onLink, false));
+    else if (m[3]) out.push(inLink ? m[4]! : link(renderInline(m[4]!, onLink, true), linkDest(m[5] ?? m[6]!), onLink, true));
+    else if (m[7]) out.push(inLink ? m[7] : link(m[7], m[7], onLink, false));
     last = m.index + m[0].length;
   }
   if (last < text.length) out.push(text.slice(last));
@@ -298,6 +313,12 @@ export function Markdown({ text, onOpenCode, onLink, widgets, live, reading }: {
             </div>
           </div>
         );
+        // Die Statusmeldung einer Ziel-Runde (`/goal`): eine Zeile statt JSON —
+        // erst, wenn der Block zu ist, damit beim Schreiben nichts aufblitzt.
+        if (p.lang === GOAL_LANG) {
+          const report = p.open ? undefined : readGoalBlock(body);
+          return report ? <GoalReportLine key={i} report={report} /> : null;
+        }
         if (isDiagram(p.lang, body)) {
           return <figure class="md-diagram" key={i}><pre>{body}</pre></figure>;
         }

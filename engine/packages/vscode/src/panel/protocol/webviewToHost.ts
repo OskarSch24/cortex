@@ -12,8 +12,20 @@ export type WebviewToHost =
   | { kind: 'saveTeam'; team: import('../../teams/types.js').AgentTeam; revision: number; baseSignature?: string }
   | { kind: 'deleteTeam'; id: string; revision: number }
   | { kind: 'startTeam'; teamId: string; task: string }
-  | { kind: 'startSwarm'; swarmId: string; task: string; count: number; agentIds: string[]; proposed: Array<{ name: string; role?: string; instructions?: string }> }
+  /**
+   * Die Schwarm-Karte. `count` ist im Pool die Zahl der Einheiten (bis
+   * MAX_POOL_UNITS), sonst die Besetzung (bis MAX_TEAM_AGENTS). `pool` fehlt
+   * bei einem gewöhnlichen Schwarm; `owns` sind die Globs, die nur diese
+   * Einheit ändern darf.
+   */
+  | { kind: 'startSwarm'; swarmId: string; task: string; count: number; agentIds: string[]; proposed: Array<{ name: string; role?: string; instructions?: string; owns?: string[] }>; pool?: { concurrency?: number }; isolation?: 'worktree' | 'shared' }
   | { kind: 'stopTeam'; runId: string }
+  /**
+   * Merge-Warteschlange eines Schwarm-Laufs (teams/mergeQueue.ts): starten
+   * (optional mit eigenen Prüfbefehlen), das Ergebnis in den Branch des
+   * Nutzers übernehmen oder anhalten.
+   */
+  | { kind: 'swarmMerge'; action: 'start' | 'adopt' | 'stop'; runId: string; checks?: string[] }
   | { kind: 'copyTeamWebhook'; teamId: string }
   | { kind: 'importAgentMarkdown'; requestId: string }
   | { kind: 'exportAgentMarkdown'; name: string; text: string }
@@ -39,6 +51,8 @@ export type WebviewToHost =
       image?: ImageOptions;
       /** Im Bildmodus nur der Anbieter — das Konto wählt Cortex: das größere zuerst, bei Limit das nächste. */
       imageProvider?: string;
+      /** Seitenverhältnis und Anzahl für ein gewähltes Bildmodell von OpenRouter — ohne Bildmodus. */
+      imageOptions?: ImageOptions;
     }
   | { kind: 'pickAttachments' }
   /** Kleines Vorschaubild für eine angehängte Bilddatei; Antwort als `attachmentPreview`. */
@@ -55,6 +69,8 @@ export type WebviewToHost =
   | { kind: 'editQueuedMessage'; id: string; text: string }
   | { kind: 'resumeQueue' }
   | { kind: 'clearQueue' }
+  /** Die Knöpfe der Ziel-Leiste; gilt für das Ziel des Chats der fragenden Fläche. */
+  | { kind: 'goalAction'; action: 'pause' | 'resume' | 'clear' }
   | { kind: 'newConversation'; projectPath?: string }
   | { kind: 'openConversation'; id: string }
   | { kind: 'deleteConversation'; id: string }
@@ -85,8 +101,8 @@ export type WebviewToHost =
   | { kind: 'openKeybindings'; query?: string }
   | { kind: 'setSetting'; key: 'pollUsage'; value: boolean }
   | { kind: 'addAccount'; provider?: string; label?: string; email?: string }
-  /** OpenRouter: Schlüssel prüfen und im Schlüsselbund ablegen; mit `accountId` ersetzen. */
-  | { kind: 'addApiKeyAccount'; provider: 'openrouter'; label?: string; key: string; accountId?: string }
+  /** OpenRouter oder Z.ai: Schlüssel prüfen und im Schlüsselbund ablegen; mit `accountId` ersetzen. */
+  | { kind: 'addApiKeyAccount'; provider: 'openrouter' | 'zai'; label?: string; key: string; accountId?: string }
   | { kind: 'getOpenRouterCatalog' }
   | { kind: 'setOpenRouterFavorites'; ids: string[] }
   | { kind: 'setOpenRouterDefault'; id?: string }

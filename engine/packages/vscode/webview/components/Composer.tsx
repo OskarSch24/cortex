@@ -12,7 +12,7 @@ import { BrandMark } from './brandIcons.js';
 import { Glyph } from './CortexIcons.js';
 import type { ImageOptions } from '../../src/panel/imageOptions.js';
 import { DEFAULT_IMAGE_OPTIONS, ImageModeChip, ImageModelPicker, ImageOptionsBar, defaultImageProvider, imageProviders, type ImageProviderId } from './ImageControls.js';
-import { activeToken, submitsInput } from './composerInput.js';
+import { activeToken, atMessageStart, submitsInput } from './composerInput.js';
 import { computeSuggestions, uniqueCommands, type Suggestion } from './composerSuggestions.js';
 import { templateCategoryForAction, type ArtifactTemplateCategory } from './templateCommands.js';
 import { appSetting } from '../settings/store.js';
@@ -82,7 +82,8 @@ export function Composer({
   askPermission: boolean;
   attachments: string[];
   attachmentPreviews?: Record<string, string>;
-  onSend: (text: string, effort?: Effort, image?: ImageSend) => void;
+  /** `imageOptions`: Seitenverhältnis und Anzahl für ein gewähltes Bildmodell von OpenRouter (kein Bildmodus). */
+  onSend: (text: string, effort?: Effort, image?: ImageSend, imageOptions?: ImageOptions) => void;
   onCancel: () => void;
   onModeChange: (modes: {
     permissionMode?: string;
@@ -139,6 +140,10 @@ export function Composer({
   const historyDraft = useRef('');
   const [efforts, setEfforts] = useState<Record<string, Effort>>({});
   const selectedModel = pinnedTarget ? modelOption(pinnedTarget.provider, pinnedTarget.model) : undefined;
+  // Ein gewähltes Bildmodell von OpenRouter nimmt Seitenverhältnis und Anzahl wie der Bildmodus.
+  const pinnedImageModel = !imageMode && !!pinnedTarget && accounts
+    .find((a) => a.provider === pinnedTarget.provider && a.label === pinnedTarget.account)
+    ?.models.find((m) => m.id === pinnedTarget.model)?.output === 'image';
   const effortKey = `${pinnedTarget?.provider}/${selectedModel?.id}`;
   const levels = selectedModel?.efforts ?? [];
   const selectedEffort = levels.includes(efforts[effortKey]!) ? efforts[effortKey] : selectedModel?.defaultEffort;
@@ -229,7 +234,9 @@ export function Composer({
     const token = activeToken(value, caret);
     tokenRef.current = token;
     const preview = templateCategoryForAction(matchSlashCommand(value, customCommands)?.cmd.action);
-    const items = token && !preview ? computeSuggestions(token.token, accounts, tags, allCommands, connectors, { ...unavailableCommands, ...(!shownImageProvider ? { createImage: 'Verbinde zuerst ein Konto für die Bilderstellung' } : {}) }, pinnedChat) : [];
+    // Hinter dem Anfang lässt sich nur kombinieren, was ans Modell geht (`/goal /test`) — Aktionen stehen allein vorn.
+    const offered = token?.token.startsWith('/') && !atMessageStart(value, token.start) ? allCommands.filter(command => command.kind !== 'action') : allCommands;
+    const items = token && !preview ? computeSuggestions(token.token, accounts, tags, offered, connectors, { ...unavailableCommands, ...(!shownImageProvider ? { createImage: 'Verbinde zuerst ein Konto für die Bilderstellung' } : {}) }, pinnedChat) : [];
     setSuggestions(items);
     setActiveIndex(Math.max(0, items.findIndex(item => !item.disabled)));
     setSuggestionChosen(false);
@@ -304,7 +311,7 @@ export function Composer({
       onSend(message, undefined, { options: imageOptions, provider: shownImageProvider });
     } else {
       if (!message || routable.length === 0) return;
-      onSend(message, selectedEffort);
+      onSend(message, selectedEffort, undefined, pinnedImageModel ? imageOptions : undefined);
     }
     promptHistory.current = [message, ...promptHistory.current.filter(p => p !== message)].slice(0, 50);
     historyCursor.current = -1;
@@ -537,6 +544,7 @@ export function Composer({
           onLocation={onLocation}
         />
         {!imageMode && project}
+        {pinnedImageModel && <ImageOptionsBar options={imageOptions} onChange={updateImageOptions} />}
         {imageMode && <ImageModeChip onExit={() => enterImageMode(false)} />}
         {imageMode && <ImageOptionsBar options={imageOptions} onChange={updateImageOptions} />}
         {!imageMode && <ModeMenu

@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildChildEnv, type AccountProfile, type UsageWindow } from '@cortex/core';
+import { buildChildEnv, grokUsageWindows, type AccountProfile, type UsageWindow } from '@cortex/core';
 
 type Obj = Record<string, any>;
 export function providerUsageWindows(provider: string, data: Obj): UsageWindow[] {
@@ -70,6 +70,48 @@ export async function readProviderUsage(account: AccountProfile, cli: string): P
         }
       });
       send(claude ? { type: 'control_request', request_id: 'init', request: { subtype: 'initialize' } } : { id: 1, method: 'initialize', params: { clientInfo: { name: 'cortex-usage', version: '1.0' } } });
+    });
+  } finally { await rm(cwd, { recursive: true, force: true }); }
+}
+
+/**
+ * Grok: dieselbe Quelle wie `/usage` in der CLI — die ACP-Methode `x.ai/billing`.
+ * Angemeldet wird nur mit dem gespeicherten Token des Profils (`cached_token`);
+ * fehlt es, gibt es keine Werte statt einer Anmeldung.
+ */
+export async function readGrokUsage(account: AccountProfile, cli: string): Promise<UsageWindow[]> {
+  const cwd = await mkdtemp(join(tmpdir(), 'cortex-usage-'));
+  try {
+    return await new Promise(resolve => {
+      const child = spawn(cli, ['agent', 'stdio'], { cwd, env: buildChildEnv(account, process.env), stdio: ['pipe', 'pipe', 'ignore'] });
+      let done = false, buffer = '';
+      const finish = (windows: UsageWindow[] = []) => { if (done) return; done = true; clearTimeout(timer); child.stdin.destroy(); child.kill(); const force = setTimeout(() => child.kill('SIGKILL'), 1000); force.unref(); child.once('exit', () => clearTimeout(force)); resolve(windows); };
+      const timer = setTimeout(() => finish(), 20000);
+      child.on('error', () => finish()); child.on('exit', () => finish()); child.stdin.on('error', () => finish());
+      const send = (message: Obj) => { if (!done) child.stdin.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\n'); };
+      const billing = (id: number, method: string) => send({ id, method, params: {} });
+      child.stdout.on('data', chunk => {
+        buffer += chunk.toString(); if (buffer.length > 1024 * 1024) return finish();
+        let end;
+        while ((end = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, end); buffer = buffer.slice(end + 1);
+          let msg: Obj; try { msg = JSON.parse(line); } catch { continue; }
+          if (msg.id === 1) {
+            if (msg.error) return finish();
+            const methods = (msg.result?.authMethods ?? []) as Array<{ id?: string }>;
+            if (!methods.some(m => m.id === 'cached_token')) return finish();
+            send({ id: 2, method: 'authenticate', params: { methodId: 'cached_token' } });
+          } else if (msg.id === 2) {
+            if (msg.error) return finish();
+            billing(3, 'x.ai/billing');
+          } else if (msg.id === 3 || msg.id === 4) {
+            // Erweiterungen heißen im ACP je nach Version mit oder ohne Unterstrich.
+            if (msg.error && msg.id === 3) { billing(4, '_x.ai/billing'); continue; }
+            finish(msg.error ? [] : grokUsageWindows(msg.result));
+          }
+        }
+      });
+      send({ id: 1, method: 'initialize', params: { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false } } } });
     });
   } finally { await rm(cwd, { recursive: true, force: true }); }
 }

@@ -51,7 +51,8 @@ for (const account of profiles) {
  if (account.provider === 'codex') account.models = [{id:'gpt-5.6-terra',label:'GPT-5.6 Terra'},{id:'gpt-5.6-sol',label:'GPT-5.6 Sol'},{id:'gpt-6-astra',label:'GPT-6 Astra'}];
 }
 const widgetDemo = query.get('scenario') === 'widgets';
-let activeId = query.get('scenario') === 'conversation' || widgetDemo ? 'site' : 'new';
+const goalDemo = query.get('scenario') === 'goal';
+let activeId = query.get('scenario') === 'conversation' || widgetDemo || goalDemo ? 'site' : 'new';
 let list = [
   { id: 'new', title: 'Neue Aufgabe', projectPath: project.path, updatedAt: Date.now() },
   { id: 'site', title: 'Neue Startseite entwickeln', projectPath: project.path, updatedAt: Date.now() - 3600e3 },
@@ -109,6 +110,28 @@ function canvasAnswer(text) {
     if (i === cut.length - 1) { emit({ kind: 'done', messageId: m, durationMs: 3000, metered: false, at: Date.now() }); emit({ kind: 'busy', running: false }); }
   }, 120 * (i + 1)));
   emit({ kind: 'routing', messageId: m, target: { provider: 'claude', account: 'privat', model: 'claude-opus-5' }, reason: 'Vorschau' });
+}
+/* `/goal`: ein Ziel mitten in der Arbeit — die erste Runde als Nachricht des
+   Nutzers, die zweite als Runde von Cortex, darüber die Ziel-Leiste. Ihre
+   Knöpfe ändern den Stand hier so, wie der Host es täte. */
+let demoGoal = { id: 'g1', objective: '/test und bring den Lint auf null', status: 'active', rounds: 1, maxRounds: 30, idle: 0, startedAt: Date.now() - 900e3, workMs: 540e3, note: 'Die zwei übrigen Snapshot-Tests reparieren' };
+function sendGoal() { emit({ kind: 'goal', conversationId: activeId, ...(demoGoal ? { goal: demoGoal } : {}) }); }
+function goalConversation() {
+  const first = 'goal-1', second = 'goal-2', target = { provider: 'claude', account: 'privat', model: 'claude-opus-5-5' };
+  emit({ kind: 'userEcho', text: '/goal /test und bring den Lint auf null', at: Date.now() - 900e3, goal: { id: 'g1', round: 1, auto: false } });
+  emit({ kind: 'routing', messageId: first, target, reason: 'Vorgabe' });
+  emit({ kind: 'toolUse', messageId: first, name: 'Bash', detail: 'npm test', action: 'run', preview: 'Tests: 2 failed, 212 passed' });
+  emit({ kind: 'toolUse', messageId: first, name: 'Edit', detail: 'src/parser.ts', path: 'src/parser.ts', action: 'edit', added: 14, removed: 6 });
+  emit({ kind: 'toolUse', messageId: first, name: 'Bash', detail: 'npm run lint', action: 'run', preview: '0 problems' });
+  emit({ kind: 'delta', messageId: first, text: 'Zwölf von vierzehn Fehlern sind behoben, der Lint ist sauber. Offen sind noch zwei Snapshot-Tests der Startseite.\n\n```cortex-goal\n{"status": "continue", "next": "Die zwei übrigen Snapshot-Tests reparieren"}\n```' });
+  emit({ kind: 'done', messageId: first, durationMs: 540000, metered: false, at: Date.now() - 360e3 });
+  emit({ kind: 'userEcho', text: 'Continue with the goal — round 2.\nCheck the current state first, then take the next concrete step and carry it out. End with the cortex-goal block.', at: Date.now() - 350e3, goal: { id: 'g1', round: 2, auto: true } });
+  emit({ kind: 'routing', messageId: second, target, reason: 'Vorgabe' });
+  emit({ kind: 'toolUse', messageId: second, name: 'Bash', detail: 'npm test -- snapshots', action: 'run' });
+  emit({ kind: 'delta', messageId: second, text: 'Ich sehe mir die beiden Snapshot-Tests an.' });
+  sendGoal();
+  emit({ kind: 'busy', running: true });
+  emit({ kind: 'conversationReady' });
 }
 const queueRows = new Map();
 const queuePaused = new Map();
@@ -216,6 +239,9 @@ function conversation(id) {
   if (queueDemo) { sendQueue(); emit({kind:'busy',running:queueRunning.has(id)}); }
   if (id.startsWith('new')) { emit({ kind: 'conversationReady' }); return; }
   if (widgetDemo && id === 'site') { widgetConversation(); return; }
+  if (goalDemo && id === 'site') { goalConversation(); return; }
+  // Andere Chats haben kein Ziel — der Host schickt das beim Wechsel ausdrücklich.
+  if (goalDemo) emit({ kind: 'goal', conversationId: id });
   const m = 'message-' + id;
   const long = Array.from({ length: 26 }, (_, i) => i === 0
     ? 'Ich bin gerade dabei, Ideen dafür zu sammeln, wie ich die Startseite weiter ausbauen kann. Die bestehenden Informationen sollen erhalten bleiben.'
@@ -477,6 +503,13 @@ window.addEventListener('preview:host', e => {
   if (msg.kind === 'canvasVisible') canvasStore.visible[msg.conversationId] = msg.description;
   if (msg.kind === 'canvasExport') canvasStore.exports.push({ format: msg.format, length: msg.content.length });
   if (msg.kind === 'canvasAnswer') canvasStore.answers.push({ reqId: msg.reqId, png: msg.png.length, headless: msg.headless, description: msg.description, json: msg.json.length, error: msg.error });
+  if (goalDemo && msg.kind === 'goalAction') {
+    demoGoal = msg.action === 'clear' ? undefined
+      : msg.action === 'pause' ? { ...demoGoal, status: 'paused', pause: 'user' }
+      : { ...demoGoal, status: 'active', pause: undefined };
+    sendGoal();
+    return;
+  }
   if (canvasDemo && msg.kind === 'send') { emit({ kind: 'userEcho', text: msg.text, at: Date.now() }); emit({ kind: 'busy', running: true }); canvasAnswer(msg.text); return; }
   if (msg.kind === 'send') { emit({ kind: 'userEcho', text: msg.text, at: Date.now() }); emit({ kind: 'routing', messageId: 'sent', target: msg.target || { provider: 'claude', account: 'privat', model: 'sonnet' }, reason: 'Vorschau' }); emit({ kind: 'busy', running: true }); }
   if (queueDemo && msg.kind === 'queueAction') {

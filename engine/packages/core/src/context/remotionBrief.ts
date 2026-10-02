@@ -13,10 +13,11 @@
  */
 
 import type { BriefSection } from './brief.js';
+import { hasSlashCommand } from '../commands/slashCommands.js';
 
-/** `/remotion …` — auch hinter einer Konto-Erwähnung wie `@claude`. */
+/** `/remotion …` — auch hinter einer Konto-Erwähnung wie `@claude` oder neben anderen Befehlen (`/goal /remotion …`). */
 export function asksForVideo(prompt: string): boolean {
-  return /^\s*(?:@\S+\s+)?\/remotion\b/i.test(prompt);
+  return /^\s*(?:@\S+\s+)?\/remotion\b/i.test(prompt) || hasSlashCommand(prompt, 'remotion');
 }
 
 /** Handelt die Nachricht vom Video? Lieber einmal zu oft ja. */

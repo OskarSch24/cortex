@@ -15,6 +15,14 @@ const SHORT_PROVIDER: Record<string, string> = {
   copilot: 'Copilot',
   grok: 'Grok',
   openrouter: 'OpenRouter',
+  zai: 'Z.ai',
+};
+
+/** Was ein Modell liefert, das nicht chattet — die Zeile sagt es, bevor man es wählt. */
+export const MODEL_OUTPUT: Record<string, { label: string; icon: string }> = {
+  image: { label: 'Bildmodell', icon: 'image' },
+  video: { label: 'Videomodell', icon: 'play' },
+  decisions: { label: 'Entscheidungsmodell', icon: 'target' },
 };
 
 function prettyPinned(target: PinnedTarget, accounts: AccountStatusDto[]): string {
@@ -102,8 +110,8 @@ export function ModelPicker({
     setOpen(false);
     setModelsOpen(false);
   });
-  // OpenRouter wird nie automatisch gewählt, im Menü aber von Hand.
-  const routable = accounts.filter((a) => !a.reviewOnly || a.provider === 'openrouter');
+  // OpenRouter und Z.ai werden nie automatisch gewählt, im Menü aber von Hand.
+  const routable = accounts.filter((a) => !a.reviewOnly || a.provider === 'openrouter' || a.provider === 'zai');
   const label = pinned ? prettyPinned(pinned, accounts) : 'Standard';
   const brand = pinned?.provider;
   const effortIndex = selectedEffort ? Math.max(0, levels.indexOf(selectedEffort)) : 0;
@@ -134,7 +142,7 @@ export function ModelPicker({
             <div class="cx-rz-group-label">
               <BrandMark provider={account.provider} size={11} />
               <span>{SHORT_PROVIDER[account.provider] ?? account.provider} · {account.label}</span>
-              {quota ? <span class="cx-rz-quota">{quota}</span> : account.provider === 'openrouter' && <span class="cx-rz-quota" title="Antwortet ohne Werkzeuge und ändert keine Dateien">nur Antworten</span>}
+              {quota ? <span class="cx-rz-quota">{quota}</span> : (account.provider === 'openrouter' || account.provider === 'zai') && <span class="cx-rz-quota" title="Antwortet ohne Werkzeuge und ändert keine Dateien">nur Antworten</span>}
             </div>
             {models.map((model) => {
               const target: PinnedTarget = { provider: account.provider, account: account.label, model: model.id || undefined };
@@ -153,7 +161,10 @@ export function ModelPicker({
                   disabled={!usable}
                   onClick={() => { onPick(target); setModelsOpen(false); }}
                 >
-                  <span class="cx-rz-row-text">{model.label}</span>
+                  <span class="cx-rz-row-text">
+                    {model.label}
+                    {model.output && MODEL_OUTPUT[model.output] && <small class="cx-rz-output"><Glyph name={MODEL_OUTPUT[model.output]!.icon} size={11} />{MODEL_OUTPUT[model.output]!.label}</small>}
+                  </span>
                   {on && <Glyph name="check" size={14} />}
                 </button>
               );

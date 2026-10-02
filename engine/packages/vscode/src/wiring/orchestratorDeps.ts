@@ -90,14 +90,18 @@ export function orchestratorDeps(w: OrchestratorWiring): OrchestratorDeps {
     getBrief: (task, provider) => {
       const chatRef = w.chat();
       const config = vscode.workspace.getConfiguration('cortex');
+      // Die Runden eines Ziels sagen nur „weiter“ — worum es geht, steht in seiner Aufgabe.
+      const ziel = chatRef?.zielAuftrag(task.conversationId);
+      const prompt = ziel ? `${ziel}\n${task.prompt}` : task.prompt;
       // Das Gedächtnis des Chats geht unabhängig vom Arbeitsbereich-Kontext mit:
       // wer den Editor-Kontext abschaltet, will nicht, dass Cortex vergisst.
       // Die Zeichenfläche ist Oberfläche, kein Arbeitsbereich-Kontext: sie
-      // geht auch mit, wenn der Editor-Kontext abgeschaltet ist.
+      // geht auch mit, wenn der Editor-Kontext abgeschaltet ist. Das Ziel auch.
       const erinnerung = [
+        ...(chatRef?.zielAbschnitte(task.conversationId) ?? []),
         ...(chatRef?.erinnerungsAbschnitte(task.conversationId) ?? []),
-        ...(chatRef?.canvasAbschnitte(task.conversationId, task.prompt) ?? []),
-        ...(chatRef?.remotionAbschnitte(task.conversationId, task.prompt) ?? []),
+        ...(chatRef?.canvasAbschnitte(task.conversationId, prompt) ?? []),
+        ...(chatRef?.remotionAbschnitte(task.conversationId, prompt) ?? []),
         ...(chatRef?.locationAbschnitte(task.conversationId) ?? []),
         // Eine Rolle im Schwarm startet keinen eigenen Schwarm, auch wenn ihr Auftrag ihn nennt.
         ...(config.get<boolean>('chatWidgets', true) && !chatRef?.isTeamConversation(task.conversationId) ? swarmSections(task.prompt) : []),
@@ -129,7 +133,7 @@ export function orchestratorDeps(w: OrchestratorWiring): OrchestratorDeps {
       };
       // Hat der Chat eine Zeichenfläche (oder wird sie gerade verlangt), bekommt
       // Claude die Werkzeuge, mit denen es sie sehen und prüfen kann.
-      if (w.chat()?.canvasBelongs(task.conversationId) || asksForCanvas(task.prompt)) {
+      if (w.chat()?.canvasBelongs(task.conversationId) || asksForCanvas(task.prompt) || asksForCanvas(w.chat()?.zielAuftrag(task.conversationId) ?? '')) {
         await canvasBridge.start().catch(() => undefined);
         const canvasConfig = canvasBridge.claudeConfig(task.conversationId);
         // Freigegeben, auch im Plan-Modus: die Werkzeuge ändern nur die Fläche, nie Projektdateien.

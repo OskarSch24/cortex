@@ -1,7 +1,7 @@
 """OpenRouter: API-Schlüssel hinterlegen, Modelle fürs Menü wählen, im Chat auswählen.
 
 Prüft in der Vorschau (Host-Attrappe in dev/cortex-fixture.js):
-  1. Einstellungen → Konto zeigt OpenRouter als vierten Anbieter.
+  1. Einstellungen → Konto zeigt OpenRouter unter den Anbietern.
   2. Der Verbinden-Dialog fragt nach Schlüssel statt Browser-Anmeldung;
      ein falscher Schlüssel wird abgewiesen, ein richtiger verbunden.
   3. Die Kontodetails listen die Modelle im Modellmenü; Suchen/Hinzufügen/Entfernen.
@@ -42,7 +42,7 @@ with headless_browser() as browser:
     page.locator('.cxs-nav').get_by_role('button', name='Konto', exact=True).click()
     card = page.locator('.cx-provider-card', has_text='OpenRouter')
     expect(card).to_be_visible()
-    expect(page.locator('.cx-provider-card')).to_have_count(4)
+    expect(page.locator('.cx-provider-card')).to_have_count(5)
     card.get_by_role('button').click()
 
     dialog = page.locator('.cx-connect-dialog')

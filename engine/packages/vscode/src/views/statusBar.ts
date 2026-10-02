@@ -7,6 +7,7 @@ const SHORT_PROVIDER: Record<string, string> = {
   copilot: 'Copilot',
   grok: 'Grok',
   openrouter: 'OpenRouter',
+  zai: 'Z.ai',
 };
 
 function prettyTarget(target: Target): string {

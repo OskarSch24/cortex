@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { nestBackground } from './backgroundTasks.js';
 import type { ConversationMeta, ProjectDto } from '../../src/panel/protocol.js';
 import { tildePath } from '../format/path.js';
 import { Glyph } from './CortexIcons.js';
@@ -170,9 +169,9 @@ function ProjectNode({ project, archived = false, reachable = true, ...props }: 
     <div class="cx-tree-children" aria-hidden={!open}>
       <div>
         <div class="cx-tree-children-inner">
-          {nestBackground(tasks).map(task => <div key={task.id} class={`cx-tree-task ${props.activeId === task.id ? 'active' : ''} ${task.nested ? 'nested' : ''}`}>
-            <button class="cx-tree-task-open" title={task.background ? `Hintergrundprozess · ${task.title}` : task.title} onClick={() => props.onOpenTask(task.id)} tabIndex={taskTab}>
-              {task.background && <Glyph name="swarm" size={12} />}<span>{task.title === 'New chat' || !task.title ? 'Neue Aufgabe' : task.title}</span>
+          {tasks.map(task => <div key={task.id} class={`cx-tree-task ${props.activeId === task.id ? 'active' : ''}`}>
+            <button class="cx-tree-task-open" title={task.title} onClick={() => props.onOpenTask(task.id)} tabIndex={taskTab}>
+              <span>{task.title === 'New chat' || !task.title ? 'Neue Aufgabe' : task.title}</span>
             </button>
             {task.running
               ? <span class="cx-tree-task-run" title="Läuft"><span class="cx-dot" /></span>

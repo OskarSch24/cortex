@@ -8,7 +8,8 @@ import { GrokAdapter } from '../src/adapters/grok.js';
 import { CopilotAdapter } from '../src/adapters/copilot.js';
 import { OpenRouterAdapter } from '../src/adapters/openrouter.js';
 import { createClaudeMcpConfig, withClaudeMcpSelection } from '../src/adapters/scopedMcp.js';
-import { SCOPED_MCP_PROVIDERS, scopedMcpUnsupportedMessage } from '../src/mcp/runPolicy.js';
+import { spawnSync } from 'node:child_process';
+import { MCP_ALLOW_ENV, SCOPED_MCP_PROVIDERS, gatedMcpServer, scopedMcpUnsupportedMessage } from '../src/mcp/runPolicy.js';
 import type { AdapterEvent, ResolvedAccount } from '../src/types.js';
 import type { RunRequest } from '../src/adapters/adapter.js';
 
@@ -21,12 +22,13 @@ afterEach(() => { for (const folder of folders.splice(0)) rmSync(folder, { recur
 
 describe('exclusive per-run MCP selection', () => {
   it('advertises only the verified exclusive provider and leaves inherited runs unchanged', () => {
-    expect(SCOPED_MCP_PROVIDERS).toEqual(['claude']);
+    expect(SCOPED_MCP_PROVIDERS).toEqual(['claude', 'grok']);
     for (const provider of ['claude', 'codex', 'grok', 'copilot', 'openrouter'] as const) {
       expect(scopedMcpUnsupportedMessage(provider, undefined)).toBeUndefined();
     }
     expect(scopedMcpUnsupportedMessage('claude', {})).toBeUndefined();
-    expect(scopedMcpUnsupportedMessage('grok', {})).toContain('keine begrenzte MCP-Auswahl');
+    expect(scopedMcpUnsupportedMessage('grok', {})).toBeUndefined();
+    expect(scopedMcpUnsupportedMessage('codex', {})).toContain('keine begrenzte MCP-Auswahl');
   });
 
   it('writes only selected transports in a private file and removes it on disposal', () => {
@@ -127,7 +129,7 @@ describe('exclusive per-run MCP selection', () => {
 
   it('blocks unsupported providers before spawn, HTTP, or profile setup, even with an empty map', async () => {
     const fetch = vi.fn();
-    const adapters = [new CodexAdapter('/must-not-start'), new GrokAdapter('/must-not-start'), new CopilotAdapter('/must-not-start'), new OpenRouterAdapter(fetch)];
+    const adapters = [new CodexAdapter('/must-not-start'), new CopilotAdapter('/must-not-start'), new OpenRouterAdapter(fetch)];
     for (const adapter of adapters) {
       const buildEnv = vi.spyOn(adapter, 'buildEnv');
       const events = await collect(adapter.run({ ...request, mcpServers: {} }, { ...account, provider: adapter.id }, new AbortController().signal));
@@ -137,5 +139,40 @@ describe('exclusive per-run MCP selection', () => {
       if (adapter.id === 'codex') expect(buildEnv).not.toHaveBeenCalled();
     }
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  // Grok startet alle Server seines Profils; Cortex setzt jeden hinter ein Tor.
+  it('lets the Grok gate start a profile server only when the run allows it', () => {
+    const server = gatedMcpServer('github', { command: '/bin/echo', args: ['läuft'], env: { TOKEN: 'bleibt' } });
+    expect(server.env).toEqual({ TOKEN: 'bleibt' });
+    expect(gatedMcpServer('docs', { url: 'https://example.test/mcp' })).toEqual({ url: 'https://example.test/mcp' });
+    const start = (allow?: string) => {
+      const env: NodeJS.ProcessEnv = { PATH: process.env.PATH };
+      if (allow !== undefined) env[MCP_ALLOW_ENV] = allow;
+      const run = spawnSync(server.command!, server.args!, { env, encoding: 'utf8' });
+      return { status: run.status, out: run.stdout.trim() };
+    };
+    expect(start()).toEqual({ status: 0, out: 'läuft' });
+    expect(start('')).toEqual({ status: 0, out: '' });
+    expect(start('playwright,github')).toEqual({ status: 0, out: 'läuft' });
+    expect(start('playwright')).toEqual({ status: 0, out: '' });
+    expect(start('git')).toEqual({ status: 0, out: '' });
+    expect(start('*')).toEqual({ status: 0, out: 'läuft' });
+  });
+
+  it('gives a scoped Grok run its allow-list and never leaks one into other runs', () => {
+    const grok = new GrokAdapter('/must-not-start');
+    const grokAccount: ResolvedAccount = { ...account, provider: 'grok', homeDir: temp() };
+    const base: NodeJS.ProcessEnv = { PATH: process.env.PATH, [MCP_ALLOW_ENV]: 'geerbt' };
+    const inherited = grok.runEnv(request, grokAccount, base);
+    expect(inherited).not.toHaveProperty(MCP_ALLOW_ENV);
+    expect(inherited.GROK_MANAGED_MCPS_ENABLED).toBe('1');
+    expect(grok.interactiveCommand(grokAccount).env).not.toHaveProperty(MCP_ALLOW_ENV);
+    const none = grok.runEnv({ ...request, mcpServers: {} }, grokAccount, base);
+    expect(none[MCP_ALLOW_ENV]).toBe('');
+    expect(none).not.toHaveProperty('GROK_MANAGED_MCPS_ENABLED');
+    expect(none).not.toHaveProperty('GROK_MANAGED_MCP_GATEWAY_TOOLS_ENABLED');
+    const two = grok.runEnv({ ...request, mcpServers: { github: { command: 'npx' }, playwright: { command: 'npx' } } }, grokAccount, base);
+    expect(two[MCP_ALLOW_ENV]).toBe('github,playwright');
   });
 });

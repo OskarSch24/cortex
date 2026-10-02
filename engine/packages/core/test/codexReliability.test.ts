@@ -46,6 +46,16 @@ describe('Codex runtime reliability (#54–59)', () => {
     expect((await pending).at(-1)).toMatchObject({ type: 'result', text: 'xxxxx' });
     expect(vi.getTimerCount()).toBe(0);
   });
+  it('keeps a sub-agent thread out of the answer and does not end the run on its turn end', async () => {
+    const pending = collect(run()); await ready();
+    notify('item/agentMessage/delta', { threadId: 'sub', turnId: 's', itemId: 'm', delta: 'Repository mapping complete' });
+    notify('turn/completed', { threadId: 'sub', turn: { id: 's', status: 'completed' } });
+    notify('error', { threadId: 'thread', turnId: 'turn', willRetry: true, error: { message: 'stream disconnected' } });
+    notify('item/agentMessage/delta', { threadId: 'thread', turnId: 'turn', itemId: 'n', delta: 'Video ausgewertet' });
+    expect(mock.dispose).not.toHaveBeenCalled();
+    notify('turn/completed', { threadId: 'thread', turn: { id: 'turn', status: 'completed' } });
+    expect((await pending).at(-1)).toMatchObject({ type: 'result', text: 'Video ausgewertet' });
+  });
   it('asks for a standard-mode escalation and suspends inactivity while the user answers', async () => {
     const handle: LiveRunHandle = {};
     const stream = run({ handle });
@@ -145,5 +155,19 @@ describe('Codex runtime reliability (#54–59)', () => {
       expect(mock.args).toContain('features.code_mode_only=false');
       notify('turn/completed', { turn: { status: 'completed' } }); await pending;
     } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+});
+
+describe('Codex tool items', () => {
+  it('names a plugin call by server and tool, described by its own arguments', async () => {
+    const pending = collect(run()); await ready();
+    notify('item/started', { item: { type: 'mcpToolCall', id: 'exec-7ed00e7f', server: 'exokortex', tool: 'suche', arguments: { query: 'Bilanz Aktiva' }, status: 'inProgress' } });
+    notify('item/started', { item: { type: 'commandExecution', id: 'cmd-1', command: 'git status' } });
+    notify('turn/completed', { turn: { status: 'completed' } });
+    const tools = (await pending).filter(event => event.type === 'tool-use');
+    expect(tools).toEqual([
+      expect.objectContaining({ name: 'mcp__exokortex__suche', action: 'other', detail: 'Bilanz Aktiva' }),
+      expect.objectContaining({ name: 'Shell', action: 'run', detail: 'git status' }),
+    ]);
   });
 });

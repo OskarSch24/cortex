@@ -83,6 +83,9 @@ export function codexUsage(usage: Record<string, unknown> | undefined): Usage {
   return usageOf(input, output, cached);
 }
 
+/** What a sub-agent's thread must not touch: the answer text, the plan and the run's end. */
+const SUBAGENT_IGNORED = new Set(['turn/started', 'item/agentMessage/delta', 'turn/plan/updated', 'turn/completed', 'error']);
+
 /** Item types worth showing in the tool timeline, mapped to display names. */
 const TOOL_ITEM_NAMES: Record<string, string> = {
   commandExecution: 'Shell',
@@ -211,7 +214,17 @@ export class CodexAdapter implements ProviderAdapter {
       rpc.dispose();
     };
 
+    // Codex can start sub-agents in threads of their own. Their messages,
+    // plans and turn ends arrive on the same connection; taken for the main
+    // thread's, a sub-agent's "done" ended the whole run and its report stood
+    // in the chat as the answer. Their tool steps still show as activity.
+    const foreign = (params: unknown): boolean => {
+      const id = getString(params, 'threadId');
+      return !!id && !!threadId && id !== threadId;
+    };
+
     const onNotification = (n: RpcNotification) => {
+      if (foreign(n.params) && SUBAGENT_IGNORED.has(n.method)) return;
       switch (n.method) {
         case 'thread/started': {
           const id = getString(n.params, 'thread', 'id') ?? getString(n.params, 'threadId');
@@ -239,14 +252,22 @@ export class CodexAdapter implements ProviderAdapter {
           const type = getString(item, 'type');
           const itemId = getString(item, 'id');
           if (!type) break;
-          const name = TOOL_ITEM_NAMES[type];
-          if (name) {
+          const itemName = TOOL_ITEM_NAMES[type];
+          if (itemName) {
+            // A plugin call names its server and tool; as `mcp__server__tool`
+            // it reads like every other plugin call, not as a bare "MCP".
+            const server = getString(item, 'server');
+            const tool = getString(item, 'tool');
+            const plugin = type === 'mcpToolCall' && server && tool ? `mcp__${server}__${tool}` : undefined;
+            const name = plugin ?? itemName;
             if (itemId) openItems.set(itemId, name);
             // Codex puts the arguments on the item itself; the shared describer
-            // turns them into the same file/diff view every provider gets.
+            // turns them into the same file/diff view every provider gets. A
+            // plugin's arguments are its own — the item's id is not one of them.
+            const args = getObject(item, 'arguments') ?? {};
             const info = describeToolUse(
-              getString(item, 'toolName') ?? name,
-              { ...item, ...(getObject(item, 'arguments') ?? {}) },
+              plugin ?? getString(item, 'toolName') ?? itemName,
+              plugin ? args : { ...item, ...args },
               req.cwd,
             );
             events.push(toolUseEvent(name, info));
@@ -280,6 +301,8 @@ export class CodexAdapter implements ProviderAdapter {
           break;
         }
         case 'error': {
+          // Codex retries this one itself; the run goes on.
+          if (getObject(n.params)?.willRetry === true) break;
           // The app-server nests it (`params.error.message`); older builds sent it flat.
           const message = unwrapErrorMessage(getString(n.params, 'error', 'message') ?? getString(n.params, 'message') ?? 'codex error');
           finish(limitOrError(message, detectCodexLimit));

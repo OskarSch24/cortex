@@ -8,6 +8,7 @@ import {
   openRouterNoCredit,
 } from './openrouterHttp.js';
 import { citationsFrom, formatSources, openRouterSearchTools, type WebSearchResult } from './webSearch.js';
+import { runOpenRouterMedia } from './openrouterMedia.js';
 import { buildChildEnv } from '../accounts/env.js';
 import { isTransientFailure } from './limits.js';
 import type { AdapterEvent, ResolvedAccount, Usage } from '../types.js';
@@ -44,76 +45,124 @@ export const OPENROUTER_FREE_MODELS: ModelOption[] = [
   { id: 'google/gemma-4-31b-it:free', label: 'Gemma 4 31B (free)' },
 ];
 
-/** What the chat picker offers until the user chooses their own favourites. */
-export const OPENROUTER_DEFAULT_FAVORITES = [
-  'anthropic/claude-opus-5',
-  'openai/gpt-5.6-terra',
-  'google/gemini-3.8-flash',
-  'x-ai/grok-4.7',
-  'deepseek/deepseek-v4-pro',
-  'moonshotai/kimi-k3',
-  'z-ai/glm-5.3',
+/**
+ * What the chat picker offers until the user chooses their own favourites —
+ * chosen by the user (2026-09-26): the models OpenRouter has and the
+ * subscriptions do not. Two Jev decision models, an image model, an avatar
+ * video model and one chat model.
+ */
+export const OPENROUTER_DEFAULT_FAVORITES: ModelOption[] = [
+  { id: '~typesafe/jev-latest', label: 'Jev Latest', output: 'decisions' },
+  { id: 'typesafe/jev-1.13', label: 'Jev 1.13', output: 'decisions' },
+  { id: 'openai/gpt-image-2.5-sunburst', label: 'GPT Image 2.5 Sunburst', output: 'image' },
+  { id: 'heygen/avatar-iv', label: 'Avatar IV', output: 'video' },
+  { id: 'sakana/sakana-namazu', label: 'Sakana Namazu' },
 ];
 
-/**
- * The built-in favourites with each Claude entry moved to the newest release
- * of its family in the live catalog — `anthropic/claude-opus-5` becomes
- * `anthropic/claude-opus-5.5` once that exists. Other labs stay as listed.
- */
-export function currentDefaultFavorites(catalog: OpenRouterModel[]): string[] {
-  const version = (id: string) => /^anthropic\/claude-(sonnet|opus|fable)-(\d+)(?:\.(\d+))?$/.exec(id);
-  return OPENROUTER_DEFAULT_FAVORITES.map((id) => {
-    const family = version(id)?.[1];
-    if (!family) return id;
-    const newest = catalog
-      .map((m) => version(m.id))
-      .filter((v): v is RegExpExecArray => !!v && v[1] === family)
-      .sort((a, b) => Number(b[2]) - Number(a[2]) || Number(b[3] ?? 0) - Number(a[3] ?? 0))[0];
-    return newest?.[0] ?? id;
-  });
-}
-
 export const isFreeModel = (id: string): boolean => id.endsWith(':free');
+
+/**
+ * What an OpenRouter model produces — and so which API Cortex calls it
+ * through: text over chat completions, images over the Image API, videos over
+ * the asynchronous Video API, typed decisions over the Decisions API.
+ */
+export type OpenRouterKind = 'text' | 'image' | 'video' | 'decisions';
 
 /** One entry of OpenRouter's public model list, reduced to what Cortex shows. */
 export interface OpenRouterModel {
   id: string;
   label: string;
   free: boolean;
+  /** Missing in lists cached before Cortex knew other kinds: those were all chat models. */
+  kind?: OpenRouterKind;
   contextLength?: number;
   /** US dollars per million input tokens. */
   promptPerMillion?: number;
   /** US dollars per million output tokens. */
   completionPerMillion?: number;
+  /** Image models: US dollars per million image output tokens. */
+  imagePerMillion?: number;
+  /** Video models: US dollars per second of video, the cheapest tier. */
+  videoPerSecond?: number;
   created?: number;
 }
 
+interface ListedModel {
+  id: string;
+  name?: string;
+  context_length?: number;
+  created?: number;
+  pricing?: { prompt?: string; completion?: string; image_output?: string };
+  architecture?: { output_modalities?: string[] };
+  pricing_skus?: Record<string, string>;
+}
+
 /**
- * The live model list. Public — no key needed. Batch variants are dropped:
- * they answer hours later and make no sense in a chat.
+ * Which kind a listed model is. The Image and Video APIs keep their own lists,
+ * and those decide — a chat router that can also return an image
+ * (`openrouter/auto`) is still a chat model. Only when a list could not be
+ * read do the output modalities stand in for it. Speech, transcription,
+ * embeddings and rerank models get no kind: Cortex cannot run them.
+ */
+export function openRouterKind(model: ListedModel, images?: Set<string>, videos?: Set<string>): OpenRouterKind | undefined {
+  const out = model.architecture?.output_modalities ?? ['text'];
+  if (videos ? videos.has(model.id) : out.includes('video')) return 'video';
+  if (images ? images.has(model.id) : out.includes('image') && !out.includes('text')) return 'image';
+  if (out.includes('decisions')) return 'decisions';
+  return out.includes('text') ? 'text' : undefined;
+}
+
+/**
+ * The live model list, every kind Cortex can run. Public — no key needed.
+ * Batch variants are dropped: they answer hours later and make no sense in a
+ * chat.
  */
 export async function fetchOpenRouterModels(
   fetchImpl: typeof fetch = (...args) => fetch(...args),
   signal?: AbortSignal,
 ): Promise<OpenRouterModel[]> {
-  const response = await fetchImpl(`${OPENROUTER_API_BASE}/models`, { signal });
+  // The default list holds chat models only; images, videos and decisions
+  // appear with `output_modalities=all`.
+  const response = await fetchImpl(`${OPENROUTER_API_BASE}/models?output_modalities=all`, { signal });
   if (!response.ok) throw new Error(`OpenRouter: ${response.status} ${response.statusText}`);
-  const body = (await response.json()) as {
-    data?: Array<{ id: string; name?: string; context_length?: number; created?: number; pricing?: { prompt?: string; completion?: string } }>;
+  const body = (await response.json()) as { data?: ListedModel[] };
+  const listed = async (path: string): Promise<ListedModel[] | undefined> => {
+    try {
+      const reply = await fetchImpl(`${OPENROUTER_API_BASE}${path}`, { signal });
+      return reply.ok ? ((await reply.json()) as { data?: ListedModel[] }).data : undefined;
+    } catch {
+      return undefined;
+    }
   };
+  const [imageList, videoList] = await Promise.all([listed('/images/models'), listed('/videos/models')]);
+  const ids = (list?: ListedModel[]) => (list ? new Set(list.map((m) => m.id)) : undefined);
+  const images = ids(imageList);
+  const videos = ids(videoList);
+  const perSecond = new Map(
+    (videoList ?? []).map((m) => {
+      const prices = Object.values(m.pricing_skus ?? {}).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+      return [m.id, prices.length ? Math.min(...prices) : undefined] as const;
+    }),
+  );
   const perMillion = (v?: string) => (v !== undefined && Number.isFinite(Number(v)) ? Number(v) * 1e6 : undefined);
-  return (body.data ?? [])
-    .filter((m) => typeof m.id === 'string' && !m.id.endsWith(':batch'))
-    .map((m) => ({
+  return (body.data ?? []).flatMap((m) => {
+    if (typeof m.id !== 'string' || m.id.endsWith(':batch')) return [];
+    const kind = openRouterKind(m, images, videos);
+    if (!kind) return [];
+    return [{
       id: m.id,
       // "Anthropic: Claude Opus 5" → "Claude Opus 5"; the lab is in the id.
       label: (m.name ?? m.id).replace(/^[^:]+:\s*/, ''),
       free: isFreeModel(m.id),
+      kind,
       contextLength: m.context_length,
       promptPerMillion: perMillion(m.pricing?.prompt),
       completionPerMillion: perMillion(m.pricing?.completion),
+      ...(kind === 'image' ? { imagePerMillion: perMillion(m.pricing?.image_output) } : {}),
+      ...(kind === 'video' ? { videoPerSecond: perSecond.get(m.id) } : {}),
       created: m.created,
-    }));
+    }];
+  });
 }
 
 /**
@@ -123,7 +172,8 @@ export async function fetchOpenRouterModels(
  */
 export function freeReviewChain(catalog: OpenRouterModel[], size = 3): ModelOption[] {
   const free = catalog
-    .filter((m) => m.free && (m.contextLength ?? 0) >= 32_000)
+    // A review is read and answered in prose — only a chat model can give one.
+    .filter((m) => (m.kind ?? 'text') === 'text' && m.free && (m.contextLength ?? 0) >= 32_000)
     .sort((a, b) => (b.contextLength ?? 0) - (a.contextLength ?? 0) || (b.created ?? 0) - (a.created ?? 0))
     .slice(0, size)
     .map((m) => ({ id: m.id, label: m.label }));
@@ -184,12 +234,20 @@ export class OpenRouterAdapter implements ProviderAdapter {
   readonly displayName = 'OpenRouter';
   /** Stateless HTTP; the caller supplies whatever history matters. */
   readonly supportsNativeResume = false;
-  /** The chat picker's list: the user's favourites, then the free reviewers. */
-  models: ModelOption[] = OPENROUTER_FREE_MODELS;
+  /**
+   * The chat picker's list: exactly the user's favourites. The free reviewers
+   * stay behind the scenes — the second opinion and a run without a model
+   * still walk them.
+   */
+  models: ModelOption[] = OPENROUTER_DEFAULT_FAVORITES;
   /** Free models a review walks through, best first. */
   freeChain: ModelOption[] = OPENROUTER_FREE_MODELS;
   /** Chosen in the settings; answers whenever a run names no model. */
   defaultModel?: string;
+  /** What each model produces, from the live catalog; a model not in it chats. */
+  private kinds = new Map<string, OpenRouterKind>(
+    OPENROUTER_DEFAULT_FAVORITES.flatMap((m) => (m.output ? [[m.id, m.output] as const] : [])),
+  );
 
   // Wrapped rather than passed as a bare reference so the global keeps its own
   // receiver when it is called as a method of this adapter.
@@ -200,7 +258,18 @@ export class OpenRouterAdapter implements ProviderAdapter {
     if (freeChain?.length) this.freeChain = freeChain;
     this.defaultModel = defaultModel || undefined;
     const seen = new Set<string>();
-    this.models = [...models, ...this.freeChain].filter((m) => !seen.has(m.id) && !!seen.add(m.id));
+    this.models = models.filter((m) => !seen.has(m.id) && !!seen.add(m.id));
+    for (const m of this.models) if (m.output) this.kinds.set(m.id, m.output);
+  }
+
+  /** Learns from the live catalog which API each model is called through. */
+  setCatalog(catalog: OpenRouterModel[]): void {
+    for (const m of catalog) this.kinds.set(m.id, m.kind ?? 'text');
+  }
+
+  /** What `id` produces — a chat model unless the catalog says otherwise. */
+  kindOf(id: string): OpenRouterKind {
+    return this.kinds.get(id) ?? 'text';
   }
 
   buildEnv(account: ResolvedAccount, base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -231,6 +300,12 @@ export class OpenRouterAdapter implements ProviderAdapter {
     // and meant — it is asked alone. A free one (or none at all) walks the
     // free chain, the requested model first.
     const requested = req.model ?? this.defaultModel;
+    // Image, video and decision models do not chat; each has its own API.
+    const kind = requested ? this.kindOf(requested) : 'text';
+    if (requested && kind !== 'text') {
+      yield* runOpenRouterMedia(kind, { fetchImpl: this.fetchImpl, key, model: requested, req, signal });
+      return;
+    }
     const freeIds = this.freeChain.map((m) => m.id);
     const chain = requested && !isFreeModel(requested)
       ? [requested]

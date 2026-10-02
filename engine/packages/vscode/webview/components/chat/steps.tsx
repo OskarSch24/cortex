@@ -5,6 +5,7 @@ import { activityVerbosity, useNative, type ActivityVerbosity } from '../../sett
 import { formatWorked } from '../../format/duration.js';
 import { CopyButton } from '../CopyButton.js';
 import { fileName } from '../steps.js';
+import { toolWords } from '../toolWords.js';
 import { Icon } from './Icon.js';
 
 /* ── Tätigkeitszeilen ────────────────────────────────────────────────── */
@@ -14,14 +15,20 @@ export const IMAGE = /\.(png|jpe?g|gif|webp|svg|heic|bmp|tiff?)$/i;
 function stepIcon(step: ToolStep): string {
   switch (step.action) {
     case 'run': return 'terminal';
-    case 'search': return 'search';
+    // Eine Suche trägt ihren Ort im Detail; nur ein aufgelisteter Ordner setzt `path`.
+    case 'search': return step.path ? 'folder' : 'search';
     case 'read': return step.path && IMAGE.test(step.path) ? 'images' : 'book';
     case 'write':
     case 'edit': return 'pencil';
     case 'fetch': return 'globe';
     case 'task': return 'agent';
-    default: return 'wrench';
+    default: return toolWords(step).icon;
   }
+}
+
+/** Worauf sich ein Schritt bezog, oder wozu er lief — hinter dem Satz, leiser als er. */
+function Subject({ text }: { text?: string }) {
+  return text ? <> · <span class="cx-c-subject">{text}</span></> : null;
 }
 
 /** Die grauen Zahlen hinter einem Dateinamen: `+68 -0`. */
@@ -93,9 +100,17 @@ function stepText(step: ToolStep, actions: ChatActions): ComponentChildren {
   switch (step.action) {
     case 'run': {
       const { was, wo } = describeCommand(detail || step.name);
-      return <span title={detail || step.name}>{was}{wo && <> in <span class="cx-c-place">{wo}</span></>}</span>;
+      // Der Satz sagt, was lief; die Beschreibung des Agenten, wozu — zwanzig
+      // Python-Skripte untereinander sind sonst nicht auseinanderzuhalten.
+      const why = step.description?.trim();
+      return (
+        <span title={why ? `${why}\n${detail || step.name}` : detail || step.name}>
+          {was}{wo && <> in <span class="cx-c-place">{wo}</span></>}<Subject text={why} />
+        </span>
+      );
     }
     case 'search': {
+      if (step.path) return <>Ordner <span class="cx-c-subject" title={step.path}>{fileName(step.path) || step.path}</span> angesehen</>;
       const quoted = /^"(.*)" in (.+)$/.exec(detail);
       if (quoted) return <>Nach <span class="cx-c-code">{quoted[1]}</span> in <span title={quoted[2]}>{fileName(quoted[2]!)}</span> gesucht</>;
       const bare = /^"(.*)"$/.exec(detail);
@@ -106,22 +121,25 @@ function stepText(step: ToolStep, actions: ChatActions): ComponentChildren {
     }
     case 'read':
       if (step.path && IMAGE.test(step.path)) return 'Ein Bild angesehen';
-      return step.path ? <>Gelesen <FileLink path={step.path} actions={actions} /></> : <>Gelesen {detail}</>;
+      return step.path ? <>Gelesen <FileLink path={step.path} actions={actions} /></> : detail ? <>Gelesen {detail}</> : 'Datei gelesen';
     case 'write':
       return step.path
         ? <>Erstellt <FileLink path={step.path} actions={actions} /> <LineCounts step={step} /> <span class="cx-c-newdot" title="Neue Datei" /></>
-        : <>Erstellt {detail}</>;
+        : detail ? <>Erstellt {detail}</> : 'Datei erstellt';
     case 'edit':
       if (detail.startsWith('deleted ')) return <>Gelöscht {detail.slice(8)}</>;
-      return step.path ? <>Bearbeitet <FileLink path={step.path} actions={actions} /> <LineCounts step={step} /></> : <>Bearbeitet {detail}</>;
+      return step.path ? <>Bearbeitet <FileLink path={step.path} actions={actions} /> <LineCounts step={step} /></> : detail ? <>Bearbeitet {detail}</> : 'Datei bearbeitet';
     case 'fetch':
-      return /^https?:\/\//.test(detail)
-        ? <>Geöffnet <button type="button" class="cx-c-filelink" onClick={(e) => { e.stopPropagation(); actions.onOpenUrl?.(detail); }}>{detail.replace(/^https?:\/\//, '')}</button></>
-        : <>Im Web nach <span class="cx-c-code">{detail}</span> gesucht</>;
+      if (/^https?:\/\//.test(detail)) {
+        return <>Geöffnet <button type="button" class="cx-c-filelink" onClick={(e) => { e.stopPropagation(); actions.onOpenUrl?.(detail); }}>{detail.replace(/^https?:\/\//, '')}</button></>;
+      }
+      return detail ? <>Im Web nach <span class="cx-c-code">{detail}</span> gesucht</> : 'Im Web gesucht';
     case 'task':
       return <>Unteragent: {detail || step.name}</>;
-    default:
-      return <span title={step.name}>Werkzeug verwendet</span>;
+    default: {
+      const words = toolWords(step);
+      return <span title={step.name}>{words.done}<Subject text={words.subject} /></span>;
+    }
   }
 }
 

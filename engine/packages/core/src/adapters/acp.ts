@@ -1,13 +1,13 @@
 import { EventQueue, JsonRpcProcess, RpcError } from './jsonRpc.js';
 import { readImageBase64 } from './attachments.js';
 import { getNumber, getObject, getString } from './ndjson.js';
-import { describeToolUse, toolUseEvent } from './toolDetail.js';
+import { acpToolSteps } from './acpToolCalls.js';
 import { acpImageEvent } from './images.js';
 import { taskListTracker, tasksFromAcpPlan } from './taskList.js';
 import { acpPermissionKind } from './permission.js';
 import { createRunGate, deferDenial } from './runGate.js';
 import { approvalSignature } from './approvalSignature.js';
-import { supportedEffort } from '../models/catalog.js';
+import { currentModel, supportedEffort } from '../models/catalog.js';
 import type { AdapterEvent, LimitInfo, Usage } from '../types.js';
 import type { RunRequest } from './adapter.js';
 import { ACP_WEB_SEARCH_TOOL, acpWebSearchServers } from './webSearch.js';
@@ -131,6 +131,11 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
   const trackTasks = taskListTracker();
   /** Prompt je Bildaufruf — das Ergebnis kommt als eigenes Update ohne ihn. */
   const imagePrompts = new Map<string, string>();
+  const toolSteps = acpToolSteps(req.cwd);
+  /** Web searches still waiting for their query go out before anything else shows. */
+  const flushSteps = () => {
+    for (const step of toolSteps.flush()) events.push(step);
+  };
   /** Reported by the agent when the turn settles, when it reports at all. */
   let usage: Usage | undefined;
   /**
@@ -166,6 +171,7 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
 
   const finish = (event?: AdapterEvent) => {
     if (finished) return;
+    flushSteps();
     finished = true;
     closeGate();
     if (event) events.push(event);
@@ -188,12 +194,14 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
           // Cancellation notices are protocol noise, not model output.
           if (chunk && /^Info: Operation cancelled by user\.?$/i.test(chunk.trim())) break;
           if (chunk) {
+            flushSteps();
             text += chunk;
             events.push({ type: 'text-delta', text: chunk });
           }
           break;
         }
         case 'tool_call_update': {
+          for (const step of toolSteps.update(update)) events.push(step);
           const image = acpImageEvent(update, imagePrompts);
           if (image) events.push(image);
           break;
@@ -204,39 +212,15 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
           if (callId && imagePrompt && /^image_(gen|edit)$/.test(getString(update, 'title') ?? '')) {
             imagePrompts.set(callId, imagePrompt);
           }
-          const title = getString(update, 'title') ?? getString(update, 'kind') ?? 'tool';
-          const rawInput = getObject(update, 'rawInput') ?? {};
-          const located = getString(update, 'locations', '0', 'path');
-          const info = describeToolUse(
-            getString(update, 'kind') ?? title,
-            located ? { path: located, ...rawInput } : rawInput,
-            req.cwd,
-          );
-          // ACP ships the real before/after for an edit; prefer it over ours.
-          const diff = getObject(update, 'content', '0');
-          const edited =
-            getString(diff, 'type') === 'diff'
-              ? describeToolUse(
-                  'edit',
-                  {
-                    file_path: getString(diff, 'path') ?? located,
-                    old_string: getString(diff, 'oldText') ?? '',
-                    new_string: getString(diff, 'newText') ?? '',
-                  },
-                  req.cwd,
-                )
-              : undefined;
-          events.push(toolUseEvent(title, {
-            ...info,
-            preview: edited ? edited.preview : info.preview,
-            added: edited?.added ?? info.added,
-            removed: edited?.removed ?? info.removed,
-          }));
+          for (const step of toolSteps.call(update)) events.push(step);
           break;
         }
         case 'plan': {
           const tasks = trackTasks(tasksFromAcpPlan(update));
-          if (tasks) events.push(tasks);
+          if (tasks) {
+            flushSteps();
+            events.push(tasks);
+          }
           break;
         }
         default:
@@ -352,7 +336,7 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
       if (!sessionId) throw new Error('ACP agent did not return a session id');
       if (opts.configureGrokSession && req.model) {
         try {
-          await rpc.request('session/set_model', { sessionId, modelId: req.model });
+          await rpc.request('session/set_model', { sessionId, modelId: currentModel('grok', req.model) });
         } catch (error) {
           // The model is not a nicety: running the agent's default instead
           // would answer with a model the user did not pick and bill it to the
@@ -387,6 +371,7 @@ export async function* runAcp(opts: AcpOptions): AsyncGenerator<AdapterEvent> {
           if (finished || !sessionId) return false;
           // ACP agents cancel the running turn and answer the new message, so
           // close the interrupted turn with whatever it produced.
+          flushSteps();
           events.push({ type: 'result', text: text.slice(segStart) });
           segStart = text.length;
           outstanding++;

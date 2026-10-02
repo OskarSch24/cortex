@@ -23,7 +23,7 @@ type Props = {
 };
 const EMPTY: TeamsState = { teams: [], runs: [], servers: [], skills: [], revision: 0 };
 const STATUS: Record<TeamJobStatus, string> = { waiting: 'Wartet', running: 'Arbeitet', completed: 'Abgeschlossen', failed: 'Fehlgeschlagen', cancelled: 'Gestoppt', blocked: 'Blockiert' };
-const PROVIDERS: Record<string, string> = { claude: 'Claude', codex: 'ChatGPT', grok: 'Grok', copilot: 'GitHub Copilot', openrouter: 'OpenRouter' };
+const PROVIDERS: Record<string, string> = { claude: 'Claude', codex: 'ChatGPT', grok: 'Grok', copilot: 'GitHub Copilot', openrouter: 'OpenRouter', zai: 'Z.ai' };
 const identifier = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 const copy = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 const accountKey = (provider: string, label: string) => `${provider}\n${label}`;
@@ -111,7 +111,7 @@ export function AgentTeamsView({ accounts, projects, conversations, onOpenConver
   const imports = useRef(new Map<string, { teamId: string; agentId: string }>());
   const openedProfile = useRef<string>();
   // OpenRouter bekommt nie automatisch Arbeit, lässt sich einem Agenten aber ausdrücklich zuweisen.
-  const usableAccounts = accounts.filter(account => (!account.reviewOnly || account.provider === 'openrouter') && ['claude', 'codex', 'grok', 'copilot', 'openrouter'].includes(account.provider));
+  const usableAccounts = accounts.filter(account => (!account.reviewOnly || account.provider === 'openrouter' || account.provider === 'zai') && ['claude', 'codex', 'grok', 'copilot', 'openrouter', 'zai'].includes(account.provider));
   const solo = draft?.kind === 'agent';
   const label = profileLabel(draft);
   const savedAgents = state.teams.filter(team => team.kind === 'agent');
@@ -321,7 +321,7 @@ export function AgentTeamsView({ accounts, projects, conversations, onOpenConver
     {!solo && <label class="cx-team-row"><span class="cx-team-row-label"><Glyph name="user" size={14} />Agentenname</span><input value={selectedAgent.name} maxLength={80} onInput={event => editAgent({ name: event.currentTarget.value })} /></label>}
     <label class="cx-team-row"><span class="cx-team-row-label"><Glyph name="ticket" size={14} />Rolle</span><input value={selectedAgent.role} maxLength={200} placeholder="z. B. Recherche oder Qualitätsprüfung" onInput={event => editAgent({ role: event.currentTarget.value })} /></label>
     <div class="cx-team-row"><span class="cx-team-row-label"><BrandMark provider={selectedAgent.target.provider} size={14} />Konto</span><Select label="Konto des Agenten" value={accountKey(selectedAgent.target.provider, selectedAgent.target.account)} placeholder="Konto auswählen" options={accountOptions} disabled={!accountOptions.length} onChange={value => { const account = usableAccounts.find(account => accountKey(account.provider, account.label) === value); if (account && value !== accountKey(selectedAgent.target.provider, selectedAgent.target.account)) editTarget({ provider: account.provider, account: account.label }, { ...(!SCOPED_MCP_PROVIDERS.includes(account.provider) ? { mcpServers: undefined } : {}), ...(!WEB_SEARCH_CHOICE_PROVIDERS.includes(account.provider) ? { webSearch: undefined } : {}) }); }} /></div>
-    {selectedAgent.target.provider === 'openrouter' && <div class="cx-team-inline-note"><Glyph name="info" size={14} />OpenRouter antwortet ohne Werkzeuge: Der Agent liest und schreibt keine Dateien. Weitere Modelle wählst du unter Einstellungen → Konto aus.</div>}
+    {(selectedAgent.target.provider === 'openrouter' || selectedAgent.target.provider === 'zai') && <div class="cx-team-inline-note"><Glyph name="info" size={14} />{selectedAgent.target.provider === 'zai' ? 'Z.ai' : 'OpenRouter'} antwortet ohne Werkzeuge: Der Agent liest und schreibt keine Dateien. Weitere Modelle wählst du unter Einstellungen → Konto aus.</div>}
     {!usableAccounts.length && <div class="cx-team-inline-note"><Glyph name="info" size={14} />Verbinde ein Konto, um Agenten einzurichten. <button onClick={onAccounts}>Zu den Konten</button></div>}
     <div class="cx-team-row"><span class="cx-team-row-label"><Glyph name="cube" size={14} />Modell</span><Select label="Modell des Agenten" value={selectedAgent.target.model ?? ''} options={modelOptions} disabled={!selectedAccount} onChange={model => editTarget({ ...selectedAgent.target, model: model || undefined })} /></div>
     <div class="cx-team-row cx-team-reasoning"><span class="cx-team-row-label"><Glyph name="gauge" size={14} /><span>Reasoning-Stärke<small>{effortLevels.length ? !selectedAgent.target.model && reasoningModel ? `Standardmodell: ${reasoningModel.label}` : 'Denkaufwand je Auftrag' : 'Für dieses Modell nicht einstellbar'}</small></span></span><Select label="Reasoning-Stärke des Agenten" value={selectedAgent.effort ?? ''} options={effortOptions} disabled={!selectedAccount || (!effortLevels.length && !selectedAgent.effort)} onChange={effort => editAgent({ effort: effort || undefined })} /></div>

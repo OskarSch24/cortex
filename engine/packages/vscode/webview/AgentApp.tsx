@@ -1,10 +1,12 @@
 import { ImageWorkspace } from './components/ImageWorkspace.js';
-import { nestBackground } from './components/backgroundTasks.js';
 import { PaneResizeHandle, storedPaneWidth, savePaneWidth, usePaneBounds } from './components/PaneResizeHandle.js';
 import { conversationImages, type WorkspaceImage } from './components/imageWorkspaceState.js';
 import type { ImageOptions } from '../src/panel/imageOptions.js';
 import { assistantText } from '../src/panel/transcript.js';
 import { QueuedMessages } from './components/QueuedMessages.js';
+import { GoalStrip } from './components/GoalStrip.js';
+import type { ChatGoal } from '../../core/src/goal/goal.js';
+import { parseSlashCommands } from '../../core/src/commands/slashCommands.js';
 import { TemplateStrip } from './components/TemplateStrip.js';
 import { templateCategoryForAction, type ArtifactTemplateCategory } from './components/templateCommands.js';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
@@ -327,6 +329,8 @@ export function AgentApp() {
   const [attachments, setAttachments] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
   const [queued, setQueued] = useState<QueuedMessageDto[]>([]);
+  /** Das Ziel des sichtbaren Chats (`/goal`) — der Host schickt es mit jedem Chatwechsel. */
+  const [goal, setGoal] = useState<ChatGoal>();
   const [queuePaused, setQueuePaused] = useState(false);
   const [queuePauseReason, setQueuePauseReason] = useState<'error' | 'stopped' | 'restored' | 'project'>();
   const [startedAt, setStartedAt] = useState(0);
@@ -431,7 +435,7 @@ export function AgentApp() {
         setCommandRequest(undefined);
         setTemplates(false); setTemplatePreview(undefined);
         setImagePath(undefined); setImageSeed(undefined); setImageSplit(false); setLastContribution(false); setImageNotice('');
-        setQueued([]); setQueuePaused(false); setItems([]); setAttachments([]); setPromptSeed(undefined); setWorkspace(undefined); setRunning(false); setStartedAt(0);
+        setQueued([]); setQueuePaused(false); setGoal(undefined); setItems([]); setAttachments([]); setPromptSeed(undefined); setWorkspace(undefined); setRunning(false); setStartedAt(0);
         setPinnedTarget(undefined); pinnedRef.current = true; setPinned(true); setHydrating(true);
         liveAnswers.current.hydrating = true; liveAnswers.current.text.clear();
         replayBuffer.current = [];
@@ -445,6 +449,8 @@ export function AgentApp() {
         return;
       }
       if (msg.kind === 'activity') { setHostActivity(msg.text); return; }
+      // Der Host schickt das Ziel nur an die Fläche seines Chats — auch beim Wechsel, bevor die Chatliste nachzieht.
+      if (msg.kind === 'goal') { setGoal(msg.goal); return; }
       // Das Modell will die Fläche sehen oder darauf zeichnen (canvas_view / canvas_draw).
       if (msg.kind === 'canvasRequest') {
         void answerCanvasRequest(msg).then(answer => vscode.postMessage({ kind: 'canvasAnswer', reqId: msg.reqId, ...answer }));
@@ -575,26 +581,29 @@ export function AgentApp() {
   const buildSend = (text: string) => ({
     kind: 'send' as const, text, tags: tagsOf(text), permissionMode, askPermission, routingMode, target: pinnedTarget,
   });
-  const send = (text: string, effort?: import('../../core/src/types.js').Effort, image?: import('./components/Composer.js').ImageSend) => {
+  const send = (text: string, effort?: import('../../core/src/types.js').Effort, image?: import('./components/Composer.js').ImageSend, imageOptions?: import('../src/panel/imageOptions.js').ImageOptions) => {
     const trimmed = text.trim(); if (!trimmed) return;
     // `/excalidraw` allein öffnet nur die Fläche; mit Auftrag geht sie auf und
     // der Auftrag an das Modell, das dann darauf zeichnet.
     // `/remotion` öffnet den Reiter „Video“; mit Auftrag baut der Agent dort das Video.
     // Ein angehängtes Video oder Bild ist schon ein Auftrag — es ist das Material.
     // Geht nichts hinaus, bleibt der Befehl im Eingabefeld stehen, statt zu verschwinden.
-    if (!image && /^\/remotion\b/i.test(trimmed)) {
+    // Auch neben anderen Befehlen: `/goal /remotion …` öffnet den Reiter genauso.
+    const commands = image ? undefined : parseSlashCommands(trimmed, customCommands);
+    const names = new Set(commands?.commands.map(command => command.name));
+    if (commands && (/^\/remotion\b/i.test(trimmed) || names.has('remotion'))) {
       setReview(false); openVideo();
-      if (!trimmed.replace(/^\/remotion\b/i, '').trim() && !attachments.length) { setPromptSeed({ text: '/remotion ', key: Date.now() }); return; }
+      if (!commands.rest && !attachments.length) { setPromptSeed({ text: `${trimmed} `, key: Date.now() }); return; }
     }
-    if (!image && /^\/excalidraw\b/i.test(trimmed)) {
+    if (commands && (/^\/excalidraw\b/i.test(trimmed) || names.has('excalidraw'))) {
       setReview(false); openCanvas();
-      if (!trimmed.replace(/^\/excalidraw\b/i, '').trim()) return;
+      if (!commands.rest) return;
     }
     pinnedRef.current = true;
     const sentAttachments = viewedImage && !attachments.some(path => imagePreviews[path]) ? [...attachments, viewedImage.path] : attachments;
     vscode.postMessage(image
       ? { kind: 'send', text: trimmed, tags: [], permissionMode: 'safe', askPermission, routingMode: 'manual', attachments: sentAttachments, image: image.options, imageProvider: image.provider }
-      : { ...buildSend(trimmed), effort, attachments });
+      : { ...buildSend(trimmed), effort, attachments, ...(imageOptions ? { imageOptions } : {}) });
     setAttachments([]);
   };
   const runCommand = (action: SlashAction, draft: string) => {
@@ -621,17 +630,22 @@ export function AgentApp() {
       case 'openSearch': setSearch(''); break;
       case 'newChat': newTask(projectPath); break;
       case 'clearChat': send('/clear'); break;
+      // Der Host braucht die Argumente (Prüfbefehl, „übernehmen“, „aus“) — deshalb als Nachricht.
+      case 'mergeQueue': send(`/merge-queue ${draft}`.trim()); break;
       // These are handled in the composer, where their controls live.
       case 'openModel': case 'createImage': break;
     }
   };
-  const pinnedChats = conversations.filter(c => c.pinned);
+  // Rollen-Chats eines Schwarms sind Hintergrundprozesse: sie stehen nur in
+  // der Übersicht unter „Hintergrundprozesse“, nie in der Seitenleiste.
+  const sidebarChats = conversations.filter(c => !c.background);
+  const pinnedChats = sidebarChats.filter(c => c.pinned);
   const isWorkspace = !['automations', 'agents', 'exokortex', 'plugins', 'accounts'].includes(page);
-  const loose = conversations.filter(c => !c.pinned && !c.projectPath);
+  const loose = sidebarChats.filter(c => !c.pinned && !c.projectPath);
   const shownProjects = projects.filter(p => !archived.includes(p.path));
   const archivedProjects = projects.filter(p => archived.includes(p.path));
   const treeProps = {
-    conversations: conversations.filter(c => !c.pinned),
+    conversations: sidebarChats.filter(c => !c.pinned),
     activeId: page === 'chat' ? (opening ?? activeId) : '',
     activePath: projectPath,
     open: openGroups,
@@ -643,7 +657,7 @@ export function AgentApp() {
     onPinProject: (project: ProjectDto) => vscode.postMessage({ kind: 'pinProject', path: project.path, pinned: !project.pinned }),
     onArchiveProject: toggleArchived,
   };
-  const taskRows = (list: ConversationMeta[], reachable = true) => nestBackground(list).map(c => <div key={c.id} class={`cx-tree-task ${page === 'chat' && (opening ?? activeId) === c.id ? 'active' : ''} ${c.nested ? 'nested' : ''}`}><button class="cx-tree-task-open" onClick={() => openTask(c.id)} title={c.background ? `Hintergrundprozess · ${c.title}` : c.title} tabIndex={reachable ? 0 : -1}>{c.background && <Glyph name="swarm" size={12} />}<span>{c.title === 'New chat' || !c.title ? 'Neue Aufgabe' : c.title}</span></button>{c.running ? <span class="cx-tree-task-run" title="Läuft"><span class="cx-dot" /></span> : <button class="cx-icon cx-tree-task-del" aria-label={`Aufgabe löschen: ${c.title}`} tabIndex={reachable ? 0 : -1} onClick={() => vscode.postMessage({ kind: 'deleteConversation', id: c.id })}><Glyph name="trash" size={12} /></button>}</div>);
+  const taskRows = (list: ConversationMeta[], reachable = true) => list.map(c => <div key={c.id} class={`cx-tree-task ${page === 'chat' && (opening ?? activeId) === c.id ? 'active' : ''}`}><button class="cx-tree-task-open" onClick={() => openTask(c.id)} title={c.title} tabIndex={reachable ? 0 : -1}><span>{c.title === 'New chat' || !c.title ? 'Neue Aufgabe' : c.title}</span></button>{c.running ? <span class="cx-tree-task-run" title="Läuft"><span class="cx-dot" /></span> : <button class="cx-icon cx-tree-task-del" aria-label={`Aufgabe löschen: ${c.title}`} tabIndex={reachable ? 0 : -1} onClick={() => vscode.postMessage({ kind: 'deleteConversation', id: c.id })}><Glyph name="trash" size={12} /></button>}</div>);
 
   // Die Einstellungen legen sich wie bei Codex über das ganze Fenster: eine
   // eigene Leiste statt der App-Leiste, rechts die Seiten.
@@ -774,7 +788,7 @@ export function AgentApp() {
               {!hydrating && !pinned && !empty && !viewedImage && <button class="cx-jump" title="Zur neuesten Aktivität" aria-label="Zur neuesten Aktivität" onClick={() => { pinnedRef.current = true; setPinned(true); bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }}><Glyph name="arrowDown" size={16} /></button>}
               {locationOpen && <LocationPicker current={chatLocation} onApply={saveLocation} onRemove={() => saveLocation(undefined)} onClose={() => setLocationOpen(false)} />}
               {!locationOpen && chatLocation && <LocationChip location={chatLocation} onEdit={() => setLocationOpen(true)} onRemove={() => saveLocation(undefined)} />}
-              {(templates || templatePreview) && <TemplateStrip initialCategory={templatePreview ?? templateCategory} categoryRequest={templateCategoryRequest} onClose={() => { setTemplates(false); setTemplatePreview(undefined); }} onPick={template => { setTemplates(false); setTemplatePreview(undefined); setPromptSeed({ text: (template.prompt ?? template.body).trim(), key: Date.now(), mode: 'chat' }); const files = [template.artifactPath, template.instructionPath].filter((path): path is string => !!path); setAttachments(previous => [...new Set([...previous.filter(path => !templateFiles.includes(path)), ...files])]); setTemplateFiles(files); }} />}<QueuedMessages key={`queue-${activeId}`} items={queued} paused={queuePaused} pauseReason={queuePauseReason} />
+              {(templates || templatePreview) && <TemplateStrip initialCategory={templatePreview ?? templateCategory} categoryRequest={templateCategoryRequest} onClose={() => { setTemplates(false); setTemplatePreview(undefined); }} onPick={template => { setTemplates(false); setTemplatePreview(undefined); setPromptSeed({ text: (template.prompt ?? template.body).trim(), key: Date.now(), mode: 'chat' }); const files = [template.artifactPath, template.instructionPath].filter((path): path is string => !!path); setAttachments(previous => [...new Set([...previous.filter(path => !templateFiles.includes(path)), ...files])]); setTemplateFiles(files); }} />}<GoalStrip key={`goal-${activeId}`} goal={goal} running={running} /><QueuedMessages key={`queue-${activeId}`} items={queued} paused={queuePaused} pauseReason={queuePauseReason} />
               <Composer key={activeId} project={!chatStarted ? <ProjectPicker projects={shownProjects} activePath={projectPath} disabled={running} /> : undefined} onTemplatePreview={setTemplatePreview} onCommand={runCommand} commandRequest={commandRequest} pinnedChat={active?.pinned} unavailableCommands={{ ...(!chatStarted ? { forkChat: 'Starte zuerst einen Chat', exportChat: 'Starte zuerst einen Chat', compactChat: 'Starte zuerst einen Chat' } : {}), ...(running ? { archiveChat: 'Warte, bis die Antwort fertig ist', forkChat: 'Warte, bis die Antwort fertig ist', compactChat: 'Warte, bis die Antwort fertig ist', clearChat: 'Warte, bis die Antwort fertig ist' } : {}) }} accounts={accounts} tags={tags} customCommands={customCommands} connectors={connectors} running={running} permissionMode={permissionMode} askPermission={askPermission} attachments={attachments} attachmentPreviews={{ ...Object.fromEntries(Object.entries(attachmentThumbs).filter((entry): entry is [string, string] => !!entry[1])), ...imagePreviews }} pinnedTarget={pinnedTarget} pinnedStandard={pinnedStandard} promptSeed={promptSeed} imageSeed={imageSeed} imageWorkspace={!!viewedImage} onImageProviderChange={setImageProviderChoice} onImageOrder={(provider, order) => vscode.postMessage({ kind: 'setImageAccountOrder', provider, accounts: order })} onPickAttachments={() => vscode.postMessage({ kind: 'pickAttachments' })} onAddFolder={() => vscode.postMessage({ kind: 'addProject' })} onConnectors={draft => runCommand('openConnectors', draft)} onTemplates={() => setTemplates(v => !v)} onLocation={() => setLocationOpen(true)} onVoiceSettings={draft => { setPromptSeed({ text: draft, key: Date.now() }); setSettingsRoute({ id: 'stimme', sub: [] }); setPage('settings'); }} onRemoveAttachment={path => setAttachments(prev => prev.filter(p => p !== path))} onSend={send} onCancel={() => vscode.postMessage({ kind: 'cancel' })} onPinnedTarget={pickTarget} onModeChange={({ ask, ...modes }) => { if (ask !== undefined) setAskPermission(ask); if (modes.permissionMode) setPermissionMode(modes.permissionMode); if (modes.routingMode) setRoutingMode(modes.routingMode); if (modes.permissionMode || modes.routingMode || ask !== undefined) vscode.postMessage({ kind: 'setModes', ...modes, ask }); }} />
               {empty && !hydrating && <div class="cx-suggestions cx-start-pills" aria-label="Einstiege">{START_PROMPTS.map(s => <button key={s.label} onClick={() => setPromptSeed({ text: s.text, key: Date.now() })}><Glyph name={s.icon} size={15} /><span>{s.label}</span></button>)}</div>}
               {empty && routable.length === 0 && <div class="cx-connect-nudge"><div><Glyph name="link" size={17} /><span><strong>Mit deinem eigenen KI-Abo starten</strong><small>Claude, ChatGPT oder Grok · auch mehrere Konten</small></span></div><button onClick={() => setPage('accounts')}>Abo verbinden <Glyph name="arrow" size={13} /></button></div>}

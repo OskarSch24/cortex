@@ -13,6 +13,7 @@ const PROVIDER_IDS: ReadonlySet<string> = new Set<ProviderId>([
   'copilot',
   'grok',
   'openrouter',
+  'zai',
 ]);
 
 export function parseMcpFile(

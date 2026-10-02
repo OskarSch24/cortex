@@ -22,6 +22,7 @@ const SCRUB: Record<ProviderId, string[]> = {
   copilot: ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'COPILOT_HOME'],
   grok: ['XAI_API_KEY', 'GROK_API_KEY', 'GROK_HOME', 'GROK_DEPLOYMENT_KEY', 'GROK_PROXY_URL', 'XAI_BASE_URL', 'GROK_AUTH', 'GROK_AUTH_PATH', 'GROK_CODE_XAI_API_KEY', 'GROK_CLI_CHAT_PROXY_BASE_URL', 'GROK_AUTH_PROVIDER_COMMAND', 'GROK_AUTH_PROVIDER_ACCESS_TOKEN', 'GROK_AUTH_PROVIDER_REFRESH_TOKEN'],
   openrouter: ['OPENROUTER_API_KEY'],
+  zai: ['ZAI_API_KEY'],
 };
 
 /**
@@ -82,6 +83,10 @@ export function buildChildEnv(
       // No child process to configure — the adapter calls the API itself. The
       // var is still set so an interactive shell for this account behaves.
       if (account.secret) env.OPENROUTER_API_KEY = account.secret;
+      break;
+    case 'zai':
+      // Wie OpenRouter: der Adapter ruft die API selbst.
+      if (account.secret) env.ZAI_API_KEY = account.secret;
       break;
   }
   return env;

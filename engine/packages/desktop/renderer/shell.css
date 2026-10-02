@@ -39,15 +39,16 @@ body.cortex-desktop-shell { margin: 0; overflow: hidden; background: var(--cx-gr
 .cortex-desktop-shell > #root { position: absolute; inset: 0 var(--cxd-pane-width) 0 0; min-width: 0; min-height: 0; }
 .cortex-desktop-shell .cx-shell { height: 100%; }
 .cortex-desktop-shell .cx-main, .cortex-desktop-shell .cx-settings-mode { height: calc(100% - var(--cxd-terminal-height)); }
-.cortex-desktop-shell.cxd-auto-sidebar .cx-sidebar { margin-left: calc(-1 * var(--cx-sidebar-width, 250px) - var(--cx-gap, 8px)) !important; opacity: 0; pointer-events: none; }
+.cortex-desktop-shell.cxd-auto-sidebar .cx-sidebar { margin-left: calc(-1 * var(--cx-sidebar-width, 250px) - var(--cx-gap, 0px)) !important; opacity: 0; pointer-events: none; }
 .cortex-desktop-shell.cxd-auto-sidebar .cx-main { --cx-history-left: 86px; }
 .cortex-desktop-shell.cxd-compact-workspace .cx-welcome { flex: 1; min-height: 0; overflow: hidden; margin: 44px 0 12px; padding: 10px 20px; }
 .cortex-desktop-shell.cxd-compact-workspace .cx-welcome-mark, .cortex-desktop-shell.cxd-compact-workspace .cx-start-cards { display: none; }
 .cortex-desktop-shell.cxd-compact-workspace .cx-welcome h1 { font-size: 20px; margin: 0; }
-.cortex-desktop-shell .cx-rail-brand { position: relative; z-index: 4; margin-top: 36px; }
-/* Die schmale Leiste und die Einstellungsleiste beginnen ebenfalls unter den Ampelknöpfen. */
-.cortex-desktop-shell .cx-mini-rail { padding-top: 38px; }
-.cortex-desktop-shell .cxs-nav { padding-top: 36px; }
+.cortex-desktop-shell .cx-rail-brand { position: relative; z-index: 4; margin-top: 45px; }
+/* Die schmale Leiste und die Einstellungsleiste beginnen ebenfalls unter den Ampelknöpfen.
+   Die Leisten reichen bis an den Fensterrand, die Abstände zählen ab dort. */
+.cortex-desktop-shell .cx-mini-rail { padding-top: 47px; }
+.cortex-desktop-shell .cxs-nav { padding-top: 45px; }
 .cortex-desktop-shell .cx-history, .cortex-desktop-shell button, .cortex-desktop-shell input, .cortex-desktop-shell textarea, .cortex-desktop-shell select { -webkit-app-region: no-drag; }
 /* Der Streifen zum Verschieben des Fensters. Er liegt vor der Oberfläche im
    Dokument und unter ihr in der Stapelung: sonst gewinnt er gegen die
@@ -57,9 +58,9 @@ body.cortex-desktop-shell { margin: 0; overflow: hidden; background: var(--cx-gr
    oben, also muss der Streifen weg. */
 .cxd-dragbar { position: fixed; z-index: 0; top: 0; left: 0; right: 0; height: 44px; -webkit-app-region: drag; }
 .cxd-fullscreen .cxd-dragbar { display: none; }
-.cxd-fullscreen .cortex-desktop-shell .cx-rail-brand { margin-top: 4px; }
-.cxd-fullscreen .cortex-desktop-shell .cx-mini-rail { padding-top: 10px; }
-.cxd-fullscreen .cortex-desktop-shell .cxs-nav { padding-top: 12px; }
+.cxd-fullscreen .cortex-desktop-shell .cx-rail-brand { margin-top: 13px; }
+.cxd-fullscreen .cortex-desktop-shell .cx-mini-rail { padding-top: 19px; }
+.cxd-fullscreen .cortex-desktop-shell .cxs-nav { padding-top: 21px; }
 .cxd-toolbar, .cxd-side, .cxd-terminal, .cxd-menu, .cxd-modal-backdrop, .cxd-toast { font: 13px/1.5 var(--cx-body-font, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif); color: var(--cx-text, #ededee); box-sizing: border-box; -webkit-app-region: no-drag; }
 .cxd-toolbar *, .cxd-side *, .cxd-terminal *, .cxd-menu *, .cxd-modal-backdrop * { box-sizing: border-box; }
 .cxd-toolbar { position: fixed; right: 10px; top: 7px; height: 30px; display: flex; align-items: center; gap: 3px; z-index: 30; }
@@ -69,11 +70,11 @@ body.cortex-desktop-shell { margin: 0; overflow: hidden; background: var(--cx-gr
 .cxd-icon:hover, .cxd-icon.selected { color: var(--cx-text, #ededee); background: var(--cx-hover, #2d2d2d); }
 .cxd-icon:disabled { opacity: .35; cursor: default; background: transparent; }
 .cxd-icon:focus-visible, .cxd-tab:focus-visible, .cxd-menu button:focus-visible, .cxd-resize:focus-visible { outline: 2px solid var(--cx-accent, #ededee); outline-offset: -2px; }
-/* Seitenbereich und Terminal sind Inseln wie die Flächen der Oberfläche:
-   8 px Abstand, 14 px Radius. Der Seitenbereich beginnt unter dem Band der
-   Werkzeug-Icons, das Terminal liegt unter der Arbeitsfläche. Ist der
-   Seitenbereich offen, stehen die Werkzeug-Icons in seiner Kopfzeile. */
-.cxd-side { position: fixed; top: var(--cx-gap, 8px); right: var(--cx-gap, 8px); bottom: calc(var(--cxd-terminal-height) + var(--cx-gap, 8px)); width: calc(var(--cxd-pane-width) - var(--cx-gap, 8px)); background: var(--cx-bg, #111316); border: 1px solid var(--cx-line, #ffffff0e); border-radius: var(--cx-r-island, 14px); overflow: hidden; display: flex; flex-direction: column; min-width: 0; z-index: 10; }
+/* Seitenbereich und Terminal sind Flächen wie die der Oberfläche: ohne
+   Abstand und ohne runde Ecken, abgesetzt nur durch eine 1-px-Linie. Das
+   Terminal liegt unter der Arbeitsfläche. Ist der Seitenbereich offen,
+   stehen die Werkzeug-Icons in seiner Kopfzeile. */
+.cxd-side { position: fixed; top: var(--cx-gap, 0px); right: var(--cx-gap, 0px); bottom: calc(var(--cxd-terminal-height) + var(--cx-gap, 0px)); width: calc(var(--cxd-pane-width) - var(--cx-gap, 0px)); background: var(--cx-bg, #111316); border: 0; border-left: 1px solid var(--cx-line, #ffffff0e); border-radius: 0; overflow: hidden; display: flex; flex-direction: column; min-width: 0; z-index: 10; }
 .cxd-tabs { display: flex; flex: 1; min-width: 0; align-items: stretch; overflow-x: auto; scrollbar-width: thin; }
 .cxd-side-head { display: flex; align-items: center; gap: 4px; flex: 0 0 46px; min-height: 46px; padding: 0 8px; border-bottom: 1px solid var(--cx-line, #ffffff0e); -webkit-app-region: drag; }
 .cxd-side-tabs { flex: 0 1 auto; min-width: 0; height: 30px; gap: 2px; scrollbar-width: none; -webkit-app-region: no-drag; }
@@ -106,7 +107,7 @@ body.cortex-desktop-shell { margin: 0; overflow: hidden; background: var(--cx-gr
 .cxd-editor-path { min-width: 0; flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: var(--cx-muted, #999a9d); font-size: 11px; }
 .cxd-editor-status { color: var(--cx-dim, #707277); font-size: 11px; white-space: nowrap; }
 .cxd-editor-surface { flex: 1; min-height: 0; width: 100%; overflow: hidden; }
-.cxd-terminal { position: fixed; left: var(--cxd-terminal-left); right: var(--cx-gap, 8px); bottom: var(--cx-gap, 8px); height: calc(var(--cxd-terminal-height) - var(--cx-gap, 8px)); box-sizing: border-box; border: 1px solid var(--cx-line, #ffffff0e); border-radius: var(--cx-r-island, 14px); overflow: hidden; background: var(--cx-bg, #111316); display: flex; flex-direction: column; z-index: 12; }
+.cxd-terminal { position: fixed; left: var(--cxd-terminal-left); right: var(--cx-gap, 0px); bottom: var(--cx-gap, 0px); height: calc(var(--cxd-terminal-height) - var(--cx-gap, 0px)); box-sizing: border-box; border: 0; border-top: 1px solid var(--cx-line, #ffffff0e); border-radius: 0; overflow: hidden; background: var(--cx-bg, #111316); display: flex; flex-direction: column; z-index: 12; }
 .cxd-terminal-header { height: 44px; min-height: 44px; display: flex; align-items: center; padding: 0 7px 0 8px; background: transparent; border-bottom: 1px solid var(--cx-line, #ffffff0e); }
 .cxd-terminal-header > .cxd-icon { align-self: center; }
 .cxd-terminals { flex: 1; position: relative; min-height: 0; padding: 9px 10px 5px 14px; }

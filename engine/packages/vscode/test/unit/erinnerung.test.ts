@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { STANDARD_BEREICHE, leseBereiche, waehleBereiche } from '../../src/memory/bereiche.js';
+import { STANDARD_BEREICHE, leseBereiche, projektRahmen, waehleBereiche } from '../../src/memory/bereiche.js';
 import {
   Erinnerung,
   STANDARD_EINSTELLUNGEN,
@@ -48,18 +48,18 @@ const treffer = (wert: number, titel = 'Status Update Phase X'): Treffer => ({
 describe('Suchbereiche', () => {
   it('sucht immer in den Chats und schaltet Nordwind über ein Stichwort zu', () => {
     const a = waehleBereiche('Welche Apify-Actors hatten wir?', '/Users/x/Desktop/Kortex', STANDARD_BEREICHE);
-    expect(a.projekte).toEqual(['proj_cortex_chats', 'proj_nordwind']);
+    expect(a.projekte).toEqual(['proj_cortex_chats', 'proj_ki_chats', 'proj_nordwind']);
     expect(a.bereiche).toContain('Nordwind Studio');
   });
 
   it('zählt Stichwörter nur als ganze Wörter', () => {
     const a = waehleBereiche('Die factory pattern Frage', undefined, STANDARD_BEREICHE);
-    expect(a.projekte).toEqual(['proj_cortex_chats']);
+    expect(a.projekte).toEqual(['proj_cortex_chats', 'proj_ki_chats']);
   });
 
   it('ein allgemeines Wort allein holt kein fremdes Projekt (Architektur im Bilanz-Chat)', () => {
     const a = waehleBereiche('Wie sieht die Architektur der Haushaltsbuch Übersicht aus?', '/Users/x/Desktop/Haushaltsbuch', STANDARD_BEREICHE);
-    expect(a.projekte).toEqual(['proj_cortex_chats']);
+    expect(a.projekte).toEqual(['proj_cortex_chats', 'proj_ki_chats']);
     const b = waehleBereiche('Architektur und Ökonomie der Städte — wie bei New German Architecture', undefined, STANDARD_BEREICHE);
     expect(b.projekte).toContain('proj_new_german_architecture');
     const c = waehleBereiche('Workflow für den Actor bauen', undefined, STANDARD_BEREICHE);
@@ -81,7 +81,7 @@ describe('Schwärzen', () => {
   it('entfernt den Apify-Token aus dem Chat, der Name bleibt', () => {
     const text = 'Ich habe einen Apify Token: apify_api_EXAMPLEexampleEXAMPLEexample000000 und APIFY_TOKEN=abc123def456ghi';
     const out = schwaerze(text);
-    expect(out).not.toContain('ksviJ90');
+    expect(out).not.toContain('EXAMPLEexample');
     expect(out).not.toContain('abc123def456ghi');
     expect(out).toContain('APIFY_TOKEN=<geheim>');
   });
@@ -118,7 +118,7 @@ describe('Erinnerung im Ablauf', () => {
     const r = await erinnerung.vorbereiten('c1', 'Welche Apify-Actors hatten wir?', { erste: true, ohnePfad: '--c1.md' });
     expect(r.treffer).toHaveLength(1);
     expect(deps.abrufen).toHaveBeenCalledWith(
-      expect.objectContaining({ projekte: ['proj_cortex_chats', 'proj_nordwind'], ohne_pfad: '--c1.md' }),
+      expect.objectContaining({ projekte: ['proj_cortex_chats', 'proj_ki_chats', 'proj_nordwind'], ohne_pfad: '--c1.md' }),
       expect.anything(),
     );
     const [abschnitt] = erinnerung.abschnitte('c1');
@@ -241,5 +241,63 @@ describe('Erinnerung im Ablauf', () => {
     expect(text.startsWith('---\nart: cortex-merkliste')).toBe(true);
     expect(text).toContain('## 2026-09-17\n\nEintrag eins');
     expect(text).toContain('## 2026-09-18\n\nEintrag zwei');
+  });
+});
+
+describe('Projektrahmen', () => {
+  const DE = '/Users/o/Documents/Persönliche Projekte/Dummy Economics';
+  const Nordwind = '/Users/o/Nordwind Studio/Nordwind Engine';
+  const chat = (wert: number, pfad: string): Treffer => ({ ...treffer(wert, pfad), pfad });
+
+  it('bindet einen Chat an sein Projekt und lässt fremde Chats weg', async () => {
+    const roh = [chat(40, 'nordwind.md'), chat(30, 'de.md'), chat(25, 'ohne.md'), { ...treffer(20, 'Bilanz'), projekt: 'proj_dummy_economics' }];
+    const { deps, erinnerung } = aufbau({}, roh);
+    deps.chatProjekt = (pfad) => ({ 'nordwind.md': Nordwind, 'de.md': DE } as Record<string, string>)[pfad];
+    const r = await erinnerung.vorbereiten('c1', 'Was ist der Status Quo mit den Scrapes und der Plattform?', { cwd: DE, projekt: DE, erste: true });
+    expect(r.treffer.map((t) => t.projekt)).toEqual(['proj_cortex_chats', 'proj_dummy_economics']);
+    expect(r.treffer[0]!.pfad).toBe('de.md');
+    expect(deps.abrufen).toHaveBeenCalledWith(expect.objectContaining({ projekte: ['proj_cortex_chats', 'proj_ki_chats', 'proj_dummy_economics'] }), expect.anything());
+    const brief = erinnerung.abschnitte('c1').find((a) => a.id === 'projektrahmen')?.body ?? '';
+    expect(brief).toContain('projekt=proj_dummy_economics');
+    expect(brief).toContain('nicht in die Antwort');
+  });
+
+  it('nimmt ein anderes Projekt dazu, wenn die Nachricht es nennt', async () => {
+    const { deps, erinnerung } = aufbau({}, [chat(40, 'nordwind.md')]);
+    deps.chatProjekt = () => Nordwind;
+    const r = await erinnerung.vorbereiten('c2', 'Wie steht es bei Nordwind mit den Scrapes?', { cwd: DE, projekt: DE, erste: true });
+    expect(r.treffer).toHaveLength(1);
+    expect(deps.abrufen).toHaveBeenCalledWith(expect.objectContaining({ projekte: ['proj_cortex_chats', 'proj_ki_chats', 'proj_dummy_economics', 'proj_nordwind'] }), expect.anything());
+  });
+
+  it('zwei allgemeine Wörter holen im Projekt kein fremdes', () => {
+    const r = projektRahmen(DE, 'Der Workflow für den Vektor', STANDARD_BEREICHE);
+    expect(r.genannt).toEqual([]);
+    expect(r.heimat.map((b) => b.id)).toEqual(['dummy-economics']);
+  });
+
+  it('ohne Projekt bleibt alles wie bisher', async () => {
+    const { deps, erinnerung } = aufbau({}, [chat(40, 'nordwind.md')]);
+    deps.chatProjekt = () => Nordwind;
+    const r = await erinnerung.vorbereiten('c3', 'Status der Scrapes?', { cwd: '/tmp/projectless/x', erste: true });
+    expect(r.treffer).toHaveLength(1);
+    expect(erinnerung.abschnitte('c3').some((a) => a.id === 'projektrahmen')).toBe(false);
+  });
+});
+
+describe('KI-Chats aus ~/KI-Chats', () => {
+  it('bindet auch Claude- und Codex-Chats an das Projekt', async () => {
+    const DE = '/Users/o/Dummy Economics';
+    const ki = (pfad: string): Treffer => ({ ...treffer(30, pfad), projekt: 'proj_ki_chats', pfad });
+    const { deps, erinnerung } = aufbau({}, [ki('claude/2026/de.md'), ki('codex/2026/nordwind.md')]);
+    deps.chatProjekt = vi.fn((pfad: string, ablage: string) => (ablage === 'proj_ki_chats' && pfad.endsWith('/de.md') ? DE : '/Users/o/Nordwind'));
+    const r = await erinnerung.vorbereiten('k1', 'Stand der Scrapes?', { cwd: DE, projekt: DE, erste: true });
+    expect(r.treffer.map((t) => t.pfad)).toEqual(['claude/2026/de.md']);
+    expect(deps.chatProjekt).toHaveBeenCalledWith('claude/2026/de.md', 'proj_ki_chats');
+  });
+
+  it('ergänzt gespeicherte Bereiche um die neue Ablage', () => {
+    const alt = leseBereiche([{ id: 'chats', name: 'Frühere Chats', projekte: ['proj_cortex_chats'], stichwoerter: [], immer: true }]);
+    expect(alt[0]!.projekte).toEqual(['proj_cortex_chats', 'proj_ki_chats']);
   });
 });

@@ -181,7 +181,7 @@ with headless_browser() as browser:
     dock_box, comp_box = dock.bounding_box(), composer.bounding_box()
     assert dock_box['x'] < 300 and dock_box['width'] > 1400, dock_box
     assert abs((comp_box['x'] + comp_box['width'] / 2) - (dock_box['x'] + dock_box['width'] / 2)) < 2
-    # Die Eingabe schwebt unten in der Insel; die endet 8 px vor dem Fensterrand.
+    # Die Eingabe schwebt unten in der Chat-Fläche, die bis an den Fensterrand reicht.
     assert comp_box['width'] <= 721 and comp_box['y'] + comp_box['height'] >= 1074 - 8 - 2
     page.locator('.cx-workspace.dock-full .composer textarea').fill('Im Vollbild tippen')
     expect(page.locator('.composer textarea')).to_have_value('Im Vollbild tippen')

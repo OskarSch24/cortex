@@ -106,6 +106,7 @@ const NATIVE_CONVENTIONS: Record<ProviderId, string[]> = {
   grok: ['AGENTS.md'],
   // Reads nothing from disk — it only ever sees the text it is handed.
   openrouter: [],
+  zai: [],
 };
 
 function fileNameOf(path: string): string {
@@ -319,6 +320,7 @@ function droppedTitle(id: string): string {
     'canvas-scene': 'what was on the Excalidraw canvas',
     remotion: 'the Remotion video of this chat',
     location: 'the location context of this chat',
+    goal: 'goal mode — the goal is finished, paused or ended; no cortex-goal status block any more',
   };
   return names[id] ?? id;
 }

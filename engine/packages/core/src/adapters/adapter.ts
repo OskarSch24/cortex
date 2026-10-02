@@ -29,6 +29,14 @@ export interface RunRequest {
   /** For providers without native resume the orchestrator pre-embeds history here. */
   prompt: string;
   /**
+   * Die Nachricht dieser Runde für sich — ohne Verlauf, ohne Arbeitsumfeld.
+   * Ein Bild-, Video- oder Entscheidungsmodell führt kein Gespräch: sein
+   * Auftrag ist genau dieser Text.
+   */
+  message?: string;
+  /** Seitenverhältnis und Anzahl aus dem Bildmodus (TaskRequest.imageOptions). */
+  imageOptions?: { ratio: string; count: number };
+  /**
    * What to send instead when `resumeSessionId` turns out to be unusable and
    * the CLI silently starts a fresh one.
    *

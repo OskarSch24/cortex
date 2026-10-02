@@ -8,6 +8,7 @@ import type {
 } from '@cortex/core';
 import type { HostToWebview } from './protocol.js';
 import type { ImageOptions } from './imageOptions.js';
+import { recognizeGrokStep } from './legacySteps.js';
 
 /**
  * Pure transcript logic shared by the webview (live rendering) and the host
@@ -21,6 +22,8 @@ export interface ToolStep {
   name: string;
   /** One line, always visible: the file, command or query. */
   detail?: string;
+  /** What the call is for, in the agent's own words — a shell call's `description`. */
+  description?: string;
   /** Body revealed when the step is expanded (a diff, file content, a command). */
   preview?: string;
   /** File the step touched, workspace-relative when known. */
@@ -107,8 +110,18 @@ export interface GeneratedImage {
   edited?: boolean;
 }
 
+export interface GeneratedVideo {
+  path: string;
+  src: string;
+  prompt?: string;
+}
+
 export type TranscriptItem =
-  | { kind: 'user'; text: string; attachments?: string[]; at?: number; image?: ImageOptions }
+  | {
+      kind: 'user'; text: string; attachments?: string[]; at?: number; image?: ImageOptions;
+      /** Eine Runde eines Ziels (`/goal`); `auto`: von Cortex geschickt — eine schmale Zeile statt einer Blase. */
+      goal?: { id: string; round: number; auto: boolean };
+    }
   | {
       kind: 'assistant';
       messageId: string;
@@ -136,6 +149,8 @@ export type TranscriptItem =
       images?: GeneratedImage[];
       /** Die Felder des Bildmodus, mit denen der Auftrag gestellt wurde. */
       imageOptions?: ImageOptions;
+      /** Was ein Videomodell in diesem Auftrag geliefert hat. */
+      videos?: GeneratedVideo[];
     }
   | { kind: 'review'; by: string; text: string }
   /** The model's own checklist; replaced in place as it progresses. */
@@ -211,7 +226,7 @@ export function applyHostMessage(items: TranscriptItem[], msg: HostToWebview): T
 
   switch (msg.kind) {
     case 'userEcho': {
-      next.push({ kind: 'user', text: msg.text, ...(msg.attachments?.length ? { attachments: msg.attachments } : {}), ...(msg.at ? { at: msg.at } : {}), ...(msg.image ? { image: msg.image } : {}) });
+      next.push({ kind: 'user', text: msg.text, ...(msg.attachments?.length ? { attachments: msg.attachments } : {}), ...(msg.at ? { at: msg.at } : {}), ...(msg.image ? { image: msg.image } : {}), ...(msg.goal ? { goal: msg.goal } : {}) });
       break;
     }
     case 'image': {
@@ -220,6 +235,14 @@ export function applyHostMessage(items: TranscriptItem[], msg: HostToWebview): T
       if (item.images?.some((img) => img.path === msg.path)) break;
       const image: GeneratedImage = { path: msg.path, src: msg.src, ...(msg.prompt ? { prompt: msg.prompt } : {}), ...(msg.edited ? { edited: true } : {}) };
       next[i] = { ...item, images: [...(item.images ?? []), image], ...(msg.options ? { imageOptions: msg.options } : {}) };
+      break;
+    }
+    case 'video': {
+      const i = ensureAssistant(msg.messageId);
+      const item = next[i] as Extract<TranscriptItem, { kind: 'assistant' }>;
+      if (item.videos?.some((video) => video.path === msg.path)) break;
+      const video: GeneratedVideo = { path: msg.path, src: msg.src, ...(msg.prompt ? { prompt: msg.prompt } : {}) };
+      next[i] = { ...item, videos: [...(item.videos ?? []), video] };
       break;
     }
     case 'routing': {
@@ -247,15 +270,16 @@ export function applyHostMessage(items: TranscriptItem[], msg: HostToWebview): T
     }
     case 'toolUse': {
       const i = ensureAssistant(msg.messageId);
-      const step: ToolStep = {
+      const step: ToolStep = recognizeGrokStep({
         name: msg.name,
         detail: msg.detail,
+        ...(msg.description ? { description: msg.description } : {}),
         preview: msg.preview,
         path: msg.path,
         action: msg.action,
         ...(msg.added !== undefined ? { added: msg.added } : {}),
         ...(msg.removed !== undefined ? { removed: msg.removed } : {}),
-      };
+      });
       // A subagent's work goes to its own lane; an unknown agent id falls back
       // to the main timeline rather than vanishing.
       if (

@@ -17,6 +17,8 @@ export type HostToWebview =
   | { kind: 'conversationSearch'; hits: import('../conversationSearch.js').ConversationHit[]; requestId: number }
   | { kind: 'widgetState'; conversationId: string; key: string; value: unknown }
   | { kind: 'messageQueue'; conversationId: string; items: QueuedMessageDto[]; paused: boolean; pauseReason?: import('../messageQueue.js').QueuePauseReason }
+  /** Das Ziel eines Chats (`/goal`) — ohne `goal`, wenn keines gesetzt ist. */
+  | { kind: 'goal'; conversationId: string; goal?: import('@cortex/core').ChatGoal }
   | { kind: 'nativeSettings'; values: Record<string, unknown>; error?: string; revision?: number; ack?: { key: string; requestId: string; error?: string } }
   | { kind: 'appSettings'; values: Record<string, unknown>; revision?: number; ack?: { key: string; requestId: string; error?: string } }
   | { kind: 'imports'; found: Array<{ id: string; name: string; path: string }> }
@@ -84,9 +86,15 @@ export type HostToWebview =
   | { kind: 'pluginProgress'; id: string; ok: boolean; message: string; action?: { label: string; open: string } }
   /** Ein Werkzeug aus der Fenster-Titelleiste — dort liegen die Knöpfe jetzt. */
   | { kind: 'toolbar'; action: 'files' | 'dock' | 'changes' | 'canvas' | 'video' | 'browser' | 'terminal' | 'sidebar' | 'project' | 'overview' }
-  | { kind: 'userEcho'; text: string; attachments?: string[]; at?: number; image?: ImageOptions }
+  | {
+      kind: 'userEcho'; text: string; attachments?: string[]; at?: number; image?: ImageOptions;
+      /** Eine Runde eines Ziels (`/goal`); `auto`: Cortex hat sie geschickt, nicht der Nutzer. */
+      goal?: { id: string; round: number; auto: boolean };
+    }
   /** Ein Bildwerkzeug hat eine Datei geschrieben. `src` ist die Webview-Adresse dazu. */
   | { kind: 'image'; messageId: string; path: string; src: string; prompt?: string; edited?: boolean; options?: ImageOptions }
+  /** Ein Videomodell hat eine Datei geliefert, im Chat gesichert. `src` ist die Webview-Adresse dazu. */
+  | { kind: 'video'; messageId: string; path: string; src: string; prompt?: string }
   | { kind: 'routing'; messageId: string; target: Target; ruleId?: string; reason: string }
   | { kind: 'delta'; messageId: string; text: string }
   | {
@@ -94,6 +102,8 @@ export type HostToWebview =
       messageId: string;
       name: string;
       detail?: string;
+      /** What the call is for, in the agent's own words. */
+      description?: string;
       preview?: string;
       path?: string;
       action?: ToolAction;

@@ -14,6 +14,7 @@
  */
 
 import type { BriefSection } from './brief.js';
+import { hasSlashCommand } from '../commands/slashCommands.js';
 
 export const CANVAS_LANG = 'cortex-excalidraw';
 
@@ -55,9 +56,9 @@ export const CANVAS_BRIEF = [
     'Several diagrams at once: send one block with "mode": "add" per extra diagram, or one flow with groups.',
 ].join('\n');
 
-/** `/excalidraw …` — auch hinter einer Konto-Erwähnung wie `@claude`. */
+/** `/excalidraw …` — auch hinter einer Konto-Erwähnung wie `@claude` oder neben anderen Befehlen (`/goal /excalidraw …`). */
 export function asksForCanvas(prompt: string): boolean {
-  return /^\s*(?:@\S+\s+)?\/excalidraw\b/i.test(prompt);
+  return /^\s*(?:@\S+\s+)?\/excalidraw\b/i.test(prompt) || hasSlashCommand(prompt, 'excalidraw');
 }
 
 /**

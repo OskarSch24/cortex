@@ -8,7 +8,8 @@ import {
 import { assistantText } from '../../../src/panel/transcript.js';
 import { AgentLanes } from '../AgentLanes.js';
 import { ImageCard, type ImageAction } from '../ImageCard.js';
-import type { GeneratedImage } from '../../../src/panel/transcript.js';
+import type { GeneratedImage, GeneratedVideo } from '../../../src/panel/transcript.js';
+import { Glyph } from '../CortexIcons.js';
 import type { ImageOptions } from '../../../src/panel/imageOptions.js';
 import { useState } from 'preact/hooks';
 import { RunState } from './RunState.js';
@@ -36,6 +37,20 @@ export type ImageActionHandler = (
   target?: { provider: string; account: string },
 ) => void;
 
+/** Videos, die ein Modell für diese Antwort gemacht hat — gleich hier abspielbar. */
+function VideoCard({ videos }: { videos: GeneratedVideo[] }) {
+  return (
+    <div class="cx-video-card">
+      {videos.map((video) => (
+        <figure key={video.path} class="cx-video">
+          <video src={video.src} controls preload="metadata" playsInline />
+          {video.prompt && <figcaption title={video.prompt}><Glyph name="play" size={12} /><span>{video.prompt}</span></figcaption>}
+        </figure>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Eine Antwort im Aufbau der Codex-App.
  *
@@ -44,12 +59,18 @@ export type ImageActionHandler = (
  * Arbeit hinter „… lang gearbeitet ›“; stehen bleiben die Schlussantwort und
  * darunter die Karten — Webvorschau, geänderte Dateien.
  */
-export function AssistantTurn({ item, items, running, startedAt, handlers, children }: {
+export function AssistantTurn({ item, items, running, startedAt, handlers, state, children }: {
   item: Extract<TranscriptItem, { kind: 'assistant' }>;
   items: TranscriptItem[];
   running?: boolean;
   startedAt: number;
   handlers: TurnHandlers;
+  /**
+   * Nur die unterste laufende Antwort trägt Tätigkeit und Uhr. Schickst du
+   * während eines Laufs nach, steht für jede Nachricht eine eigene Antwort
+   * bereit — die Anzeige aber gehört einmal ans Ende des Verlaufs.
+   */
+  state?: { segments?: Segment[] };
   children?: preact.ComponentChildren;
 }) {
   const [open, setOpen] = useState(false);
@@ -72,6 +93,9 @@ export function AssistantTurn({ item, items, running, startedAt, handlers, child
   const answer = assistantText(item);
   const urls = item.done ? localUrls(answer) : [];
   const files = item.done ? turnFiles(item.segments) : [];
+  // Eine bereitgestellte Antwort auf eine nachgeschickte Nachricht, in der noch
+  // nichts steht: kein leerer Block im Verlauf, bis der Agent bei ihr ankommt.
+  if (live && !state && item.segments.length === 0 && !item.images?.length && !item.videos?.length && !item.stopped) return null;
   const imagePending = live && running && indexed.some(([seg]) => seg.kind === 'tools' && seg.steps.some(step => /image[_-]?(gen|edit|generation)|bild.*(erstell|bearbeit)/i.test(step.name)));
   return (
     <div class={`tl tl-assistant cx-c-turn ${live ? 'tl-live' : ''}`}>
@@ -83,7 +107,7 @@ export function AssistantTurn({ item, items, running, startedAt, handlers, child
         </>
       )}
       {(live ? work : final).map(([seg, j]) => segment(seg, j))}
-      {live && running && startedAt > 0 && <RunState items={items} segments={item.segments} activity={handlers.activity} />}
+      {live && running && startedAt > 0 && state && <RunState items={items} segments={state.segments} activity={handlers.activity} />}
       {item.stopped && <div class="assistant-stopped">⊘ {item.stoppedReason ?? 'stopped'}</div>}
       {!!item.images?.length && handlers.onImageAction && (
         <ImageCard
@@ -96,6 +120,7 @@ export function AssistantTurn({ item, items, running, startedAt, handlers, child
         />
       )}
       {imagePending && !item.images?.length && <div class="cx-image-pending" role="status" aria-label="Bild wird erstellt"><span /></div>}
+      {!!item.videos?.length && <VideoCard videos={item.videos} />}
       {!item.images?.length && handlers.onOpenUrlIn && urls.map(url => <WebPreviewCard key={url} url={url} onOpenIn={(app) => handlers.onOpenUrlIn!(url, app)} />)}
       {files.length > 0 && handlers.onReview && (
         <TurnChanges

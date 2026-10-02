@@ -4,6 +4,7 @@ Kein Anbieter, kein Netz: der Vorschau-Server auf 4173 startet von selbst
 (headless_browser.preview_server). Was die Karte an den Host schickt, landet in
 `window.__hostMessages` und wird hier geprüft, statt einen Lauf zu starten.
 """
+import json
 from pathlib import Path
 from playwright.sync_api import expect
 from headless_browser import headless_browser
@@ -43,6 +44,17 @@ def supply_agents(page, teams):
         " state: {teams, runs: [], servers: [], skills: [], revision: 1}}}))", teams)
 
 
+POOL_LANDS = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR',
+              'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO']
+
+
+def post_card(page, message_id, spec):
+    """Eine Antwort mit Schwarm-Karte, wie sie das Modell schreibt."""
+    block = '```cortex-widget\n' + json.dumps(spec, ensure_ascii=False) + '\n```'
+    page.evaluate('m => window.postMessage(m, "*")', {'kind': 'delta', 'messageId': message_id, 'text': block})
+    page.evaluate('m => window.postMessage(m, "*")', {'kind': 'done', 'messageId': message_id})
+
+
 with headless_browser() as browser:
     page, errors = open_page(browser)
     card = page.get_by_role('region', name='Agenten-Schwarm')
@@ -65,17 +77,22 @@ with headless_browser() as browser:
         less.click()
     expect(count).to_have_value('1')
     expect(card).to_contain_text('Qualitätsverlust: keiner')
-    expect(card).to_contain_text('getrennte Teile')
+    expect(card).to_contain_text('eine Rolle')
+    expect(card).to_contain_text('läuft sofort')
     expect(less).to_be_disabled()
 
     count.fill('7')
     expect(card).to_contain_text('Qualitätsverlust: spürbar')
     expect(card).to_contain_text('Überschneidung')
 
-    # Ab mehr Rollen, als gleichzeitig laufen, wird gewartet — das sagt die Karte.
+    # Viele Rollen ohne eigenen Bereich: hoch, wegen Überschneidung — gewartet
+    # wird nicht, alle laufen gleichzeitig auf dem Konto des Chats.
     count.fill('13')
     expect(card).to_contain_text('Qualitätsverlust: hoch')
-    expect(card).to_contain_text('12 gleichzeitig, 3 je Konto')
+    expect(card).to_contain_text('Überschneidung')
+    expect(card).to_contain_text('alle laufen gleichzeitig')
+    expect(card).not_to_contain_text('je Konto')
+    expect(card).not_to_contain_text('warten')
 
     # Über die Grenze hinaus nimmt das Feld nichts an.
     count.fill('25')
@@ -156,5 +173,69 @@ with headless_browser() as browser:
         assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), width
         assert errors == [], errors
 
+    # Pool: mehr als 20 Einheiten, jede mit ihrem Bereich — die Karte zählt
+    # alle, zeigt die ersten acht und schickt Bereiche, Gleichzeitigkeit und
+    # Worktree-Trennung mit.
+    pool_units = [{'name': land, 'role': f'Importer {land}', 'owns': [f'europa/importer/{land}/**', f'daten/{land}/']} for land in POOL_LANDS]
+    page, errors = open_page(browser)
+    post_card(page, 'pool-msg', {'type': 'agent-swarm', 'task': 'Importer Welle 2 für alle Länder', 'units': pool_units, 'isolation': 'worktree'})
+    card = page.locator('section.cx-w', has_text='24 Einheiten')
+    expect(card).to_be_visible()
+    card.evaluate('e => e.scrollIntoView({ block: "center" })')
+    expect(card).to_contain_text('24 Einheiten · 20 zugleich')
+    expect(card).to_contain_text('Jede Einheit in ihrem eigenen Git-Worktree')
+    expect(card).to_contain_text('Qualitätsverlust: gering')
+    expect(card).to_contain_text('getrennte Bereiche')
+    expect(card).to_contain_text('20 laufen zugleich auf dem Konto dieses Chats')
+    expect(card.locator('.cx-w-pool-unit')).to_have_count(8)
+    expect(card.locator('.cx-w-pool-owns').first).to_have_text('europa/importer/AT/** · daten/AT/')
+    expect(card.locator('.cx-w-pool-more')).to_have_text('16 weitere')
+    # Im Pool gibt es keine Besetzung von Hand.
+    expect(card.get_by_role('spinbutton')).to_have_count(0)
+    expect(card.get_by_role('button', name='Agenten wählen')).to_have_count(0)
+    overflow = card.evaluate('e => [...e.querySelectorAll("*")].filter(c => c.getBoundingClientRect().right > e.getBoundingClientRect().right + 1).length')
+    assert overflow == 0, overflow
+    card.screenshot(path=str(SHOTS / 'swarm-pool.png'))
+
+    card.get_by_role('button', name='Starten').click()
+    sent = page.evaluate("window.__hostMessages.filter(m => m.kind === 'startSwarm')")
+    assert len(sent) == 1, sent
+    assert sent[0]['count'] == 24 and sent[0]['agentIds'] == [], sent[0]
+    assert sent[0]['pool'] == {'concurrency': 20} and sent[0]['isolation'] == 'worktree', sent[0]
+    assert sent[0]['proposed'][0] == {'name': 'AT', 'role': 'Importer AT', 'owns': ['europa/importer/AT/**', 'daten/AT/']}, sent[0]
+    assert len(sent[0]['proposed']) == 24, sent[0]
+
+    # Der laufende Pool nennt die Zahl je Stand statt „x von y“.
+    jobs = ([{'agentId': f'u{i}', 'agentName': land, 'status': status} for i, (land, status) in enumerate(zip(POOL_LANDS,
+            ['running'] * 3 + ['completed'] * 2 + ['failed'] + ['waiting'] * 18))])
+    jobs[3]['outside'] = ['gemeinsam/schema.json']
+    page.evaluate(
+        "(run) => window.dispatchEvent(new MessageEvent('message', {data: {kind: 'teamsState',"
+        " state: {teams: [], runs: [run], servers: [], skills: [], revision: 3}}}))",
+        {'id': 'run-pool', 'teamId': sent[0]['swarmId'], 'teamName': 'Schwarm', 'task': sent[0]['task'], 'status': 'running', 'startedAt': 0, 'jobs': jobs})
+    card = page.get_by_role('region', name='Agenten-Schwarm').filter(has_text='Schwarm läuft')
+    expect(card).to_contain_text('Schwarm läuft · 3 arbeiten · 18 offen · 2 fertig · 1 gescheitert')
+    expect(card).to_contain_text('1 außerhalb ihres Bereichs')
+    # Die Merge-Warteschlange steht im selben Satz: übernommen und Konflikte.
+    jobs[3]['merge'] = {'state': 'merged'}
+    jobs[4]['merge'] = {'state': 'conflict', 'detail': 'src/a.ts'}
+    page.evaluate(
+        "(run) => window.dispatchEvent(new MessageEvent('message', {data: {kind: 'teamsState',"
+        " state: {teams: [], runs: [run], servers: [], skills: [], revision: 4}}}))",
+        {'id': 'run-pool', 'teamId': sent[0]['swarmId'], 'teamName': 'Schwarm', 'task': sent[0]['task'], 'status': 'running', 'startedAt': 0, 'jobs': jobs})
+    expect(card).to_contain_text('1 außerhalb ihres Bereichs · 1 übernommen · 1 Konflikt')
+    assert errors == [], errors
+
+    # start: true im Pool startet von selbst, genau einmal, mit gedeckelter Gleichzeitigkeit.
+    page, errors = open_page(browser)
+    post_card(page, 'pool-auto', {'type': 'agent-swarm', 'start': True, 'task': 'Welle 3', 'units': pool_units[:6], 'concurrency': 99})
+    page.wait_for_function("window.__hostMessages.some(m => m.kind === 'startSwarm')", timeout=10000)
+    page.wait_for_timeout(800)
+    sent = page.evaluate("window.__hostMessages.filter(m => m.kind === 'startSwarm')")
+    assert len(sent) == 1, sent
+    assert sent[0]['count'] == 6 and sent[0]['pool'] == {'concurrency': 50} and 'isolation' not in sent[0], sent[0]
+    expect(page.locator('section.cx-w', has_text='Agenten-Schwarm startet')).to_contain_text('6 Einheiten im Hintergrund · 6 zugleich')
+    assert errors == [], errors
+
 print('Agenten-Schwarm: Anzahl, vier Qualitätsstufen, Grenze 20, Auswahl mit Nachziehen der Anzahl, '
-      'Start nur mit Auftrag, Laufansicht und Stopp bestanden.')
+      'Start nur mit Auftrag, Laufansicht und Stopp, Pool mit Bereichen, Worktrees, Zusammenführung und Selbststart bestanden.')

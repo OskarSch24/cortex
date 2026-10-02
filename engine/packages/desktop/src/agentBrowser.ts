@@ -44,10 +44,20 @@ const fail = (error: string): AgentBrowserAnswer => ({ text: '', error });
 const str = (value: unknown): string => (typeof value === 'string' ? value : '');
 const num = (value: unknown, fallback: number): number => (typeof value === 'number' && Number.isFinite(value) ? value : fallback);
 
+/**
+ * Die Seite des Tabs, solange sie lebt. Ist sie zerstört (window.close() eines
+ * Anmeldefensters, Schließen des Hauptfensters), leert Electron
+ * view.webContents — schon im 'destroyed'-Ereignis ist es undefined.
+ */
+export function liveContents(tab: AgentTab): WebContents | undefined {
+  const contents = tab.view.webContents as WebContents | undefined;
+  return contents && !contents.isDestroyed() ? contents : undefined;
+}
+
 function describe(tab: AgentTab): string {
-  const contents = tab.view.webContents;
-  const url = contents.isDestroyed() ? 'about:blank' : contents.getURL() || 'about:blank';
-  const title = contents.isDestroyed() ? '' : contents.getTitle();
+  const contents = liveContents(tab);
+  const url = contents?.getURL() || 'about:blank';
+  const title = contents?.getTitle() ?? '';
   return `${tab.id} · ${title || url}${title && title !== url ? ` · ${url}` : ''}${tab.loading ? ' · lädt' : ''}${tab.error ? ` · Fehler: ${tab.error}` : ''}`;
 }
 
@@ -86,8 +96,8 @@ async function ensureLayout(host: AgentBrowserHost, tab: AgentTab): Promise<void
 export function releaseLayout(tab: AgentTab): void {
   if (!tab.emulated) return;
   tab.emulated = false;
-  const debug = tab.view.webContents.debugger;
-  if (!debug.isAttached()) return;
+  const debug = liveContents(tab)?.debugger;
+  if (!debug?.isAttached()) return;
   void debug.sendCommand('Emulation.clearDeviceMetricsOverride').catch(() => undefined).finally(() => { try { debug.detach(); } catch { /* schon getrennt */ } });
 }
 
@@ -167,14 +177,14 @@ const SUBMIT_SCRIPT = `(() => {
 
 function ownTab(host: AgentBrowserHost, conversationId: string, id: string, action: string): AgentTab | AgentBrowserAnswer {
   const tab = host.tabs.get(id);
-  if (!tab || tab.view.webContents.isDestroyed()) return fail(`Tab ${id || '(ohne Id)'} gibt es nicht. browser_tabs zeigt die offenen Tabs.`);
+  if (!tab || !liveContents(tab)) return fail(`Tab ${id || '(ohne Id)'} gibt es nicht. browser_tabs zeigt die offenen Tabs.`);
   if (tab.owner !== conversationId) return fail(`Tab ${id} gehört ${tab.owner ? 'einem anderen Chat' : 'dem Nutzer'} — ${action} geht nur in eigenen Tabs. Öffne die Seite mit browser_open in einem eigenen Tab.`);
   return tab;
 }
 
 function anyTab(host: AgentBrowserHost, id: string): AgentTab | AgentBrowserAnswer {
   const tab = host.tabs.get(id);
-  if (!tab || tab.view.webContents.isDestroyed()) return fail(`Tab ${id || '(ohne Id)'} gibt es nicht. browser_tabs zeigt die offenen Tabs.`);
+  if (!tab || !liveContents(tab)) return fail(`Tab ${id || '(ohne Id)'} gibt es nicht. browser_tabs zeigt die offenen Tabs.`);
   return tab;
 }
 
@@ -226,7 +236,7 @@ export async function agentBrowser(host: AgentBrowserHost, conversationId: strin
   try {
     switch (tool) {
       case 'browser_tabs': {
-        const all = [...host.tabs.values()].filter(tab => !tab.view.webContents.isDestroyed());
+        const all = [...host.tabs.values()].filter(tab => liveContents(tab));
         const own = all.filter(tab => tab.owner === conversationId);
         const user = all.filter(tab => !tab.owner);
         const lines = [

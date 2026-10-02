@@ -4,6 +4,7 @@
  * `grok --acp` / `copilot --acp` so the adapter can be verified end to end
  * without a live account. Behaviour is driven by the prompt text:
  *   "TOOL"       → emits a tool_call update
+ *   "GROKCALLS"  → Grok-shaped tool calls: a named command and two web searches
  *   "PERMISSION" → asks the client for permission before answering
  *   "SLOW"       → streams slowly so a test can inject mid-turn
  *   "LIMIT"      → fails the prompt with a quota error
@@ -70,6 +71,15 @@ async function runPrompt(sessionId, text, respond) {
       kind: 'execute',
       rawInput: { command: 'ls -la' },
     });
+  }
+  if (/GROKCALLS/.test(text)) {
+    // Shaped like Grok 1.0.x: tool name as title, no kind, the category in _meta;
+    // its own web search starts empty and names the query only when done.
+    const meta = (name, kind) => ({ 'x.ai/tool': { version: 1, name, kind, namespace: 'grok_build' } });
+    update(sessionId, { sessionUpdate: 'tool_call', toolCallId: 'g-1', title: 'run_terminal_command', rawInput: { command: 'ls', description: 'List the import folder' }, _meta: meta('run_terminal_command', 'execute') });
+    update(sessionId, { sessionUpdate: 'tool_call', toolCallId: 'ws-1', title: 'Web search:', kind: 'search', status: 'in_progress', rawInput: { variant: 'WebSearch', backend: true } });
+    update(sessionId, { sessionUpdate: 'tool_call_update', toolCallId: 'ws-1', status: 'completed', title: 'Web search:', rawOutput: { action: { type: 'search', query: 'cortex acp', sources: [{ type: 'url', url: 'https://example.org' }] } } });
+    update(sessionId, { sessionUpdate: 'tool_call', toolCallId: 'ws-2', title: 'Web search:', kind: 'search', status: 'in_progress', rawInput: { variant: 'WebSearch', backend: true } });
   }
   const image = /IMAGE:(\S+)/.exec(text);
   if (image) {
@@ -156,7 +166,7 @@ createInterface({ input: process.stdin }).on('line', async (line) => {
       break;
     case 'session/set_model':
       if (!authenticated) { respond({ error: { code: -32000, message: 'not authenticated' } }); break; }
-      if (!['grok-4.6', 'grok-4.5'].includes(msg.params?.modelId)) { respond({ error: { code: -32602, message: 'unknown model id' } }); break; }
+      if (!['grok-4.7', 'grok-4.7-build-fast', 'grok-4.6', 'grok-4.5'].includes(msg.params?.modelId)) { respond({ error: { code: -32602, message: 'unknown model id' } }); break; }
       selectedModel = msg.params.modelId;
       respond({ result: {} });
       break;

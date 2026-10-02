@@ -33,10 +33,11 @@ const TIER_MODELS: Record<ProviderId, Record<Tier, string | undefined>> = {
     standard: 'claude-sonnet-4.6',
     heavy: 'gpt-5.4',
   },
-  grok: { light: 'grok-4.5', standard: 'grok-4.6', heavy: 'grok-4.6' },
+  grok: { light: 'grok-4.7-build-fast', standard: 'grok-4.7', heavy: 'grok-4.7' },
   // Never routed to (review-only), so the tier never gets read; the adapter
   // picks a free model for itself.
   openrouter: { light: undefined, standard: undefined, heavy: undefined },
+  zai: { light: undefined, standard: undefined, heavy: undefined },
 };
 
 /**

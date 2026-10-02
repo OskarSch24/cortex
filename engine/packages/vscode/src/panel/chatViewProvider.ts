@@ -1,6 +1,8 @@
 import { MessageQueue, type QueuedMessage } from './messageQueue.js';
 import { ActiveClock } from './activeClock.js';
 import { createForkWorkspace, workspaceRunKey } from './forkWorkspace.js';
+import { commitUnit, createUnitWorkspace, unitChanges } from '../teams/unitWorkspace.js';
+import { SwarmMerge } from './host/swarmMerge.js';
 import { NATIVE_SETTINGS } from './nativeSettings.js';
 import { compactionPlan, validCompactionSummary, workingHistory } from './contextCompaction.js';
 import { TeamStore } from '../teams/store.js';
@@ -16,11 +18,11 @@ import { basename, relative, join, dirname } from 'node:path';
 import { captureBaseline, captureTurnEnd, inspectWorkspace, projectRelative, validProject, type Baseline } from './workspace.js';
 import { HtmlPreviewServer } from './htmlPreview.js';
 import { IMAGE_FILE, imagePreviewData, stageImage } from './imageAttachments.js';
-import { archiveGeneratedImage } from './imageArchive.js';
+import { archiveGeneratedImage, archiveGeneratedVideo } from './imageArchive.js';
 import type { OpenRouterCatalog } from '../openrouterCatalog.js';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { asksForVideo, pluginFields, readSkills, type McpServerDef } from '@cortex/core';
+import { asksForVideo, goalCommand, pluginFields, readSkills, type GoalRound, type McpServerDef } from '@cortex/core';
 import type { PluginCredentials } from '../plugins/credentials.js';
 import type { PluginConnections } from '../plugins/connections.js';
 import { profileServers } from '../plugins/profileServers.js';
@@ -49,6 +51,7 @@ import {
   revisionPrompt,
   isClean,
   isReviewOnly,
+  SCOPED_MCP_PROVIDERS,
   scopedMcpUnsupportedMessage,
   parsePlan,
   type PermissionDecision,
@@ -85,7 +88,7 @@ import { removeGeneratedImageBackground } from './nativeImages.js';
 import { ExokortexExport } from '../storage/exokortexExport.js';
 import { StatusWatch } from '../exokortex/watch.js';
 import { Erinnerung, erinnerungsEinstellungen } from '../memory/host.js';
-import { exokortexAbruf } from '../memory/exokortexAbruf.js';
+import { chatProjekt, exokortexAbruf } from '../memory/exokortexAbruf.js';
 import { schreibeMerkliste } from '../memory/merkliste.js';
 import { trefferFuerAnzeige, type Helfer } from '../memory/erinnerung.js';
 import type { HistoryBridge } from '../history/bridge.js';
@@ -129,15 +132,26 @@ import { teamTable, type TeamsHost } from './host/teams.js';
 import { conversationTable, type ConversationsHost } from './host/conversations.js';
 import { rewindTable, type RewindHost } from './host/rewind.js';
 import { queueTable, type QueueHost } from './host/queue.js';
+import { GoalHost, goalTable, restoredGoal, withoutGoalRounds, type GoalPanelHost } from './host/goals.js';
 
 /** Alles, was die Bereiche unter host/ vom Provider erreichen. */
-type ProviderBridge = ShellHost & RemotionPanelHost & ExokortexPanelHost & PluginPanelHost & AccountsPanelHost & FilesHost & SidePaneHost & ImagesHost & ProjectsHost & CanvasPanelHost & HistoryHost & TeamsHost & ConversationsHost & RewindHost & QueueHost;
+type ProviderBridge = ShellHost & RemotionPanelHost & ExokortexPanelHost & PluginPanelHost & AccountsPanelHost & FilesHost & SidePaneHost & ImagesHost & ProjectsHost & CanvasPanelHost & HistoryHost & TeamsHost & ConversationsHost & RewindHost & QueueHost & GoalPanelHost;
 
 /**
  * Claude-panel style layout: the sidebar webview is a session list only;
  * each conversation opens as its own editor tab (one tab per conversation,
  * revealed if already open). Conversations persist across reloads.
  */
+/** Ein Wort für die Shell, nur wenn nötig in Anführungszeichen. */
+function shellWord(word: string): string {
+  return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, `'\\''`)}'`;
+}
+
+/** Ein Schwarm aus einer Chat-Karte — geteilt, im Pool oder mit eigenen Worktrees. */
+export function isSwarmTeam(team: AgentTeam): boolean {
+  return !!team.sharedWorkspace || !!team.pool || team.isolation === 'worktree';
+}
+
 /** Ein Lauf, der am Nutzungslimit eines Kontos endete — dann lohnt ein anderes Konto. */
 export function isLimitError(message: string | undefined): boolean {
   return /usage limit|rate.?limit|quota|limit reached|hit limits|kontingent|limit erreicht|insufficient.?credit/i.test(message ?? '');
@@ -180,6 +194,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private remotionHost?: RemotionHost;
   private get remotion(): RemotionHost {
     return this.remotionHost ??= new RemotionHost(this.panelHost);
+  }
+  /** Das Ziel eines Chats (`/goal`, host/goals.ts) — erst beim ersten Zugriff angelegt. */
+  private goalHost?: GoalHost;
+  private get goals(): GoalHost {
+    return this.goalHost ??= new GoalHost(this.panelHost);
   }
   private computerHistoryBridge?: HistoryBridge<vscode.Webview>;
   private queues = new MessageQueue(
@@ -291,6 +310,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.persistSoon();
     },
     merken: eintrag => schreibeMerkliste(eintrag),
+    chatProjekt,
     log: zeile => this.output.appendLine(zeile),
   });
 
@@ -382,8 +402,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.conversations.set(rec.id, rec);
       // Old conversations keep their context after a reload.
       for (const turn of workingHistory(rec.turns, rec.contextCompaction)) sessions.appendTurn(rec.id, turn);
+      // Ein Ziel, das lief, wartet nach dem Neustart auf „Weiter“ — wie die Warteschlange.
+      restoredGoal(rec);
     }
-    this.queues.restore(Object.fromEntries(Object.entries(ctx.globalState.get<Record<string, QueuedMessage[]>>(QUEUE_KEY, {})).filter(([id]) => this.conversations.has(id))));
+    this.queues.restore(Object.fromEntries(Object.entries(ctx.globalState.get<Record<string, QueuedMessage[]>>(QUEUE_KEY, {})).filter(([id]) => this.conversations.has(id)).map(([id, items]) => [id, withoutGoalRounds(items)])));
     sessions.restoreNative(ctx.globalState.get<Record<string, string>>(NATIVE_SESSIONS_KEY, {}));
     sessions.restoreForkPoints(ctx.globalState.get<Record<string, string>>(FORK_POINTS_KEY, {}));
     sessions.restoreSeen(ctx.globalState.get<Record<string, number>>(SEEN_TURNS_KEY, {}));
@@ -404,7 +426,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private teams(): TeamStore {
     if (!this.teamStore) {
       this.teamStore = new TeamStore(join(this.ctx.globalStorageUri.fsPath, 'agent-teams.json'));
-      this.teamRunner = new TeamRunner(this.teamStore, (team, agent, task, upstream, signal, update) => this.runTeamAgent(team, agent, task, upstream, signal, update), () => this.pushTeams());
+      this.teamRunner = new TeamRunner(this.teamStore, (team, agent, task, upstream, signal, update) => this.runTeamAgent(team, agent, task, upstream, signal, update), () => this.pushTeams(), team => this.poolAccounts(team));
     }
     return this.teamStore;
   }
@@ -471,6 +493,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private pushTeams(webview?: vscode.Webview): void {
     const store = this.teams();
     store.refresh();
+    // Fertige Einheiten gehen in eine eingeschaltete Merge-Warteschlange (host/swarmMerge.ts).
+    if (!webview) this.merges().sweep();
     const message: HostToWebview = { kind: 'teamsState', state: { teams: store.teams, runs: store.runs, revision: store.revision, error: store.error, automations: this.automationRuntime?.snapshot(), ...this.teamResources() } };
     if (webview) this.safePost(webview, message);
     else {
@@ -540,6 +564,51 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
    * Rolle, die Schwarmkennung `swarm-<Ursprungs-Chat>-…` den Chat, der ihn
    * gestartet hat. So gilt es auch für Rollen, die vor dieser Zuordnung liefen.
    */
+  /**
+   * Die Konten, auf die ein Schwarm im Pool gerade Einheiten legen darf: frei,
+   * angemeldet, mit Kontingent — das Konto, mit dem die erste Einheit besetzt
+   * wurde (das des Ursprungs-Chats), vorn. Jedes Mal neu gefragt, damit ein
+   * Konto im Limit keine neuen Einheiten mehr bekommt.
+   */
+  /**
+   * Die Konten, die Pool-Einheiten gerade nehmen dürfen: zuerst das Konto des
+   * Schwarms, dann die übrigen desselben Anbieters — dort bleibt das Modell
+   * der Rolle gültig —, zuletzt alle anderen.
+   */
+  private poolAccounts(team: AgentTeam): Array<{ provider: string; account: string }> {
+    const first = team.agents[0]?.target;
+    const rank = (entry: { provider: string; account: string }) =>
+      entry.provider !== first?.provider ? 0 : entry.account === first.account ? 2 : 1;
+    return this.accounts.all()
+      .filter(account => !account.disabled && ['claude', 'codex', 'grok', 'copilot'].includes(account.provider)
+        && this.authHealth?.get(account.id) !== 'expired' && this.quota.availability(account.id).available)
+      .map(account => ({ provider: account.provider, account: account.label }))
+      .sort((a, b) => rank(b) - rank(a));
+  }
+
+  /**
+   * Jeder Versuch einer Einheit bekommt seinen eigenen Worktree: der Ordner
+   * eines gescheiterten Versuchs bleibt zum Nachsehen stehen, und derselbe
+   * Name ließe sich ohnehin nicht zweimal anlegen (unitWorkspace.ts).
+   */
+  private unitAttemptId(teamId: string, agentId: string): string {
+    const attempts = this.teams().runs.find(run => run.teamId === teamId && run.status === 'running')?.jobs.find(job => job.agentId === agentId)?.attempts ?? 1;
+    return attempts > 1 ? `${agentId}-v${attempts}` : agentId;
+  }
+
+  /** Die Kennung des laufenden Laufs eines Teams — für die Branch-Namen der Einheiten. */
+  private runningRunId(teamId: string): string | undefined {
+    return this.teams().runs.find(run => run.teamId === teamId && run.status === 'running')?.id;
+  }
+
+  /** Hat dieser Chat einen Schwarm gestartet, der gerade arbeitet? */
+  private runsSwarm(conversationId: string): boolean {
+    const store = this.teams();
+    const prefix = `swarm-${conversationId}-`;
+    return store.runs.some(run => run.status === 'running' && run.teamId.startsWith(prefix)
+      && !!store.teams.find(team => team.id === run.teamId)?.sharedWorkspace);
+  }
+
   private swarmOf(conversationId: string): { origin?: string; shared: boolean } | undefined {
     if (!this.conversations.get(conversationId)?.teamAgent) return undefined;
     const store = this.teams();
@@ -569,10 +638,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const workspace = team.projectPath ?? join(this.ctx.globalStorageUri.fsPath, 'team-workspaces', team.id);
     if (!team.projectPath) await mkdir(workspace, { recursive: true });
     else if (!existsSync(workspace)) throw new Error('Der zugewiesene Projektordner fehlt.');
-    const lock = await workspaceRunKey(workspace);
+    // Eine Einheit im eigenen Worktree braucht den Projektordner nicht: sie
+    // arbeitet in ihrer Kopie und kommt dort niemandem in den Code.
+    const unit = team.isolation === 'worktree' && team.projectPath
+      ? await createUnitWorkspace({ cwd: team.projectPath, storageDir: join(this.ctx.globalStorageUri.fsPath, 'schwarm-einheiten'), runId: this.runningRunId(team.id) ?? shortId(), unitId: this.unitAttemptId(team.id, agent.id) })
+      : undefined;
+    const lock = await workspaceRunKey(unit?.path ?? workspace);
     // Nur lesende Rollen dürfen sich den Ordner teilen; wer schreiben darf, bekommt ihn allein —
     // außer im Schwarm, dessen Rollen je ihren eigenen Teil bearbeiten.
-    const writes = agent.permissionMode !== 'safe' && !team.sharedWorkspace;
+    const writes = agent.permissionMode !== 'safe' && !team.sharedWorkspace && !unit;
     while (!this.holdProject(lock, writes)) {
       update({ status: 'waiting', activity: writes ? 'Wartet auf den laufenden Auftrag im Projekt' : 'Wartet auf eine Schreibpause im Projekt' });
       if (signal.aborted) throw new Error('Auftrag angehalten.');
@@ -581,14 +655,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (signal.aborted) { this.releaseProject(lock, writes); throw new Error('Auftrag angehalten.'); }
     const rec: ConversationRecord = {
       // Im Schwarm zählt die Rolle: die Chats stehen unter ihrem Ursprungs-Chat, und der Teamname wäre bei allen gleich.
-      id: shortId(), title: team.kind === 'agent' ? team.name : team.sharedWorkspace ? `${agent.name} · Schwarm` : `${team.name} · ${agent.name}`, projectPath: team.projectPath,
-      teamWorkspace: workspace, teamAgent: structuredClone(agent), pinnedTarget: target,
+      id: shortId(), title: team.kind === 'agent' ? team.name : isSwarmTeam(team) ? `${agent.name} · Schwarm` : `${team.name} · ${agent.name}`, projectPath: team.projectPath,
+      teamWorkspace: workspace, ...(unit ? { unitWorkspace: unit.path } : {}), teamAgent: structuredClone(agent), pinnedTarget: target,
       createdAt: Date.now(), updatedAt: Date.now(), log: [], turns: [],
     };
     const cancel = () => this.tasks.get(rec.id)?.abort();
     try {
       this.conversations.set(rec.id, rec);
-      update({ status: 'running', startedAt: Date.now(), conversationId: rec.id, activity: 'Bereitet den Auftrag vor' });
+      update({ status: 'running', startedAt: Date.now(), conversationId: rec.id, activity: 'Bereitet den Auftrag vor', ...(unit ? { branch: unit.branch, base: unit.base, worktree: unit.path } : {}) });
       this.teamUpdates.set(rec.id, update);
       this.persistNow(); this.sendConversations();
       signal.addEventListener('abort', cancel, { once: true });
@@ -596,17 +670,21 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.toConversation(rec.id, { kind: 'userEcho', text: prompt, at: Date.now() });
       await this.runTask(rec.id, applyPinnedTarget(prompt, target), [], { target, effort, permissionMode: agent.permissionMode, routingMode: 'manual' });
       // Im Schwarm weicht eine Rolle, deren Konto mitten im Lauf ins Limit
-      // läuft, auf das nächste freie Konto aus, statt zu scheitern.
+      // läuft, auf das nächste freie Konto aus, statt zu scheitern — zuerst
+      // beim selben Anbieter. Eine MCP-Auswahl der Rolle zieht mit; ein
+      // Anbieter, der sie nicht einhalten kann, kommt dafür nicht in Frage.
       const tried = new Set([`${agent.target.provider}\n${agent.target.account}`]);
       for (;;) {
         if (signal.aborted) throw new Error('Auftrag angehalten.');
         const last = [...rec.log].reverse().find(message => ['done', 'error', 'stopped'].includes(message.kind));
-        if (!team.sharedWorkspace || last?.kind !== 'error' || !isLimitError(last.message)) break;
-        const next = this.accounts.all().find(account => !account.disabled
+        if (!isSwarmTeam(team) || last?.kind !== 'error' || !isLimitError(last.message)) break;
+        const next = this.accounts.all().filter(account => !account.disabled
           && ['claude', 'codex', 'grok', 'copilot'].includes(account.provider)
+          && (agent.mcpServers === undefined || SCOPED_MCP_PROVIDERS.includes(account.provider))
           && !tried.has(`${account.provider}\n${account.label}`)
           && this.authHealth?.get(account.id) !== 'expired'
-          && this.quota.availability(account.id).available);
+          && this.quota.availability(account.id).available)
+          .sort((a, b) => Number(b.provider === agent.target.provider) - Number(a.provider === agent.target.provider))[0];
         if (!next) break;
         tried.add(`${next.provider}\n${next.label}`);
         const fallback = this.teamExecutionTarget({ provider: next.provider, account: next.label });
@@ -623,6 +701,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       if (terminal?.kind === 'stopped') throw new Error('Der Agent wurde im Chat angehalten.');
       const answer = [...rec.turns].reverse().find(turn => turn.role === 'assistant')?.text;
       if (!answer) throw new Error('Der Agent hat kein abgeschlossenes Ergebnis geliefert. Öffne seinen Chat für Details.');
+      if (unit) {
+        // Was außerhalb des eigenen Bereichs geändert wurde, bleibt auf dem
+        // Branch und wird gemeldet — zusammengeführt wird es so nicht.
+        const { outside } = await unitChanges(unit, agent.owns);
+        await commitUnit(unit, `Schwarm-Einheit ${agent.name}`);
+        update({ outside });
+        if (outside.length) return `${answer}\n\n⚠️ Außerhalb des eigenen Bereichs geändert (Branch ${unit.branch}): ${outside.join(', ')}`;
+      }
       return answer;
     } finally {
       signal.removeEventListener('abort', cancel);
@@ -697,7 +783,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private projectRoot(id?: string): string | undefined {
     const record = id ? this.conversations.get(id) : undefined;
-    return record?.projectPath ?? record?.teamWorkspace;
+    return record?.unitWorkspace ?? record?.projectPath ?? record?.teamWorkspace;
   }
 
   private async conversationCwd(id?: string): Promise<string> {
@@ -881,6 +967,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       vscode.Uri.joinPath(this.ctx.extensionUri, 'templates'),
       vscode.Uri.file(join(homedir(), '.cortex', 'templates')),
       ...this.imageRoots().map(root => vscode.Uri.file(root)),
+      vscode.Uri.file(this.videoArchiveRoot()),
     ];
   }
 
@@ -889,6 +976,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private imageArchiveRoot(): string { return join(this.ctx.globalStorageUri.fsPath, 'bilder'); }
+
+  /** Videos, die ein Modell für einen Chat gemacht hat — neben den Bildern, genauso gesichert. */
+  private videoArchiveRoot(): string { return join(this.ctx.globalStorageUri.fsPath, 'videos'); }
+
+  /** Die Webview-Adresse eines gesicherten Videos; andere Pfade zeigt die Webview nicht. */
+  private videoSrc(path: string, webview = this.surfaces.keys().next().value as vscode.Webview | undefined): string | undefined {
+    return webview && underRoot(path, [this.videoArchiveRoot()]) ? webview.asWebviewUri(vscode.Uri.file(path)).toString() : undefined;
+  }
 
   private async migrateImageArchive(): Promise<void> {
     let changed = false;
@@ -1233,6 +1328,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       turns: turns.map(turn => ({ ...turn })),
       baselines: isolated ? undefined : rec.baselines && { ...rec.baselines },
       pendingPermissionNotes: rec.pendingPermissionNotes && [...rec.pendingPermissionNotes],
+      // Das Ziel bleibt beim Chat, der es gesetzt hat — sonst arbeiteten zwei Chats daran.
+      goal: undefined,
     });
     const compact = this.conversations.get(id)?.contextCompaction;
     this.sessions.rewind(id, workingHistory(turns, compact), isolated || compact ? undefined : this.forkTarget(latestCheckpoint(log)));
@@ -1290,6 +1387,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     rec.turns = plan.turns;
     if (rec.contextCompaction && rec.contextCompaction.throughTurns > plan.turns.length) rec.contextCompaction = undefined;
     rec.updatedAt = Date.now();
+    // Zurück vor den `/goal`, der das Ziel gesetzt hat: dann gibt es dieses Ziel nicht mehr.
+    if (rec.goal && !plan.log.some(ev => ev.kind === 'userEcho' && ev.goal?.id === rec.goal!.id)) { rec.goal = undefined; this.goals.push(id); }
     // Der Zettel kann Entscheidungen aus den zurückgenommenen Runden tragen;
     // mit der nächsten Antwort entsteht er neu aus dem, was übrig ist.
     rec.notizen = undefined;
@@ -1510,6 +1609,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const rec = this.conversations.get(id);
     this.safePost(webview, { kind: 'conversationReset' });
     void this.pushQueue(id);
+    this.safePost(webview, { kind: 'goal', conversationId: id, ...(rec?.goal ? { goal: rec.goal } : {}) });
     if (rec) {
       for (const msg of rec.log) this.safePost(webview, this.replayable(msg, rec.projectPath, webview));
       for (const messageId of Object.keys(rec.baselines ?? {})) this.safePost(webview, { kind: 'revertState', messageId, available: true });
@@ -1525,6 +1625,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     // after a restart or when the same conversation opens in another panel.
     if (msg.kind === 'image' && webview && underRoot(msg.path, this.imageRoots())) {
       return { ...msg, src: webview.asWebviewUri(vscode.Uri.file(msg.path)).toString() };
+    }
+    if (msg.kind === 'video' && webview) {
+      const src = this.videoSrc(msg.path, webview);
+      if (src) return { ...msg, src };
     }
     return root && msg.kind === 'toolUse' && msg.path ? { ...msg, path: projectRelative(msg.path, root) } : msg;
   }
@@ -1548,6 +1652,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     rec.turns = [];
     rec.contextCompaction = undefined;
     rec.title = '';
+    // Ein geleerter Chat fängt ohne Ziel an.
+    if (rec.goal) { rec.goal = undefined; this.goals.push(id); }
     this.sessions.clearConversation(id);
     this.threadContext.delete(id);
     // A cleared chat is the fresh start the warning asked for.
@@ -1688,7 +1794,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const updateTeam = this.teamUpdates?.get(conversationId);
     if (updateTeam) {
       if (msg.kind === 'activity') updateTeam({ activity: msg.text });
-      if (msg.kind === 'toolUse') updateTeam({ activity: `${msg.name}${msg.detail ? ` · ${msg.detail}` : ''}`.slice(0, 250) });
+      if (msg.kind === 'toolUse') {
+        const what = msg.description ?? msg.detail;
+        updateTeam({ activity: `${msg.name}${what ? ` · ${what}` : ''}`.slice(0, 250) });
+      }
     }
     if (opts.log && REPLAYED_KINDS.has(msg.kind)) {
       const rec = this.conversations.get(conversationId);
@@ -1703,7 +1812,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         (surface.mode === 'tab' || surface.mode === 'agent') &&
         surface.conversationId === conversationId
       ) {
-        this.safePost(webview, msg.kind === 'image' ? this.replayable(msg, undefined, webview) : msg);
+        this.safePost(webview, msg.kind === 'image' || msg.kind === 'video' ? this.replayable(msg, undefined, webview) : msg);
       }
     }
   }
@@ -1772,6 +1881,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.safePost(webview, this.pinnedMessage(surface.conversationId));
     if (rec) {
       void this.pushQueue(rec.id);
+      this.safePost(webview, { kind: 'goal', conversationId: rec.id, ...(rec.goal ? { goal: rec.goal } : {}) });
       this.safePost(webview, { kind: 'runClock', elapsedMs: this.runClocks.get(rec.id)?.elapsed() ?? 0 });
       for (const msg of rec.log) this.safePost(webview, this.replayable(msg, rec.projectPath, webview));
       for (const messageId of Object.keys(rec.baselines ?? {})) this.safePost(webview, { kind: 'revertState', messageId, available: true });
@@ -1837,6 +1947,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       teams: () => this.teams(),
       startAutomations: () => this.startAutomations(),
       startTeam: (...args) => this.startTeam(...args),
+      swarmMergeAction: (...args) => this.swarmMergeAction(...args),
       pushTeams: (...args) => this.pushTeams(...args),
       bindAgent: (...args) => this.bindAgent(...args),
       openConversationTab: (...args) => this.openConversationTab(...args),
@@ -1848,6 +1959,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       handleSend: (...args) => this.handleSend(...args),
       shownTarget: (...args) => this.shownTarget(...args),
       markStopped: (...args) => this.markStopped(...args),
+      goalStopped: id => this.goals.stopped(id),
+      showConversation: id => { if (this.agentPanel) { this.safeReveal(this.agentPanel); this.bindAgent(id); } else this.openConversationTab(id); },
+      conversationVisible: id => this.isVisible(id),
       steerQueuedMessage: (...args) => this.steerQueuedMessage(...args),
       retryLast: (...args) => this.retryLast(...args),
       answerPermission: (...args) => this.answerPermission(...args),
@@ -1903,6 +2017,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       bindDomain(conversationTable, () => this.panelHost),
       bindDomain(rewindTable, () => this.panelHost),
       bindDomain(queueTable, () => this.panelHost),
+      bindDomain(goalTable, () => this.goals),
     );
   }
 
@@ -1929,7 +2044,48 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   // ── task lifecycle ───────────────────────────────────────────────
 
-  private async performAction(conversationId: string, action: import('@cortex/core').SlashAction): Promise<void> {
+  private swarmMerge?: SwarmMerge;
+  /** Die Merge-Warteschlange der Schwärme — erst beim ersten Bedarf. */
+  private merges(): SwarmMerge {
+    this.swarmMerge ??= new SwarmMerge({
+      teams: () => this.teams(),
+      storageDir: join(this.ctx.globalStorageUri.fsPath, 'schwarm-einheiten'),
+      publish: () => this.pushTeams(),
+      notice: (runId, text) => {
+        const run = this.teams().runs.find(entry => entry.id === runId);
+        const origin = run && /^swarm-([a-zA-Z0-9]+)-/.exec(run.teamId)?.[1];
+        if (origin && this.conversations.has(origin)) this.toConversation(origin, { kind: 'notice', text });
+      },
+      defaultChecks: path => this.verifier.forRoot(path).available().map(check => check.argv.map(shellWord).join(' ')),
+    });
+    return this.swarmMerge;
+  }
+
+  /**
+   * `/merge-queue` im Chat, der den Schwarm gestartet hat: ohne Argument
+   * einschalten (Prüfungen des Projekts), mit einem Befehl als Prüfung,
+   * `übernehmen` in den eigenen Branch, `aus` anhalten.
+   */
+  async mergeQueueCommand(conversationId: string, args: string): Promise<void> {
+    const run = this.merges().latestRun(conversationId);
+    const say = (text: string) => this.toConversation(conversationId, { kind: 'notice', text });
+    if (!run) { say('In diesem Chat gibt es keinen Schwarm mit eigenen Branches. Zusammenführen geht für Schwärme mit "isolation": "worktree".'); return; }
+    const word = args.trim().toLowerCase();
+    try {
+      if (['übernehmen', 'uebernehmen', 'adopt'].includes(word)) await this.merges().adopt(run.id);
+      else if (['aus', 'stopp', 'stop', 'anhalten'].includes(word)) { this.merges().stop(run.id); say('Zusammenführung angehalten. Mit /merge-queue geht es weiter.'); }
+      else await this.merges().start(run.id, args.trim() ? [args.trim()] : undefined);
+    } catch (error) { say((error as Error).message); }
+  }
+
+  /** Die Knöpfe der Übersicht (swarmMerge). */
+  async swarmMergeAction(action: 'start' | 'adopt' | 'stop', runId: string, checks?: string[]): Promise<void> {
+    if (action === 'start') await this.merges().start(runId, checks);
+    else if (action === 'adopt') await this.merges().adopt(runId);
+    else this.merges().stop(runId);
+  }
+
+  private async performAction(conversationId: string, action: import('@cortex/core').SlashAction, args = ''): Promise<void> {
     const notice = (t: string) => this.toConversation(conversationId, { kind: 'notice', text: t });
     switch (action) {
       case 'newChat':
@@ -1953,6 +2109,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       case 'openTerminal':
         void vscode.commands.executeCommand('cortex.openInTerminal');
         break;
+      case 'mergeQueue': await this.mergeQueueCommand(conversationId, args); break;
       case 'archiveChat': await this.chatCommand(conversationId, 'archive'); break;
       case 'pinChat': await this.chatCommand(conversationId, 'pin'); break;
       case 'forkChat': await this.chatCommand(conversationId, 'fork'); break;
@@ -2015,7 +2172,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private async pushQueue(id: string): Promise<void> {
     const version = (this.queueVersions.get(id) ?? 0) + 1; this.queueVersions.set(id, version);
-    const items = await Promise.all(this.queues.items(id).map(async item => {
+    // Die Runden eines Ziels schickt Cortex selbst; sie zeigt die Ziel-Leiste, nicht die Warteschlange.
+    const items = await Promise.all(this.queues.items(id).filter(item => !item.goal?.auto).map(async item => {
       const reason = this.steerReason(id, item);
       return { id: item.id, text: item.text, canSteer: !reason, ...(reason ? { steerReason: reason } : {}), attachments: await Promise.all((item.modes.attachments ?? []).map(async path => ({ path, name: basename(path), preview: await this.previewFor(path) }))) };
     }));
@@ -2038,13 +2196,20 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
     const slash = modes.image ? undefined : matchSlashCommand(text, this.rules.getCustomCommands());
     if (slash?.cmd.kind === 'action' && slash.cmd.action) {
-      await this.performAction(id, slash.cmd.action); return;
+      await this.performAction(id, slash.cmd.action, slash.args); return;
     }
+    // `/goal`: ein Steuerwort (pause, weiter, aus) wirkt sofort, alles andere setzt ein neues Ziel.
+    const goal = modes.image ? undefined : goalCommand(text, this.rules.getCustomCommands());
+    if (goal && goal.kind !== 'start') { this.goals.control(id, goal.kind); await this.persistNow(); return; }
     // `/remotion`: das Projekt entsteht jetzt, der Lauf wartet darauf (RemotionHost.prepare).
     if (!modes.image && asksForVideo(text)) this.remotion.prepare(id, modes.attachments ?? []);
     if (!this.queues.isWorking(id) && !this.queues.items(id).length) this.queues.resume(id);
     const config = vscode.workspace.getConfiguration('cortex');
-    this.queues.enqueue(id, { id: shortId(), text: text.trim(), tags: [...tags], modes: { ...modes, permissionMode: modes.permissionMode ?? config.get<PermissionMode>('permissionMode', 'safe'), askPermission: modes.askPermission ?? config.get<boolean>('askPermission', false), routingMode: modes.routingMode ?? config.get<'auto' | 'manual'>('routingMode', 'auto'), target: modes.target && { ...modes.target }, attachments: modes.attachments && [...modes.attachments], ...(modes.image ? { image: { ...modes.image }, imageProvider: modes.imageProvider, target: undefined, permissionMode: 'safe' as PermissionMode } : {}) } });
+    const queuedModes: QueuedMessage['modes'] = { ...modes, permissionMode: modes.permissionMode ?? config.get<PermissionMode>('permissionMode', 'safe'), askPermission: modes.askPermission ?? config.get<boolean>('askPermission', false), routingMode: modes.routingMode ?? config.get<'auto' | 'manual'>('routingMode', 'auto'), target: modes.target && { ...modes.target }, attachments: modes.attachments && [...modes.attachments], ...(modes.image ? { image: { ...modes.image }, imageProvider: modes.imageProvider, target: undefined, permissionMode: 'safe' as PermissionMode } : {}) };
+    // Die erste Runde eines neuen Ziels — oder die Antwort, auf die ein Ziel gewartet hat.
+    const round = goal ? this.goals.begin(id, goal.objective, tags, queuedModes) : undefined;
+    if (!goal && !modes.image) this.goals.userMessage(id);
+    this.queues.enqueue(id, { id: shortId(), text: text.trim(), tags: [...tags], modes: queuedModes, ...(round ? { goal: round } : {}) });
     await this.persistNow();
   }
 
@@ -2098,15 +2263,25 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (!this.conversations.has(id)) return;
     if (this.queues.isPaused(id)) return false;
     // Ein Chatauftrag darf jede Datei ändern — er bekommt den Ordner allein.
-    // Nur der Chat einer Schwarm-Rolle teilt ihn mit den anderen Rollen:
-    // allein bekäme er ihn nie, solange sie arbeiten.
-    const writes = !(this.conversations.get(id)?.teamAgent && this.swarmOf(id)?.shared);
+    // Nur Chats eines laufenden Schwarms teilen ihn: seine Rollen und der Chat,
+    // der ihn gestartet hat. Allein bekämen sie ihn nie, solange er arbeitet —
+    // der Nutzer könnte seinen eigenen Chat nicht einmal fragen, wie weit er ist.
+    const writes = !((this.conversations.get(id)?.teamAgent && this.swarmOf(id)?.shared) || this.runsSwarm(id));
     if (!this.holdProject(key, writes)) return false;
-    try { await this.executeQueuedMessage(id, queued); }
-    finally { this.releaseProject(key, writes); this.queues.retryBlockedProjects(); }
+    // Ob ein Lauf zum Ziel gehört, entscheidet sein Start: auch was der Nutzer
+    // schreibt, während ein Ziel läuft, ist eine Runde davon.
+    const goalId = queued.modes.image ? undefined : this.goals.activeId(id);
+    let round: GoalRound | undefined;
+    let threw = false;
+    try { round = await this.executeQueuedMessage(id, queued, goalId); }
+    catch (error) { threw = true; throw error; }
+    finally {
+      this.releaseProject(key, writes); this.queues.retryBlockedProjects();
+      this.goals.afterRun(id, goalId, threw ? { answered: false, stopped: false, failed: true, toolUses: 0, answer: '', durationMs: 0 } : round);
+    }
   }
 
-  private async executeQueuedMessage(id: string, queued: QueuedMessage): Promise<void> {
+  private async executeQueuedMessage(id: string, queued: QueuedMessage, goalId?: string): Promise<GoalRound | undefined> {
     if (!this.conversations.has(id)) return;
     if (queued.modes.image?.edit?.kind === 'background') {
       await this.removeImageBackground(id, queued);
@@ -2141,8 +2316,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       rec.title = item.text.split('\n')[0]!.slice(0, 60);
       const panel = this.panels.get(id); if (panel) panel.title = rec.title;
     }
-    this.toConversation(id, { kind: 'userEcho', text, attachments: item.modes.attachments, at: Date.now(), ...(image ? { image } : {}) });
-    this.detectRetry(id, text);
+    this.toConversation(id, { kind: 'userEcho', text, attachments: item.modes.attachments, at: Date.now(), ...(image ? { image } : {}), ...(item.goal ? { goal: { ...item.goal } } : {}) });
+    // Die Runden eines Ziels gleichen sich — das ist kein Nachhaken, weil eine Antwort nicht ankam.
+    if (!item.goal?.auto) this.detectRetry(id, text);
     // `/remotion`: erst wenn Vorlage, Pakete und Material liegen, bekommt der Agent den Auftrag.
     const preparing = this.remotionHost?.pending(id);
     if (preparing) {
@@ -2156,7 +2332,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       await this.runTask(id, `@${provider} ${imagePrompt(item.text, image, provider, item.modes.attachments)}`, item.tags, { ...item.modes, accountOrder });
       return;
     }
-    await this.runTask(id, applyPinnedTarget(text, item.modes.target), item.tags, item.modes);
+    // Eine Ziel-Runde handelt, statt erst zu planen; eine automatische trägt das Gewicht der Aufgabe, nicht ihrer paar Worte.
+    return this.runTask(id, applyPinnedTarget(text, item.modes.target), item.tags, {
+      ...item.modes,
+      ...(goalId ? { planFirst: false } : {}),
+      ...(item.goal?.auto ? { continuation: true } : {}),
+    });
   }
 
   private async steerQueuedMessage(id: string, itemId: string): Promise<void> {
@@ -2207,6 +2388,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       .reverse()
       .find((event): event is Extract<HostToWebview, { kind: 'userEcho' }> => event.kind === 'userEcho');
     const last = [...(rec?.turns ?? [])].reverse().find((turn) => turn.role === 'user');
+    // Eine gescheiterte Runde eines Ziels wird nicht als Nachricht wiederholt: das Ziel geht weiter.
+    if (echo?.goal?.auto && rec?.goal?.id === echo.goal.id) { this.goals.control(conversationId, 'resume'); return; }
     // Der Echo-Text trägt die Anhänge schon als Liste in sich; sie noch einmal
     // mitzugeben, hängte sie ein zweites Mal an.
     const text = (echo?.text ?? last?.text)?.trim();
@@ -2239,9 +2422,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       attachments?: string[];
       target?: Target;
       image?: import('./images.js').ImageOptions;
+      /** Seitenverhältnis und Anzahl für ein gewähltes Bildmodell von OpenRouter. */
+      imageOptions?: import('./images.js').ImageOptions;
       accountOrder?: string[];
+      /** `false` in einer Ziel-Runde: handeln statt erst planen (TaskRequest.planFirst). */
+      planFirst?: boolean;
+      /** Eine automatische Ziel-Runde (TaskRequest.continuation). */
+      continuation?: boolean;
     } = {},
-  ): Promise<void> {
+  ): Promise<GoalRound | undefined> {
     const rec = this.conversations.get(conversationId);
     if (!rec) return;
     if (this.tasks.has(conversationId)) return;
@@ -2257,7 +2446,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       text = applyPinnedTarget(parsed.mention ? parsed.cleaned : text, target);
     }
 
-    const taskRoot = rec.projectPath ?? rec.teamWorkspace ?? projectlessDir(this.ctx.globalStorageUri.fsPath, conversationId);
+    const taskRoot = rec.unitWorkspace ?? rec.projectPath ?? rec.teamWorkspace ?? projectlessDir(this.ctx.globalStorageUri.fsPath, conversationId);
     const editorSnapshot = this.workspaceContext.forRoot(taskRoot).editorContext();
     const workspaceFolders = [...this.projectFolders(conversationId)];
     const permissionNotes = [...(rec.pendingPermissionNotes ?? [])];
@@ -2267,7 +2456,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     // Safety net for actions that were queued before handleSend intercepted them.
     const slash = matchSlashCommand(text, this.rules.getCustomCommands());
     if (slash?.cmd.kind === 'action' && slash.cmd.action) {
-      await this.performAction(conversationId, slash.cmd.action);
+      await this.performAction(conversationId, slash.cmd.action, slash.args);
       return;
     }
     if (!rec.title) {
@@ -2306,6 +2495,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     let briefLineIds: string[] | undefined;
     let answerText = '';
     let autoPlanned = false;
+    /** Werkzeugaufrufe dieses Laufs — für `/goal` das Zeichen, dass eine Runde etwas getan hat. */
+    let toolUses = 0;
     const usageBefore = this.accountUsagePct(conversationId);
     const live = {
       handle: {} as LiveRunHandle,
@@ -2339,6 +2530,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.toConversation(conversationId, { kind: 'activity', text: 'Schaut im Exokortex nach Erinnerungen' }, { log: false });
     const erinnert = await this.erinnerung.vorbereiten(conversationId, text, {
       cwd,
+      projekt: rec.projectPath,
       erste: rec.turns.length === 0,
       ohnePfad: `--${conversationId.slice(0, 8)}.md`,
       // Was dieser Chat schon als Erinnerung gezeigt hat — auch vor einem Neustart.
@@ -2368,6 +2560,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           // Bild der Zeichenfläche, wenn sie sich seit dem letzten verändert hat:
           // so sieht jedes Modell, was dort wirklich steht.
           images: modes.image ? undefined : [...(modes.attachments?.filter(path => IMAGE_FILE.test(path)) ?? []), ...(canvasView ? [canvasView] : [])],
+          // Ein gewähltes Bildmodell von OpenRouter: Seitenverhältnis und Anzahl aus der Eingabeleiste.
+          ...(modes.imageOptions ? { imageOptions: { ratio: modes.imageOptions.ratio, count: modes.imageOptions.count } } : {}),
           cwd,
           workspaceFolders,
           editorSnapshot,
@@ -2382,6 +2576,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           permissionMode,
           askPermission: modes.askPermission ?? vscode.workspace.getConfiguration('cortex').get<boolean>('askPermission', false),
           routingMode,
+          ...(modes.planFirst !== undefined ? { planFirst: modes.planFirst } : {}),
+          ...(modes.continuation ? { continuation: true } : {}),
         },
         controller.signal,
         live.handle,
@@ -2484,11 +2680,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             post({ kind: 'delta', messageId: currentId(), text: ev.text });
             break;
           case 'tool-use':
+            toolUses++;
             post({
               kind: 'toolUse',
               messageId: currentId(),
               name: ev.name,
               detail: ev.detail,
+              description: ev.description,
               preview: ev.preview,
               path: ev.path,
               action: ev.action,
@@ -2543,6 +2741,21 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             }
             break;
           }
+          case 'video': {
+            const messageId = currentId();
+            try {
+              const path = await archiveGeneratedVideo(ev.path, this.videoArchiveRoot(), conversationId);
+              const src = this.videoSrc(path);
+              if (src) post({ kind: 'video', messageId, path, src, prompt: ev.prompt });
+            } catch {
+              post({ kind: 'notice', text: 'Das erzeugte Video konnte nicht dauerhaft im Chat gesichert werden. Bitte den freien Speicherplatz prüfen.' });
+            }
+            break;
+          }
+          case 'activity':
+            // Was der Lauf tut, solange noch nichts zu sehen ist — ein Video braucht Minuten.
+            post({ kind: 'activity', ...(ev.text ? { text: ev.text } : {}) });
+            break;
           case 'model-downgraded':
             post({ kind: 'downgraded', messageId: currentId(), from: ev.from, to: ev.to });
             // Whatever the CLI picked for itself, we no longer know its weight
@@ -2809,6 +3022,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.sendConversations();
       this.persistSoon();
     }
+    return {
+      answered: gotResult,
+      stopped: controller.signal.aborted,
+      failed: !gotResult || metric.status === 'error',
+      toolUses,
+      verified: metric.verified,
+      answer: answerText,
+      durationMs: clock.elapsed(),
+    };
   }
 
   /**
@@ -3068,6 +3290,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   /** Der Standort-Kontext des Chats im Brief — solange er am Chat hängt. */
   locationAbschnitte(conversationId: string): import('@cortex/core').BriefSection[] {
     return locationBrief(this.conversations.get(conversationId));
+  }
+
+  /** Das laufende Ziel im Brief (`/goal`) — in jeder Runde derselbe Text. */
+  zielAbschnitte(conversationId: string): import('@cortex/core').BriefSection[] {
+    return this.goals.sections(conversationId);
+  }
+
+  /** Die Aufgabe des laufenden Ziels, wie der Nutzer sie schrieb — damit `/goal /remotion …` in jeder Runde das Video meint. */
+  zielAuftrag(conversationId: string): string | undefined {
+    return this.goals.objective(conversationId);
   }
 
   /**
@@ -3332,7 +3564,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: blob:; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource} data:; connect-src ${webview.cspSource}; worker-src ${webview.cspSource} blob:; script-src 'nonce-${nonce}'; frame-src http://127.0.0.1:*; media-src http://127.0.0.1:*;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: blob:; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource} data:; connect-src ${webview.cspSource}; worker-src ${webview.cspSource} blob:; script-src 'nonce-${nonce}'; frame-src http://127.0.0.1:*; media-src ${webview.cspSource} http://127.0.0.1:*;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="${styleUri}" rel="stylesheet">
   <link href="${cortexStyleUri}" rel="stylesheet">

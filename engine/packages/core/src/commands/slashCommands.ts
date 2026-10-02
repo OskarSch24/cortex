@@ -5,6 +5,13 @@
  *   command is claudeNative, the raw "/name args" passes through so Claude
  *   Code runs its own richer built-in; every other provider gets the
  *   equivalent English template.
+ * - kind 'goal': `/goal` — the host keeps sending rounds until the model
+ *   proves the task done (see goal/goal.ts). It wraps whatever else the
+ *   message asks for, commands included.
+ *
+ * A message may carry several commands: an action only at its very start,
+ * prompt commands and `/goal` anywhere in its first paragraph (see
+ * `parseSlashCommands`).
  */
 
 export type SlashAction =
@@ -29,7 +36,8 @@ export type SlashAction =
   | 'openAccounts'
   | 'openRules'
   | 'refreshUsage'
-  | 'openTerminal';
+  | 'openTerminal'
+  | 'mergeQueue';
 
 export interface SlashCommand {
   name: string;
@@ -40,7 +48,7 @@ export interface SlashCommand {
   icon?: string;
   /** Additional search terms, independent of the command name and label. */
   keywords?: string[];
-  kind: 'action' | 'prompt';
+  kind: 'action' | 'prompt' | 'goal';
   action?: SlashAction;
   /** Provider-agnostic prompt; `{args}` is replaced with the user's arguments. */
   template?: string;
@@ -140,6 +148,21 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   {
     name: 'clear', label: 'Chat leeren', kind: 'action', action: 'clearChat', icon: 'trash',
     description: 'Den aktuellen Gesprächsverlauf leeren', keywords: ['löschen', 'zurücksetzen'],
+  },
+  {
+    name: 'merge-queue', label: 'Zusammenführen', kind: 'action', action: 'mergeQueue', icon: 'branch',
+    usage: '/merge-queue [Prüfbefehl … | übernehmen | aus]',
+    description: 'Fertige Schwarm-Einheiten der Reihe nach zusammenführen und prüfen',
+    keywords: ['merge', 'zusammenführen', 'schwarm', 'branches', 'warteschlange', 'übernehmen'],
+  },
+  {
+    name: 'goal',
+    label: 'Ziel verfolgen',
+    icon: 'target',
+    kind: 'goal',
+    usage: '/goal <Aufgabe> · /goal pause · /goal weiter · /goal aus',
+    description: 'An einer Aufgabe dranbleiben, bis sie nachweislich erledigt ist',
+    keywords: ['ziel', 'dranbleiben', 'fertig', 'bis fertig', 'autonom', 'selbstständig', 'weiterarbeiten', 'schleife', 'loop', 'goal'],
   },
   {
     name: 'init',
@@ -285,6 +308,128 @@ export function matchSlashCommand(text: string, custom: SlashCommand[] = []): Sl
   const cmd =
     custom.find((c) => c.name === m[1]) ?? SLASH_COMMANDS.find((c) => c.name === m[1]);
   return cmd ? { cmd, args: m[2]?.trim() ?? '' } : undefined;
+}
+
+/**
+ * A command word standing on its own: after the start, a space or an opening
+ * bracket, and before a space, closing punctuation or the end — so neither
+ * `src/test` nor `/test/unit` nor a URL counts.
+ */
+const COMMAND_WORD = /(^|[\s([{])\/([a-z][a-z0-9-]*)(?=$|[\s)\]}.,;:!?])/g;
+
+/**
+ * Where commands still count: the first paragraph. Pasted material — a log, a
+ * list of routes — comes after a blank line, and its `GET /test` is text, not
+ * an order. The composer offers the picker only here, too.
+ */
+export function commandZoneEnd(text: string): number {
+  const blank = /\n[ \t]*\n/.exec(text);
+  return blank ? blank.index : text.length;
+}
+
+/** Code the user marked as code keeps its slashes: `…` and ```…``` are blanked out before scanning. */
+function blankCode(text: string): string {
+  return text.replace(/```[\s\S]*?(?:```|$)|`[^`\n]*`/g, (code) => ' '.repeat(code.length));
+}
+
+interface CommandWord {
+  start: number;
+  end: number;
+  cmd: SlashCommand;
+}
+
+function commandWords(text: string, custom: SlashCommand[]): CommandWord[] {
+  const lookup = (name: string) => custom.find((c) => c.name === name) ?? SLASH_COMMANDS.find((c) => c.name === name);
+  const lead = text.length - text.trimStart().length;
+  const words: CommandWord[] = [];
+  for (const m of blankCode(text.slice(0, commandZoneEnd(text))).matchAll(COMMAND_WORD)) {
+    const start = m.index + m[1]!.length;
+    const cmd = lookup(m[2]!);
+    // An action (open a panel, archive …) only ever counted at the very start.
+    if (!cmd || (cmd.kind === 'action' && start !== lead)) continue;
+    words.push({ start, end: start + 1 + m[2]!.length, cmd });
+  }
+  return words;
+}
+
+/** The text without these command words, and without the gap each one leaves. */
+function withoutWords(text: string, words: CommandWord[]): string {
+  const zone = commandZoneEnd(text);
+  let head = '';
+  let at = 0;
+  for (const word of words) {
+    let { start, end } = word;
+    if (text[end] === ' ' || text[end] === '\t') end++;
+    else if (start > 0 && (text[start - 1] === ' ' || text[start - 1] === '\t')) start--;
+    head += text.slice(at, Math.max(start, at));
+    at = end;
+  }
+  head += text.slice(at, zone);
+  return (head.trim() + text.slice(zone)).trim();
+}
+
+export interface SlashParse {
+  /** Every command the message carries, in order, each once. */
+  commands: SlashCommand[];
+  /** The message without its command words — what the commands are about. */
+  rest: string;
+}
+
+/**
+ * Every command a message carries. An action counts only at the very start,
+ * as it always has; prompt commands and `/goal` count anywhere in the first
+ * paragraph, so `/goal /test` and `Bitte /review und /security-review` both
+ * work. Custom commands win over built-ins, as in `matchSlashCommand`.
+ */
+export function parseSlashCommands(text: string, custom: SlashCommand[] = []): SlashParse {
+  const words = commandWords(text, custom);
+  const commands = words.map((word) => word.cmd).filter((cmd, i, all) => all.findIndex((c) => c.name === cmd.name) === i);
+  return { commands, rest: withoutWords(text, words) };
+}
+
+/** Does the message carry this command — as a command, not as a word in its text? */
+export function hasSlashCommand(text: string, name: string, custom: SlashCommand[] = []): boolean {
+  return commandWords(text, custom).some((word) => word.cmd.name === name);
+}
+
+/** The message with only the commands of one kind taken out — `/goal`'s task keeps its `/test`. */
+export function withoutSlashKind(text: string, kind: SlashCommand['kind'], custom: SlashCommand[] = []): string {
+  return withoutWords(text, commandWords(text, custom).filter((word) => word.cmd.kind === kind));
+}
+
+/** A command's template about `args`; says whether it had a place for them. */
+function fillTemplate(cmd: SlashCommand, args: string): { text: string; tookArgs: boolean } {
+  const template = cmd.template ?? '';
+  return template.includes('{args}')
+    ? { text: template.replace('{args}', args || cmd.emptyArgs || 'the current changes'), tookArgs: true }
+    : { text: template, tookArgs: false };
+}
+
+/**
+ * What the model is asked once the commands in a message are resolved.
+ * - One command at the start and nothing else: as before — with `native`,
+ *   Claude's own built-in where it has one, otherwise the template.
+ * - Several: every template, in order, all about the rest of the message.
+ * - `/goal` adds nothing here; the goal brief carries it (goal/goal.ts).
+ */
+export function expandSlashCommands(text: string, custom: SlashCommand[] = [], options: { native?: boolean } = {}): string {
+  const { commands, rest } = parseSlashCommands(text, custom);
+  const prompts = commands.filter((cmd) => cmd.kind === 'prompt');
+  const goal = commands.some((cmd) => cmd.kind === 'goal');
+  if (prompts.length === 0) return goal ? rest : text;
+  if (prompts.length === 1 && !goal) {
+    const single = matchSlashCommand(text, custom);
+    if (single && single.cmd === prompts[0]) {
+      return options.native && single.cmd.claudeNative ? text : expandSlashCommand(single.cmd, single.args);
+    }
+  }
+  if (prompts.length === 1) return expandSlashCommand(prompts[0]!, rest);
+  const steps = prompts.map((cmd) => fillTemplate(cmd, rest));
+  return [
+    'Several commands in one message — carry out all of them, in this order:',
+    ...steps.map((step, i) => `${i + 1}. ${step.text}`),
+    ...(rest && steps.some((step) => !step.tookArgs) ? ['', `The user's own words: ${rest}`] : []),
+  ].join('\n');
 }
 
 /** Parses a .cortex/commands.json file into prompt-kind slash commands. */

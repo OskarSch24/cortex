@@ -20,9 +20,10 @@ OUT = Path(__file__).resolve().parents[1] / 'docs/screenshots'
 OUT.mkdir(parents=True, exist_ok=True)
 
 # Aus der Aufnahme gemessen (CSS-px, Toleranz 1 px).
-# Cortex-Inseln (23.09.2026): Leiste und Seite liegen 8 px vom Fensterrand mit
-# 1 px Rand, die Leiste ist 256 px breit; in der Vorschau fehlt das Band der
-# Ampelknöpfe. Zeilen, Karten und Steuerelemente behalten ihre Maße.
+# Seit 28.09.2026 ohne Inseln: Leiste und Seite stoßen ohne Abstand an den
+# Fensterrand und aneinander, getrennt durch eine 1-px-Linie; die Leiste ist
+# 256 px breit. In der Vorschau fehlt das Band der Ampelknöpfe. Zeilen, Karten
+# und Steuerelemente behalten ihre Maße.
 BUDGET = {
     'Leiste Breite': 256,
     'Leiste Zeile': 30,
@@ -31,15 +32,15 @@ BUDGET = {
     'Suche oben': 59.5,
     'Suche Höhe': 30,
     'Auswahl Breite': 238,
-    'Spalte links': 603,
+    'Spalte links': 599,
     'Spalte Breite': 768,
-    'Karte 1 oben': 181,
+    'Karte 1 oben': 172,
     'Karte 1 Höhe': 171,
-    'Karte 2 oben': 438,
+    'Karte 2 oben': 429,
     'Zeile': 60.5,
     'Schalter Breite': 32,
     'Schalter Höhe': 20,
-    'Schalter rechts': 1354,
+    'Schalter rechts': 1350,
     'Auswahl Höhe': 28,
 }
 

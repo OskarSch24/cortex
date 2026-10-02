@@ -41,6 +41,26 @@ describe('parseMention', () => {
     expect(r.cleaned).toBe('fix this please');
   });
 
+  it('reads a pinned Z.ai or OpenRouter model, slashes and tilde included', () => {
+    expect(parseMention('@zai:privat/glm-5.3 /goal /agent-swarm Welle drei').mention).toEqual({ provider: 'zai', account: 'privat', model: 'glm-5.3' });
+    expect(parseMention('@openrouter:privat/openai/gpt-image-2.5-sunburst Ein Leuchtturm')).toEqual({
+      mention: { provider: 'openrouter', account: 'privat', model: 'openai/gpt-image-2.5-sunburst' },
+      cleaned: 'Ein Leuchtturm',
+    });
+    expect(parseMention('@openrouter:privat/~typesafe/jev-latest Welches?').mention?.model).toBe('~typesafe/jev-latest');
+  });
+
+  it('sends a chat pinned to Z.ai or OpenRouter there, not to the automatic choice', () => {
+    const withKeys: AccountProfile[] = [
+      ...accounts,
+      { id: 'zai-privat', provider: 'zai', label: 'privat', authMode: 'api-key', hasSecret: true, priority: 9 },
+      { id: 'or-privat', provider: 'openrouter', label: 'privat', authMode: 'api-key', hasSecret: true, priority: 9 },
+    ];
+    const pinned = (prompt: string) => route(task({ prompt, allowAccountFailover: false }), rules(), withKeys, new QuotaTracker()).decision.chain;
+    expect(pinned('@zai:privat/glm-5.3 Welle drei')).toEqual([{ provider: 'zai', account: 'privat', model: 'glm-5.3' }]);
+    expect(pinned('@openrouter:privat/heygen/avatar-iv Hallo')).toEqual([{ provider: 'openrouter', account: 'privat', model: 'heygen/avatar-iv' }]);
+  });
+
   it('parses provider:account/model', () => {
     const r = parseMention('@claude:work/opus refactor the parser');
     expect(r.mention).toEqual({ provider: 'claude', account: 'work', model: 'opus' });

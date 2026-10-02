@@ -18,6 +18,15 @@ describe('Arbeitsanzeige: was gerade geschieht', () => {
     expect(describeStep({ name: 'mcp__figma__get_screenshot' })).toBe('Nutzt Figma · Get Screenshot');
   });
 
+  it('sagt bei Befehlen, wozu sie laufen, und benennt Groks Werkzeuge', () => {
+    expect(describeStep({ name: 'run_terminal_command', action: 'run', detail: "python3 - <<'PY'", description: 'Import AT registers into punkt' })).toBe('Führt aus · Import AT registers into punkt');
+    expect(describeStep({ name: 'Bash', action: 'run', detail: 'pnpm vitest run', description: 'Run core tests' })).toBe('Führt Tests aus · Run core tests');
+    expect(describeStep({ name: 'list_dir', action: 'search', path: 'europa/stand', detail: 'europa/stand' })).toBe('Sieht sich den Ordner stand an');
+    expect(describeStep({ name: 'get_command_or_subagent_output', detail: 'Download the 1990 yearbook' })).toBe('Wartet auf eine Hintergrundaufgabe · Download the 1990 yearbook');
+    expect(describeStep({ name: 'memory_search', detail: 'Nordwind' })).toBe('Sieht im Gedächtnis nach · Nordwind');
+    expect(describeStep({ name: 'mcp__chrome-devtools__new_page', detail: 'http://localhost:5173' })).toBe('Nutzt Chrome Devtools · New Page · http://localhost:5173');
+  });
+
   it('folgt dem letzten Abschnitt der laufenden Antwort', () => {
     expect(currentActivity(undefined, 'Schaut im Exokortex nach Erinnerungen')).toBe('Schaut im Exokortex nach Erinnerungen');
     expect(currentActivity([])).toBe('Denkt nach');

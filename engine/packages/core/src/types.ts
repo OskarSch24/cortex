@@ -2,7 +2,7 @@ import type { ToolAction } from './adapters/toolDetail.js';
 import type { TaskItem } from './adapters/taskList.js';
 import type { PermissionRequest } from './adapters/permission.js';
 
-export type ProviderId = 'claude' | 'codex' | 'copilot' | 'grok' | 'openrouter';
+export type ProviderId = 'claude' | 'codex' | 'copilot' | 'grok' | 'openrouter' | 'zai';
 
 /**
  * Providers that may check work but never produce it.
@@ -11,16 +11,18 @@ export type ProviderId = 'claude' | 'codex' | 'copilot' | 'grok' | 'openrouter';
  * no session. That is enough to read a diff and argue with it, and nowhere near
  * enough to write code — an account here would answer an edit request with
  * confident prose and touch nothing. Keeping them out of the authoring chain is
- * exactly what makes a free account safe to connect.
+ * exactly what makes a free account safe to connect. Z.ai over its HTTP API
+ * is the same kind of account.
  */
-export const REVIEW_ONLY_PROVIDERS: ReadonlySet<ProviderId> = new Set<ProviderId>(['openrouter']);
+export const REVIEW_ONLY_PROVIDERS: ReadonlySet<ProviderId> = new Set<ProviderId>(['openrouter', 'zai']);
 
 /**
- * Providers whose own CLI can report subscription limits. The others have no
- * such endpoint, so an empty limit card for them is not a gap to fill — it is
- * a fact to state once, quietly, instead of a heading over nothing.
+ * Providers that report their limits: Claude and Codex through their CLI,
+ * Grok through its CLI's billing method, OpenRouter and Z.ai over their API.
+ * Copilot has no such endpoint, so an empty limit card for it is not a gap to
+ * fill — it is a fact to state once, quietly, instead of a heading over nothing.
  */
-export const PROVIDERS_WITH_LIMITS: ReadonlySet<ProviderId> = new Set<ProviderId>(['claude', 'codex']);
+export const PROVIDERS_WITH_LIMITS: ReadonlySet<ProviderId> = new Set<ProviderId>(['claude', 'codex', 'grok', 'openrouter', 'zai']);
 
 export function reportsLimits(provider: ProviderId): boolean {
   return PROVIDERS_WITH_LIMITS.has(provider);
@@ -116,6 +118,18 @@ export interface TaskRequest {
   routingMode?: 'auto' | 'manual';
   /** Bild-Anhänge (absolute Pfade), die als Bild ans Modell gehen. */
   images?: string[];
+  /** Seitenverhältnis und Anzahl aus dem Bildmodus — für Modelle, die selbst Bilder erzeugen. */
+  imageOptions?: { ratio: string; count: number };
+  /**
+   * `false`: never plan first, even for heavy code work. A `/goal` round is
+   * meant to act; planning it would leave every round read-only.
+   */
+  planFirst?: boolean;
+  /**
+   * Carries on the thread's earlier work (an automatic `/goal` round): routed
+   * with the weight of what came before, not with its own few words.
+   */
+  continuation?: boolean;
 }
 
 /**
@@ -168,6 +182,8 @@ export type AdapterEvent =
       name: string;
       /** One line, always visible: the file, command or query. */
       detail?: string;
+      /** What the call is for, in the agent's own words — a shell call's `description`. */
+      description?: string;
       /** Body revealed when the step is expanded (a diff, file content, a command). */
       preview?: string;
       /** File the tool touched, workspace-relative when known. */
@@ -211,6 +227,13 @@ export type AdapterEvent =
    * Profil des Kontos, nicht im Projekt.
    */
   | { type: 'image'; path: string; prompt?: string; edited?: boolean }
+  /** Ein Videomodell hat eine Datei geschrieben; `path` ist absolut und liegt außerhalb des Projekts. */
+  | { type: 'video'; path: string; prompt?: string }
+  /**
+   * Was der Lauf gerade tut, solange noch nichts zu sehen ist — ein Video
+   * braucht Minuten. Ohne `text` ist die Meldung erledigt.
+   */
+  | { type: 'activity'; text?: string }
   /** The model's own task list, however that provider expresses it. */
   | { type: 'tasks'; items: TaskItem[] }
   /** The model is waiting on the user before it acts. */

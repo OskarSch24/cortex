@@ -16,6 +16,8 @@ export interface QueueHost extends PanelHost {
   handleSend(id: string, text: string, tags: string[], modes?: QueuedMessage['modes']): Promise<void>;
   shownTarget(id?: string): Target | undefined;
   markStopped(conversationId: string, reason?: string): void;
+  /** Stopp hält auch das Ziel des Chats an (`/goal`), bis es fortgesetzt wird. */
+  goalStopped(conversationId: string): void;
   steerQueuedMessage(id: string, itemId: string): Promise<void>;
   retryLast(conversationId: string): Promise<void>;
   answerPermission(conversationId: string, id: string, decision: PermissionDecision): void;
@@ -36,6 +38,7 @@ export const queueTable = {
   cancel: (_msg, { surface }, host) => {
     if (surface.conversationId) {
       host.compactingChats.get(surface.conversationId)?.abort();
+      host.goalStopped(surface.conversationId);
       host.queues.pause(surface.conversationId);
       host.tasks.get(surface.conversationId)?.abort();
       host.markStopped(surface.conversationId, 'stopped by you');
@@ -72,6 +75,7 @@ export const queueTable = {
         attachments: msg.attachments,
         image: sanitizeImageOptions(msg.image),
         imageProvider: msg.image && isImageProvider(msg.imageProvider) ? msg.imageProvider : undefined,
+        imageOptions: msg.image ? undefined : sanitizeImageOptions(msg.imageOptions),
         target: msg.image ? undefined : msg.target
           ? {
               provider: msg.target.provider as Target['provider'],

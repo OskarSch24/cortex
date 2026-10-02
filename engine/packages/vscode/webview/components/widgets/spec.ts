@@ -7,6 +7,10 @@
  * Die Feldliste für die Modelle steht in core/src/context/widgetBrief.ts.
  */
 import { WIDGET_LANG, WIDGET_TYPE_NAMES } from '../../../../core/src/context/widgetBrief.js';
+import {
+  MAX_PARALLEL, MAX_POOL_CONCURRENCY, MAX_POOL_UNITS, MAX_TEAM_AGENTS, type TeamIsolation, type TeamJob, type TeamRun,
+  type UnitMergeState,
+} from '../../../src/teams/types.js';
 
 export type Tone = 'pos' | 'neg' | 'warn' | 'info' | 'violet' | 'mute';
 export type StepState = 'done' | 'now' | 'next' | 'failed';
@@ -27,8 +31,18 @@ export interface TickerW extends Base, TickerRow { type: 'ticker'; changeNote?: 
 export interface WorldclockW extends Base { type: 'worldclock'; cities: { name: string; timezone: string; home?: boolean; sunrise?: string; sunset?: string }[] }
 
 export interface AgentRunW extends Base { type: 'agent-run'; title: string; account?: string; elapsed?: string; steps: { text: string; state: StepState; duration?: string; added?: number; removed?: number }[]; note?: string }
-export interface SwarmRole { name: string; role?: string; instructions?: string }
-export interface AgentSwarmW extends Base { type: 'agent-swarm'; task?: string; count?: number; project?: string; agents?: SwarmRole[]; note?: string; /** Der Nutzer hat den Start schon verlangt: die Karte startet sofort, einmal. */ start?: boolean }
+/** Eine Rolle oder Einheit; `owns` sind die Pfade (Globs), die nur sie ändern darf. */
+export interface SwarmRole { name: string; role?: string; instructions?: string; owns?: string[] }
+export interface AgentSwarmW extends Base {
+  type: 'agent-swarm'; task?: string; count?: number; project?: string; agents?: SwarmRole[];
+  /** Ein Pool bis MAX_POOL_UNITS Einheiten; fehlt er, gelten `agents` als dieselbe Liste. */
+  units?: SwarmRole[];
+  /** Wie viele Einheiten höchstens zugleich laufen — macht den Schwarm zum Pool. */
+  concurrency?: number;
+  isolation?: TeamIsolation;
+  note?: string;
+  /** Der Nutzer hat den Start schon verlangt: die Karte startet sofort, einmal. */ start?: boolean;
+}
 export interface TestResultW extends Base { type: 'test-result'; title: string; command?: string; duration?: string; groups: { label: string; passed: number; total: number }[]; failures?: { name: string; file?: string; detail?: string }[] }
 export interface QuotaW extends Base { type: 'quota'; accounts: { provider: string; name: string; plan?: string; percent?: number | null; reset?: string; bound?: boolean }[]; note?: string }
 export interface ServerW extends Base { type: 'server'; name: string; subtitle?: string; metrics?: { label: string; value: string | number; unit?: string; percent?: number; series?: number[] }[]; containers?: { name: string; state: 'ok' | 'warn' | 'down'; note?: string }[]; alerts?: { tone: Tone; text: string }[] }
@@ -98,6 +112,116 @@ const REQUIRED: Record<string, Fields> = {
   quiz: [['topic', 's'], ['question', 's'], ['options', 'a'], ['answer', 'n']],
   'game-theory': [['title', 's'], ['actors', 'a'], ['recommendation', 's']],
 } satisfies Record<WidgetTypeName, Fields>;
+
+/**
+ * Was eine Schwarm-Karte tatsächlich startet. Mehr als MAX_TEAM_AGENTS
+ * Einheiten oder eine genannte `concurrency` machen sie zum Pool: dann zählt
+ * jede Einheit, und es laufen höchstens `concurrency` zugleich.
+ */
+export interface SwarmPlan { units: SwarmRole[]; pool: boolean; concurrency: number; isolation?: TeamIsolation }
+
+export function swarmPlan(w: Pick<AgentSwarmW, 'units' | 'agents' | 'concurrency' | 'isolation'>): SwarmPlan {
+  const source = Array.isArray(w.units) && w.units.length ? w.units : Array.isArray(w.agents) ? w.agents : [];
+  const units = source
+    .filter((unit): unit is SwarmRole => !!unit && typeof unit === 'object')
+    .slice(0, MAX_POOL_UNITS)
+    .map((unit) => {
+      const owns = Array.isArray(unit.owns)
+        ? [...new Set(unit.owns.filter((path): path is string => typeof path === 'string').map((path) => path.trim()).filter(Boolean))].slice(0, 100)
+        : [];
+      return {
+        name: typeof unit.name === 'string' ? unit.name : String(unit.name ?? ''),
+        ...(typeof unit.role === 'string' && unit.role ? { role: unit.role } : {}),
+        ...(typeof unit.instructions === 'string' && unit.instructions ? { instructions: unit.instructions } : {}),
+        ...(owns.length ? { owns } : {}),
+      };
+    });
+  const asked = Number(w.concurrency);
+  const given = w.concurrency !== undefined && w.concurrency !== null && Number.isFinite(asked);
+  return {
+    units,
+    pool: units.length > MAX_TEAM_AGENTS || given,
+    concurrency: Math.min(MAX_POOL_CONCURRENCY, Math.max(1, Math.round(given ? asked : MAX_PARALLEL) || 1)),
+    ...(w.isolation === 'worktree' || w.isolation === 'shared' ? { isolation: w.isolation } : {}),
+  };
+}
+
+/** Der Stand eines Schwarm-Laufs in Zahlen — Karte und Übersicht nennen dieselben. */
+export function swarmTally(jobs: readonly TeamJob[]): { running: number; open: number; done: number; failed: number; stopped: number; outside: number } {
+  const tally = { running: 0, open: 0, done: 0, failed: 0, stopped: 0, outside: 0 };
+  for (const job of jobs) {
+    if (job.status === 'running') tally.running++;
+    else if (job.status === 'waiting') tally.open++;
+    else if (job.status === 'completed') tally.done++;
+    else if (job.status === 'cancelled') tally.stopped++;
+    else tally.failed++;
+    if (job.outside?.length) tally.outside++;
+  }
+  return tally;
+}
+
+/** Die Merge-Warteschlange eines Laufs in Zahlen je Stand, dazu die Einheit, die gerade dran ist. */
+export type MergeTally = Record<UnitMergeState, number> & { current?: string };
+
+export function mergeTally(jobs: readonly TeamJob[]): MergeTally {
+  const tally: MergeTally = { waiting: 0, merging: 0, merged: 0, conflict: 0, 'checks-failed': 0, outside: 0, skipped: 0 };
+  for (const job of jobs) {
+    if (!job.merge || !(job.merge.state in tally)) continue;
+    tally[job.merge.state]++;
+    if (job.merge.state === 'merging' && !tally.current) tally.current = job.agentName;
+  }
+  return tally;
+}
+
+/** „12 übernommen · 2 warten · 1 Konflikt · führt Dänemark zusammen“ — nur, was nicht null ist. */
+export function mergeSummary(tally: MergeTally): string {
+  const count = (n: number, one: string, many: string) => n ? `${n} ${n === 1 ? one : many}` : '';
+  return [
+    count(tally.merged, 'übernommen', 'übernommen'),
+    count(tally.waiting, 'wartet', 'warten'),
+    count(tally.conflict, 'Konflikt', 'Konflikte'),
+    count(tally['checks-failed'], 'Prüfung gescheitert', 'Prüfungen gescheitert'),
+    count(tally.outside, 'außerhalb des Bereichs', 'außerhalb des Bereichs'),
+    count(tally.skipped, 'ohne Änderung', 'ohne Änderung'),
+    tally.current && `führt ${tally.current} zusammen`,
+  ].filter(Boolean).join(' · ');
+}
+
+/**
+ * Was die Übersicht zur Zusammenführung eines Schwarm-Laufs anbietet:
+ * - `data`: es gibt etwas zu berichten (Warteschlange angelegt oder Einheiten mit Stand)
+ * - `canStart`: noch nicht gestartet, aber fertige Einheiten mit eigenem Branch
+ * - `pending`: gestartet, und es kommt noch etwas (Einheiten laufen oder warten)
+ * - `canAdopt`: alles durch, mindestens eine übernommen, noch nicht in den Branch des Nutzers
+ */
+export interface MergeStage { tally: MergeTally; data: boolean; canStart: boolean; pending: boolean; canAdopt: boolean }
+
+export function mergeStage(run: TeamRun): MergeStage {
+  const jobs = run.jobs ?? [];
+  const tally = mergeTally(jobs);
+  const enabled = !!run.merge?.enabled;
+  const queued = tally.waiting + tally.merging;
+  return {
+    tally,
+    data: !!run.merge || jobs.some(job => job.merge),
+    canStart: !enabled && run.merge?.adopted !== 'ok' && jobs.some(job => job.branch && job.status === 'completed'),
+    pending: enabled && (queued > 0 || run.status === 'running'),
+    canAdopt: enabled && run.status !== 'running' && queued === 0 && tally.merged > 0 && run.merge?.adopted !== 'ok',
+  };
+}
+
+/**
+ * Ob ein Schwarm-Lauf unter „Hintergrundprozesse“ steht. Die Warteschlange
+ * arbeitet weiter, wenn die Einheiten fertig sind — ein beendeter Lauf bleibt
+ * also, solange dort noch etwas zu tun oder zu übernehmen ist. `seen` hält
+ * einen gerade übernommenen Lauf stehen, damit die Bestätigung nicht sofort
+ * verschwindet.
+ */
+export function swarmShown(run: TeamRun, seen?: ReadonlySet<string>): boolean {
+  if (run.status === 'running') return true;
+  if (run.merge?.adopted === 'ok') return !!seen?.has(run.id);
+  return !!run.merge?.enabled || mergeStage(run).canStart;
+}
 
 export function isWidgetLang(lang: string | undefined): boolean {
   return !!lang && (lang === WIDGET_LANG || lang === 'widget');

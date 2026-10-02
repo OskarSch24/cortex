@@ -8,7 +8,13 @@ export interface Mention {
   model?: string;
 }
 
-const MENTION_RE = /(^|[\s([{])@(claude|codex|copilot|grok)(?::([\w-]+(?:\.[\w-]+)*))?(?:\/([\w.:-]+))?(?=\s|$|[)\]},.!?;])/;
+/**
+ * Every provider the model menu can pin — OpenRouter and Z.ai too. Missing
+ * here, a chat pinned to one of them was quietly routed somewhere else.
+ * OpenRouter's model ids carry their own slash and sometimes a tilde
+ * (`openai/gpt-image-2.5-sunburst`, `~typesafe/jev-latest`).
+ */
+const MENTION_RE = /(^|[\s([{])@(claude|codex|copilot|grok|openrouter|zai)(?::([\w-]+(?:\.[\w-]+)*))?(?:\/([\w.:~-]+(?:\/[\w.:~-]+)*))?(?=\s|$|[)\]},.!?;])/;
 
 /** `@codex`, `@claude:work`, `@grok:studio/grok-4.6` — strips the mention from the prompt. */
 export function parseMention(prompt: string): { mention?: Mention; cleaned: string } {

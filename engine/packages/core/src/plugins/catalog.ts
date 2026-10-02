@@ -159,6 +159,7 @@ const PROVIDER_IDS: ReadonlySet<string> = new Set<ProviderId>([
   'copilot',
   'grok',
   'openrouter',
+  'zai',
 ]);
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v : undefined);

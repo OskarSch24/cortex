@@ -207,11 +207,21 @@ describe('OpenRouter adapter', () => {
     expect(models).toEqual(['openai/gpt-5.6-terra']);
   });
 
-  it('offers favourites first and keeps the free reviewers after them', () => {
+  it('offers exactly the favourites and keeps the free reviewers behind the scenes', () => {
     const adapter = new OpenRouterAdapter();
     adapter.setModels([{ id: 'openai/gpt-5.6-terra', label: 'GPT-5.6 Terra' }], [{ id: 'a:free', label: 'A' }]);
-    expect(adapter.models.map((m) => m.id)).toEqual(['openai/gpt-5.6-terra', 'a:free']);
+    expect(adapter.models.map((m) => m.id)).toEqual(['openai/gpt-5.6-terra']);
     expect(adapter.freeChain.map((m) => m.id)).toEqual(['a:free']);
+  });
+
+  it('starts with the five models the user chose, each labelled with what it makes', () => {
+    expect(new OpenRouterAdapter().models).toEqual([
+      { id: '~typesafe/jev-latest', label: 'Jev Latest', output: 'decisions' },
+      { id: 'typesafe/jev-1.13', label: 'Jev 1.13', output: 'decisions' },
+      { id: 'openai/gpt-image-2.5-sunburst', label: 'GPT Image 2.5 Sunburst', output: 'image' },
+      { id: 'heygen/avatar-iv', label: 'Avatar IV', output: 'video' },
+      { id: 'sakana/sakana-namazu', label: 'Sakana Namazu' },
+    ]);
   });
 
   it('has no interactive session to open a terminal on', () => {
@@ -295,16 +305,61 @@ describe('a free reviewer is preferred for the second opinion', () => {
 describe('OpenRouter catalog and key', () => {
   const json = (body: unknown, status = 200) => (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
 
+  /** Answers each OpenRouter list by its path; an unknown path is a 404. */
+  const lists = (byPath: Record<string, unknown>, urls: string[] = []) =>
+    (async (url: string) => {
+      urls.push(url);
+      const path = new URL(url).pathname + new URL(url).search;
+      return path in byPath ? new Response(JSON.stringify(byPath[path]), { status: 200 }) : new Response('{}', { status: 404 });
+    }) as unknown as typeof fetch;
+
   it('reads the live list, drops batch variants and strips the lab prefix', async () => {
-    const list = await fetchOpenRouterModels(json({ data: [
+    const list = await fetchOpenRouterModels(lists({ '/api/v1/models?output_modalities=all': { data: [
       { id: 'anthropic/claude-opus-5', name: 'Anthropic: Claude Opus 5', context_length: 1000000, pricing: { prompt: '0.000005', completion: '0.000025' } },
       { id: 'anthropic/claude-opus-5:batch', name: 'Anthropic: Claude Opus 5 (batch)' },
       { id: 'qwen/qwen3.8-27b:free', name: 'Qwen: Qwen3.8 27B (free)', context_length: 262144, pricing: { prompt: '0', completion: '0' } },
-    ] }));
+    ] } }));
     expect(list.map((m) => m.id)).toEqual(['anthropic/claude-opus-5', 'qwen/qwen3.8-27b:free']);
     expect(list[0]!.label).toBe('Claude Opus 5');
+    expect(list[0]!.kind).toBe('text');
     expect(list[0]!.promptPerMillion).toBeCloseTo(5);
     expect(list[1]!.free).toBe(true);
+  });
+
+  it('lists image, video and decision models too, as the Image and Video APIs say', async () => {
+    const urls: string[] = [];
+    const list = await fetchOpenRouterModels(lists({
+      '/api/v1/models?output_modalities=all': { data: [
+        { id: 'openai/gpt-image-2.5-sunburst', name: 'OpenAI: GPT Image 2.5 Sunburst', architecture: { output_modalities: ['image'] }, pricing: { prompt: '0.000008', image_output: '0.00003' } },
+        { id: 'heygen/avatar-iv', name: 'HeyGen: Avatar IV', architecture: { output_modalities: ['video'] }, pricing: { prompt: '0', completion: '0' } },
+        { id: 'typesafe/jev-1.13', name: 'TypeSafe: Jev 1.13', architecture: { output_modalities: ['decisions'] }, pricing: { prompt: '0.000000042' } },
+        // A chat router that may also return a picture stays a chat model.
+        { id: 'openrouter/auto', name: 'Auto Router', architecture: { output_modalities: ['text', 'image'] } },
+        // Nothing Cortex can run: left out.
+        { id: 'openai/gpt-transcribe', name: 'OpenAI: GPT Transcribe', architecture: { output_modalities: ['transcription'] } },
+        { id: 'voyage/voyage-4', name: 'VoyageAI: voyage-4', architecture: { output_modalities: ['embeddings'] } },
+      ] },
+      '/api/v1/images/models': { data: [{ id: 'openai/gpt-image-2.5-sunburst' }] },
+      '/api/v1/videos/models': { data: [{ id: 'heygen/avatar-iv', pricing_skus: { duration_seconds: '0.05' } }] },
+    }, urls));
+    expect(urls[0]).toBe('https://openrouter.ai/api/v1/models?output_modalities=all');
+    expect(list.map((m) => [m.id, m.kind])).toEqual([
+      ['openai/gpt-image-2.5-sunburst', 'image'],
+      ['heygen/avatar-iv', 'video'],
+      ['typesafe/jev-1.13', 'decisions'],
+      ['openrouter/auto', 'text'],
+    ]);
+    expect(list[0]!.imagePerMillion).toBeCloseTo(30);
+    expect(list[1]!.videoPerSecond).toBe(0.05);
+    expect(list[2]!.promptPerMillion).toBeCloseTo(0.042);
+  });
+
+  it('never puts a free model that does not chat into the review chain', () => {
+    const chain = freeReviewChain([
+      { id: 'span-lite:free', label: 'Span', free: true, kind: 'decisions', contextLength: 2_000_000 },
+      { id: 'chat:free', label: 'Chat', free: true, kind: 'text', contextLength: 128_000 },
+    ]);
+    expect(chain.map((m) => m.id)).toEqual(['chat:free']);
   });
 
   it('builds the review chain from the free models with the most context', () => {
@@ -325,11 +380,3 @@ describe('OpenRouter catalog and key', () => {
   });
 });
 
-it('moves the default Claude favourite to the newest Opus in the catalog', async () => {
-  const { currentDefaultFavorites } = await import('../src/adapters/openrouter.js');
-  const model = (id: string) => ({ id, label: id, free: false });
-  const favs = currentDefaultFavorites([model('anthropic/claude-opus-5'), model('anthropic/claude-opus-5.5'), model('anthropic/claude-opus-4.8')]);
-  expect(favs[0]).toBe('anthropic/claude-opus-5.5');
-  expect(favs[1]).toBe('openai/gpt-5.6-terra');
-  expect(currentDefaultFavorites([])[0]).toBe('anthropic/claude-opus-5');
-});

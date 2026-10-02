@@ -122,6 +122,18 @@ function alsDataUri(icns: string): string | null {
   }
 }
 
+/** Quellen, deren mitgeliefertes Symbol vor dem des Programmbündels steht. */
+const VORRANG = new Set(['mac', 'mac_schirm', 'iphone_schirm', 'cortex']);
+
+function pngDataUri(datei: string): string | null {
+  if (!existsSync(datei)) return null;
+  try {
+    return `data:image/png;base64,${readFileSync(datei).toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Symbol zu einer Bundle-Kennung. `null`, wenn die Anwendung nicht installiert
  * ist — die Seite zeigt dann ein Kürzel statt eines fremden Logos.
@@ -135,12 +147,17 @@ export function appSymbol(
   mitgeliefert?: string,
   appName?: string | null,
 ): string | null {
-  const schluessel = bundleId ?? `datei:${kennung ?? ''}`;
+  const schluessel = `${bundleId ?? ''}|${kennung ?? ''}`;
   const bekannt = zwischenspeicher.get(schluessel);
   if (bekannt !== undefined) return bekannt;
 
   let uri: string | null = null;
-  if (bundleId) {
+  const datei = mitgeliefert && kennung ? join(mitgeliefert, `${kennung}.png`) : undefined;
+  // Ein Gerät ist kein Programm: für „Mac“ steht das Apple-Zeichen, nicht das
+  // Symbol von Bildschirmfoto.app; fürs iPhone das iPhone, nicht Mirroring.
+  // Cortex' Bündel trägt noch das Electron-Symbol — die Marke liegt daneben.
+  if (datei && kennung && VORRANG.has(kennung)) uri = pngDataUri(datei);
+  if (!uri && bundleId) {
     const app = bundlePfad(bundleId, appName);
     const icns = app ? icnsPfad(app) : undefined;
     // Code.icns ist bei Cortex das VSCodium-Dateitypsymbol, nicht das Produkt.
@@ -148,16 +165,7 @@ export function appSymbol(
       uri = alsDataUri(icns);
     }
   }
-  if (!uri && mitgeliefert && kennung) {
-    const datei = join(mitgeliefert, `${kennung}.png`);
-    if (existsSync(datei)) {
-      try {
-        uri = `data:image/png;base64,${readFileSync(datei).toString('base64')}`;
-      } catch {
-        uri = null;
-      }
-    }
-  }
+  if (!uri && datei) uri = pngDataUri(datei);
   zwischenspeicher.set(schluessel, uri);
   return uri;
 }

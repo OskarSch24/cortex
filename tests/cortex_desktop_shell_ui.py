@@ -237,7 +237,7 @@ try:
         page.screenshot(path=str(screenshot))
         page.set_viewport_size({'width': 760, 'height': 560})
         page.wait_for_function('innerWidth === 760')
-        # Ohne Seitenleiste beginnt die Arbeitsfläche als Insel 8 px vom Fensterrand.
+        # Ohne Seitenleiste beginnt die Arbeitsfläche direkt am Fensterrand.
         page.wait_for_function('document.querySelector(".cx-main").getBoundingClientRect().x <= 8')
         composer_bounds = page.locator('.composer').bounding_box()
         message_bounds = page.get_by_label('Nachricht', exact=True).bounding_box()

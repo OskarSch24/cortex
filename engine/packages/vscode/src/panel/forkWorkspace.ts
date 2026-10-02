@@ -10,7 +10,7 @@ async function git(cwd: string, args: string[]): Promise<string> {
 }
 const digest = (data: Uint8Array | string) => createHash('sha256').update(data).digest('hex');
 
-async function safeParents(root: string, destination: string): Promise<void> {
+export async function safeParents(root: string, destination: string): Promise<void> {
   if (!isInside(root, destination)) throw new Error('Ungültiger Zielpfad im Abzweig.');
   let current = root;
   for (const part of relative(root, dirname(destination)).split(sep).filter(Boolean)) {
@@ -56,7 +56,20 @@ async function isolateLinks(source: string, target: string): Promise<void> {
   }
 }
 
-export async function createForkWorkspace(cwd: string, storageDir: string): Promise<string> {
+/** Der Stand eines Projekts, den ein Abzweig übernimmt: Commit, ungesicherte Änderungen, neue Dateien. */
+export interface SourceSnapshot {
+  /** Git-Wurzel (aufgelöst). */
+  root: string;
+  /** Unterordner des Projekts relativ zur Wurzel, `''` für die Wurzel selbst. */
+  subdir: string;
+  head: string;
+  /** Änderungen gegenüber `head` (Index und Arbeitsbaum) als Binär-Patch. */
+  patch: string;
+  /** Neue, nicht ignorierte Dateien, sortiert. */
+  untracked: string[];
+}
+
+export async function snapshotSource(cwd: string): Promise<SourceSnapshot> {
   const root = await realpath((await git(cwd, ['rev-parse', '--show-toplevel'])).trim());
   const source = await realpath(cwd);
   const subdir = relative(root, source);
@@ -67,52 +80,67 @@ export async function createForkWorkspace(cwd: string, storageDir: string): Prom
   const head = (await git(root, ['rev-parse', '--verify', 'HEAD'])).trim();
   const patch = await git(root, ['diff', '--binary', '--no-ext-diff', 'HEAD', '--']);
   const untracked = (await git(root, ['ls-files', '--others', '--exclude-standard', '-z'])).split('\0').filter(Boolean).sort();
+  return { root, subdir, head, patch, untracked };
+}
+
+/**
+ * Überträgt Änderungen und neue Dateien aus `snapshot` in den frisch auf
+ * `snapshot.head` angelegten Worktree `target` und prüft danach, dass sich die
+ * Quelle dabei nicht bewegt hat. `scratch` nimmt kurz den Patch auf.
+ */
+export async function carrySnapshot(snapshot: SourceSnapshot, target: string, scratch: string): Promise<void> {
+  const { root, head, patch, untracked } = snapshot;
+  const fingerprints = new Map<string, string>();
+  if (patch) {
+    const patchFile = join(scratch, 'changes.patch');
+    await writeFile(patchFile, patch, { flag: 'wx', mode: 0o600 });
+    await git(target, ['apply', '--binary', '--whitespace=nowarn', '--', patchFile]);
+    await rm(patchFile);
+  }
+  for (const name of untracked) {
+    const path = resolve(root, name), rel = relative(root, path);
+    if (!isInside(root, path)) throw new Error('Ungültiger Dateipfad im Projekt.');
+    const info = await lstat(path), dest = join(target, rel);
+    await safeParents(target, dest);
+    await mkdir(dirname(dest), { recursive: true });
+    if (info.isSymbolicLink()) {
+      const link = await readlink(path);
+      await symlink(link, dest);
+      fingerprints.set(name, 'link:' + link);
+    } else if (info.isFile()) {
+      const content = await readFile(path);
+      await writeFile(dest, content, { flag: 'wx', mode: info.mode & 0o777 });
+      await chmod(dest, info.mode & 0o777);
+      fingerprints.set(name, digest(content));
+    } else throw new Error(`Nicht kopierbare Datei: ${name}`);
+  }
+  // An editor or another agent may have changed the source while we copied it.
+  if ((await git(root, ['rev-parse', '--verify', 'HEAD'])).trim() !== head
+    || await git(root, ['diff', '--binary', '--no-ext-diff', 'HEAD', '--']) !== patch
+    || JSON.stringify((await git(root, ['ls-files', '--others', '--exclude-standard', '-z'])).split('\0').filter(Boolean).sort()) !== JSON.stringify(untracked)) {
+    throw new Error('Das Projekt wurde während des Kopierens geändert. Bitte erneut abzweigen.');
+  }
+  for (const [name, expected] of fingerprints) {
+    const path = join(root, name), info = await lstat(path);
+    const actual = info.isSymbolicLink() ? 'link:' + await readlink(path) : digest(await readFile(path));
+    if (actual !== expected) throw new Error(`Während des Kopierens geändert: ${name}`);
+  }
+  await isolateLinks(root, target);
+}
+
+export async function createForkWorkspace(cwd: string, storageDir: string): Promise<string> {
+  const snapshot = await snapshotSource(cwd);
   await mkdir(storageDir, { recursive: true });
   const container = await mkdtemp(join(storageDir, 'fork-'));
   const target = join(container, 'workspace');
   let added = false;
-  const fingerprints = new Map<string, string>();
   try {
-    await git(root, ['worktree', 'add', '--detach', '--', target, head]);
+    await git(snapshot.root, ['worktree', 'add', '--detach', '--', target, snapshot.head]);
     added = true;
-    if (patch) {
-      const patchFile = join(container, 'changes.patch');
-      await writeFile(patchFile, patch, { flag: 'wx', mode: 0o600 });
-      await git(target, ['apply', '--binary', '--whitespace=nowarn', '--', patchFile]);
-      await rm(patchFile);
-    }
-    for (const name of untracked) {
-      const path = resolve(root, name), rel = relative(root, path);
-      if (!isInside(root, path)) throw new Error('Ungültiger Dateipfad im Projekt.');
-      const info = await lstat(path), dest = join(target, rel);
-      await safeParents(target, dest);
-      await mkdir(dirname(dest), { recursive: true });
-      if (info.isSymbolicLink()) {
-        const link = await readlink(path);
-        await symlink(link, dest);
-        fingerprints.set(name, 'link:' + link);
-      } else if (info.isFile()) {
-        const content = await readFile(path);
-        await writeFile(dest, content, { flag: 'wx', mode: info.mode & 0o777 });
-        await chmod(dest, info.mode & 0o777);
-        fingerprints.set(name, digest(content));
-      } else throw new Error(`Nicht kopierbare Datei: ${name}`);
-    }
-    // An editor or another agent may have changed the source while we copied it.
-    if ((await git(root, ['rev-parse', '--verify', 'HEAD'])).trim() !== head
-      || await git(root, ['diff', '--binary', '--no-ext-diff', 'HEAD', '--']) !== patch
-      || JSON.stringify((await git(root, ['ls-files', '--others', '--exclude-standard', '-z'])).split('\0').filter(Boolean).sort()) !== JSON.stringify(untracked)) {
-      throw new Error('Das Projekt wurde während des Kopierens geändert. Bitte erneut abzweigen.');
-    }
-    for (const [name, expected] of fingerprints) {
-      const path = join(root, name), info = await lstat(path);
-      const actual = info.isSymbolicLink() ? 'link:' + await readlink(path) : digest(await readFile(path));
-      if (actual !== expected) throw new Error(`Während des Kopierens geändert: ${name}`);
-    }
-    await isolateLinks(root, target);
-    return join(target, subdir);
+    await carrySnapshot(snapshot, target, container);
+    return join(target, snapshot.subdir);
   } catch (error) {
-    if (added) await git(root, ['worktree', 'remove', '--force', '--', target]).catch(() => {});
+    if (added) await git(snapshot.root, ['worktree', 'remove', '--force', '--', target]).catch(() => {});
     await rm(container, { recursive: true, force: true });
     throw error;
   }

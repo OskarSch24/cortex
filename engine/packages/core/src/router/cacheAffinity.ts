@@ -41,6 +41,7 @@ export const CACHE_TTL_MS: Record<ProviderId, number> = {
   grok: 5 * 60_000,
   // Stateless HTTP, reviews only — nothing is ever warm.
   openrouter: 0,
+  zai: 0,
 };
 
 /** Points the incumbent gets purely for having a warm cache. */

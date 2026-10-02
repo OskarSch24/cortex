@@ -13,7 +13,7 @@ import { briefDelta, withBrief, type BriefSection } from '../context/brief.js';
 import { route } from '../router/router.js';
 import type { ConversationContext } from '../router/autoRoute.js';
 import type { TaskMetric } from '../quota/metricsSchema.js';
-import { expandSlashCommand, matchSlashCommand, type SlashCommand } from '../commands/slashCommands.js';
+import { expandSlashCommands, type SlashCommand } from '../commands/slashCommands.js';
 import { isUnknownModel } from '../adapters/limits.js';
 import { scopedMcpUnsupportedMessage } from '../mcp/runPolicy.js';
 import type { LiveRunHandle } from '../adapters/adapter.js';
@@ -109,7 +109,7 @@ export class Orchestrator {
         mode: task.routingMode ?? this.deps.getRoutingMode?.() ?? 'auto',
         metrics: this.deps.getMetrics?.(),
         conversation: this.deps.getConversationContext?.(task.conversationId),
-        autoPlan: this.deps.getAutoPlan?.() ?? true,
+        autoPlan: task.planFirst ?? this.deps.getAutoPlan?.() ?? true,
       },
     );
     yield { type: 'routing', decision };
@@ -127,9 +127,8 @@ export class Orchestrator {
     const history = sessions.getHistory(task.conversationId);
     // What a cut-off attempt already produced, so the next one continues it.
     let interrupted: { target: Target; partial: string } | undefined;
-    // Slash prompts pass through raw to Claude (it runs its native command);
-    // every other provider gets the equivalent plain-English template.
-    const slash = matchSlashCommand(cleanedPrompt, this.deps.getCustomCommands?.() ?? []);
+    const customCommands = this.deps.getCustomCommands?.() ?? [];
+    let mcpRefusal: string | undefined;
 
     for (let i = 0; i < decision.chain.length; i++) {
       if (signal.aborted) return;
@@ -138,11 +137,13 @@ export class Orchestrator {
 
       const adapter = adapters.get(target.provider);
       if (!adapter) continue;
-      // Never weaken a per-agent selection during routing or account failover.
+      // Never weaken a per-agent selection during routing or account failover:
+      // a provider that cannot keep it is skipped, not tried. Only when no
+      // account in the chain could keep it does the run end with that reason.
       const mcpError = scopedMcpUnsupportedMessage(target.provider, task.mcpServers);
       if (mcpError) {
-        yield { type: 'error', message: mcpError, retryable: false };
-        return;
+        mcpRefusal ??= mcpError;
+        continue;
       }
       const account = await this.deps.resolveAccount(target);
       if (!account) continue;
@@ -168,10 +169,10 @@ export class Orchestrator {
         const resumeAt = nativeSid
           ? sessions.forkPoint(task.conversationId, target, task.cwd)
           : undefined;
-        const slashPrompt =
-          slash && slash.cmd.kind === 'prompt' && !(target.provider === 'claude' && slash.cmd.claudeNative)
-            ? expandSlashCommand(slash.cmd, slash.args)
-            : cleanedPrompt;
+        // A lone slash prompt passes through raw to Claude (it runs its native
+        // command); every other provider — and every combination of commands —
+        // gets the plain-English templates.
+        const slashPrompt = expandSlashCommands(cleanedPrompt, customCommands, { native: target.provider === 'claude' });
         // A cut-off attempt is handed over rather than thrown away. Resuming the
         // same native session already has the text, so it only needs the nudge.
         let basePrompt = slashPrompt;
@@ -244,6 +245,8 @@ export class Orchestrator {
           {
             prompt,
             coldPrompt,
+            message: slashPrompt,
+            imageOptions: task.imageOptions,
             images: task.images?.flatMap(path => { const mediaType = imageMediaType(path); return mediaType ? [{ path, mediaType }] : []; }),
             cwd: task.cwd,
             idleTimeoutMs: task.idleTimeoutMs,
@@ -412,6 +415,10 @@ export class Orchestrator {
       }
     }
 
+    if (tried.length === 0 && mcpRefusal) {
+      yield { type: 'error', message: mcpRefusal, retryable: false };
+      return;
+    }
     yield { type: 'chain-exhausted', tried };
   }
 }

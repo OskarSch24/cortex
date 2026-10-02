@@ -353,7 +353,9 @@ describe('mcp for grok', () => {
     expect(syncMcpToProfile(profile({ provider: 'grok', homeDir: home }), parsed.servers)).toBeUndefined();
     const toml = readFileSync(join(home, '.grok', 'config.toml'), 'utf8');
     expect(toml).toContain('[mcp_servers.ctx7]');
-    expect(toml).toContain('command = "npx"');
+    // Hinter dem Tor: die Shell startet den Server selbst, wenn der Lauf ihn erlaubt.
+    expect(toml).toContain('command = "/bin/sh"');
+    expect(toml).toContain('"ctx7", "npx", "ctx7"]');
   });
 
   // Seit Grok 1.0 steht `url` in der eigenen Konfiguration; der frühere Umweg

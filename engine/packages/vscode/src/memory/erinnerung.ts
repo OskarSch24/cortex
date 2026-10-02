@@ -1,6 +1,6 @@
 import { condenseTurn, embedHistory, formatTarget, headWithinTokens } from '@cortex/core';
 import type { BriefSection, ConversationTurn, Target } from '@cortex/core';
-import { STANDARD_BEREICHE, waehleBereiche, type Suchbereich } from './bereiche.js';
+import { CHAT_PROJEKTE, STANDARD_BEREICHE, projektRahmen, waehleBereiche, type ProjektRahmen, type Suchbereich } from './bereiche.js';
 import { schwaerze } from './geheim.js';
 import { gehaltvoll, istMerkwunsch, suchbegriffe, suchtext, themenwechsel } from './suchbegriffe.js';
 import { trefferText } from './trefferText.js';
@@ -86,6 +86,8 @@ export interface ErinnerungDeps {
   notizLesen: (conversationId: string) => string | undefined;
   notizSchreiben: (conversationId: string, text: string) => void;
   merken?: (eintrag: string) => void;
+  /** Der Projektordner, aus dem ein früherer Chat stammt (`projekt_pfad` seiner Ablage). */
+  chatProjekt?: (pfad: string, ablage: string) => string | undefined;
   log?: (zeile: string) => void;
 }
 
@@ -108,6 +110,8 @@ export class Erinnerung {
   private ausgeblendet = new Map<string, Set<string>>();
   /** Fundstellen (Dokumente), die ein Chat schon als Erinnerung gezeigt hat. */
   private gezeigt = new Map<string, Set<string>>();
+  /** Zu welchem Projekt ein Chat gehört — damit das Modell nicht in fremden sucht. */
+  private rahmen = new Map<string, ProjektRahmen>();
 
   constructor(private readonly deps: ErinnerungDeps) {}
 
@@ -119,14 +123,20 @@ export class Erinnerung {
   async vorbereiten(
     conversationId: string,
     prompt: string,
-    ctx: { cwd?: string; erste: boolean; ohnePfad?: string; bekannt?: Iterable<string> },
+    ctx: { cwd?: string; projekt?: string; erste: boolean; ohnePfad?: string; bekannt?: Iterable<string> },
   ): Promise<{ treffer: Treffer[]; bereiche: string[]; neu: boolean; neueTreffer: Treffer[] }> {
     const e = this.deps.einstellungen();
+    const notiz = this.deps.notizLesen(conversationId) ?? '';
+    // Ein Chat in einem Projekt fragt nach diesem Projekt. „Die Scrapes“ im
+    // Haushaltsbuch-Chat holten sonst den Nordwind-Chat, in dem das Wort öfter fällt.
+    // Ein anderes Projekt kommt nur dazu, wenn die Nachricht es nennt.
+    const rahmen = ctx.projekt ? projektRahmen(ctx.projekt, `${prompt}\n${notiz}`, e.bereiche) : undefined;
+    if (rahmen) this.rahmen.set(conversationId, rahmen);
+    else this.rahmen.delete(conversationId);
     if (e.abruf === 'nie') {
       this.letzteTreffer.delete(conversationId);
       return { treffer: [], bereiche: [], neu: false, neueTreffer: [] };
     }
-    const notiz = this.deps.notizLesen(conversationId) ?? '';
     // Gesucht wird mit dem, was der Nutzer geschrieben hat — nicht mit dem
     // Konto-Präfix („@claude:Business/claude-opus-5“), das Cortex davorsetzt,
     // und nicht mit der Anhangsliste. Das Präfix steht in jedem alten Chat und
@@ -144,20 +154,25 @@ export class Erinnerung {
     // Bereiche aus der Nachricht und aus dem Zettel: „weiter wie besprochen“
     // nennt kein Stichwort, der Zettel dieses Chats aber schon.
     const auswahl = waehleBereiche(`${prompt}\n${notiz}`, ctx.cwd, e.bereiche);
+    const bereiche = rahmen
+      ? [...e.bereiche.filter((b) => b.immer), ...rahmen.heimat, ...rahmen.genannt].map((b) => b.name)
+      : auswahl.bereiche;
     const signal = AbortSignal.timeout(ABRUF_DECKEL_MS);
     try {
       const roh = await this.deps.abrufen(
-        { begriffe, projekte: auswahl.projekte, n: e.treffer, ohne_pfad: ctx.ohnePfad },
+        // Mehr holen, als gebraucht wird: Chats fremder Projekte fallen danach weg.
+        { begriffe, projekte: rahmen?.projekte ?? auswahl.projekte, n: rahmen ? Math.min(20, e.treffer * 3) : e.treffer, ohne_pfad: ctx.ohnePfad },
         signal,
       );
       const weg = this.ausgeblendet.get(conversationId);
       const treffer = roh
         .filter((t) => t.wert >= SCHWELLEN[e.schwelle] && !weg?.has(t.id) && !weg?.has(t.dokument))
+        .filter((t) => !rahmen || this.imRahmen(t, rahmen))
         .slice(0, e.treffer);
       this.letzteBegriffe.set(conversationId, begriffe);
       this.letzteTreffer.set(conversationId, treffer);
       this.deps.log?.(
-        `[erinnerung] ${treffer.length}/${roh.length} Treffer in ${auswahl.bereiche.join(', ') || '—'} für ${begriffe.join(' ')}`,
+        `[erinnerung] ${treffer.length}/${roh.length} Treffer in ${bereiche.join(', ') || '—'} für ${begriffe.join(' ')}`,
       );
       // Angezeigt wird nur, was dieser Chat noch nicht vorgelegt bekam: die
       // Karte „Erinnert sich an …“ soll eine Nachricht sein, kein Dauerton.
@@ -169,17 +184,32 @@ export class Erinnerung {
       const neueTreffer = treffer.filter((t) => !schon.has(t.dokument) && !schon.has(t.id) && t.wert >= SCHWELLEN.streng);
       for (const t of treffer) { schon.add(t.dokument); schon.add(t.id); }
       this.gezeigt.set(conversationId, schon);
-      return { treffer, bereiche: auswahl.bereiche, neu: neueTreffer.length > 0, neueTreffer };
+      return { treffer, bereiche, neu: neueTreffer.length > 0, neueTreffer };
     } catch (err) {
       this.deps.log?.(`[erinnerung] Abruf ausgelassen: ${(err as Error).message}`);
-      return { treffer: this.letzteTreffer.get(conversationId) ?? [], bereiche: auswahl.bereiche, neu: false, neueTreffer: [] };
+      return { treffer: this.letzteTreffer.get(conversationId) ?? [], bereiche, neu: false, neueTreffer: [] };
     }
+  }
+
+  /**
+   * Ein früherer Chat zählt, wenn er aus diesem Projekt stammt oder aus einem,
+   * das die Nachricht nennt. Material anderer Projekte hat der Abruf schon
+   * über die Bereiche ausgeschlossen; hier geht es um die Chats, die immer
+   * mitgesucht werden und alle Projekte mischen.
+   */
+  private imRahmen(t: Treffer, rahmen: ProjektRahmen): boolean {
+    if (!t.projekt || !(CHAT_PROJEKTE as readonly string[]).includes(t.projekt)) return true;
+    const herkunft = t.pfad ? this.deps.chatProjekt?.(t.pfad, t.projekt) : undefined;
+    if (!herkunft) return false;
+    return rahmen.gehoertDazu(herkunft);
   }
 
   /** Die Abschnitte, die mit der nächsten Nachricht an das Modell gehen. */
   abschnitte(conversationId: string): BriefSection[] {
     const e = this.deps.einstellungen();
     const out: BriefSection[] = [];
+    const rahmen = this.rahmen.get(conversationId);
+    if (rahmen) out.push({ id: 'projektrahmen', title: 'Projekt dieses Chats', body: rahmen.anweisung });
     const notiz = e.notizen ? this.deps.notizLesen(conversationId)?.trim() : undefined;
     if (notiz) {
       out.push({
@@ -210,6 +240,7 @@ export class Erinnerung {
   }
 
   vergiss(conversationId: string): void {
+    this.rahmen.delete(conversationId);
     this.letzteBegriffe.delete(conversationId);
     this.letzteTreffer.delete(conversationId);
     this.gezeigt.delete(conversationId);

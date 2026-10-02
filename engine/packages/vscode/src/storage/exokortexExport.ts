@@ -252,6 +252,7 @@ function segmentZeilen(segment: Segment): string[] {
     const out = ['## Werkzeuge', ''];
     for (const s of segment.steps) {
       out.push(`### ${s.name}${s.detail ? ` — ${s.detail}` : ''}`, '');
+      if (s.description) out.push(`Zweck: ${s.description}`, '');
       if (s.path) out.push(`Datei: \`${s.path}\``, '');
       if (s.preview) out.push(...block(s.preview, s.action));
     }

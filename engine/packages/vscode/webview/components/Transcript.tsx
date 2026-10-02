@@ -1,4 +1,4 @@
-import type { TranscriptItem } from '../../src/panel/transcript.js';
+import type { Segment, TranscriptItem } from '../../src/panel/transcript.js';
 import type { PermissionDecision } from '../../../core/src/adapters/permission.js';
 import { Markdown } from './Markdown.js';
 import type { FileDiffDto } from '../../src/panel/protocol.js';
@@ -16,6 +16,7 @@ import { MemoryChip } from './transcript/MemoryChip.js';
 import { PermissionCard } from './transcript/PermissionCard.js';
 import { RunState } from './transcript/RunState.js';
 import { TaskGroup } from './transcript/TaskGroup.js';
+import { Glyph } from './CortexIcons.js';
 
 import { AssistantTurn, type ImageActionHandler, type TurnHandlers } from './transcript/AssistantTurn.js';
 
@@ -49,6 +50,23 @@ const DATE_GAP = 3 * 60 * 60 * 1000;
  * das zählte sie ab dem Moment, in dem diese Ansicht „läuft“ erfuhr — nach
  * einem Neuladen stand sie nach 20 Minuten Arbeit wieder bei 2 Minuten.
  */
+/**
+ * Wo die Laufanzeige steht: einmal, in der untersten laufenden Antwort. Wer
+ * während eines Laufs nachschickt, bekommt für jede Nachricht eine eigene
+ * bereitgestellte Antwort — ohne diese Auswahl zeichnete jede ihre eigene Uhr.
+ * Was gerade geschieht, sagt die jüngste laufende Antwort, in der schon etwas steht.
+ */
+export function liveState(items: TranscriptItem[]): { at: number; segments?: Segment[] } {
+  let at = -1;
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    if (it?.kind !== 'assistant' || it.done) continue;
+    if (at === -1) at = i;
+    if (it.segments.length) return { at, segments: it.segments };
+  }
+  return { at };
+}
+
 export function runStart(items: TranscriptItem[]): number | undefined {
   let start: number | undefined;
   for (let i = items.length - 1; i >= 0; i--) {
@@ -141,6 +159,7 @@ export function Transcript({
   let lastUserAt = 0;
   let userIndex = -1;
   const clockStart = (running && runStart(items)) || startedAt;
+  const { at: stateAt, segments: activeSegments } = liveState(items);
   if (items.length === 0) return emptyTranscript({ accounts, noAccounts, onAddAccount });
   return (
     // A log rather than a live region: announcing every streamed token would
@@ -149,6 +168,18 @@ export function Transcript({
       {items.map((item, i) => {
         switch (item.kind) {
           case 'user': {
+            // Eine Runde, die Cortex für ein Ziel geschickt hat: eine schmale
+            // Zeile statt einer Blase. Sie zählt trotzdem als Nachricht — die
+            // Nummern für Bearbeiten und Zurückgehen folgen dem Verlauf des Hosts.
+            if (item.goal?.auto) {
+              ++userIndex;
+              return (
+                <div key={i} class="tl tl-goal-round" title={item.text}>
+                  <Glyph name="target" size={14} />
+                  <span>Ziel · Runde {item.goal.round}</span>
+                </div>
+              );
+            }
             // Die Uhrzeit steht über der ersten Nachricht und über jeder, die
             // nach einer längeren Pause kommt — nicht über jeder einzelnen.
             const divider = item.at !== undefined && (lastUserAt === 0 || item.at - lastUserAt > DATE_GAP);
@@ -177,7 +208,7 @@ export function Transcript({
             const meta = [item.target?.model].filter((part): part is string => Boolean(part));
             const finished = item.at ? new Date(item.at) : undefined;
             return (
-              <AssistantTurn key={item.messageId} item={item} items={items} running={running} startedAt={clockStart} handlers={handlers}>
+              <AssistantTurn key={item.messageId} item={item} items={items} running={running} startedAt={clockStart} handlers={handlers} state={i === stateAt ? { segments: activeSegments } : undefined}>
                 {item.done && !item.images?.length && (answer || meta.length > 0) && (
                   <div class="assistant-foot">
                     {answer && (
@@ -273,7 +304,7 @@ export function Transcript({
       })}
       {/* Noch keine Antwort, aber es läuft schon etwas (Erinnerungen suchen,
           Konto wählen): die Anzeige steht trotzdem, und sie sagt, was. */}
-      {running && clockStart > 0 && !items.some(it => it.kind === 'assistant' && !it.done) && (
+      {running && clockStart > 0 && stateAt === -1 && (
         <div class="tl tl-assistant cx-c-turn tl-live"><RunState items={items} activity={activity} /></div>
       )}
     </div>

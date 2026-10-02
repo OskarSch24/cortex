@@ -1,6 +1,41 @@
 import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+import { closeSync, openSync, readSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { isAbsolute, join, relative } from 'node:path';
+import { CHAT_ORDNER } from '../storage/exokortexExport.js';
 import type { AbrufAuftrag, Treffer } from './erinnerung.js';
+
+const herkunft = new Map<string, string | null>();
+
+/** Wo die Chats einer Ablage liegen — der Volltext hält ihren Pfad relativ dazu. */
+const ABLAGEN: Record<string, string> = {
+  proj_cortex_chats: CHAT_ORDNER,
+  proj_ki_chats: join(homedir(), 'KI-Chats'),
+};
+
+/**
+ * Der Projektordner eines abgelegten Chats: `projekt_pfad` aus dem Kopf seiner
+ * Datei unter `~/Cortex-Chats` oder `~/KI-Chats`. Ein Chat wechselt sein
+ * Projekt nicht; einmal gelesen, bleibt die Antwort.
+ */
+export function chatProjekt(pfad: string, ablage = 'proj_cortex_chats', ordner = ABLAGEN[ablage] ?? CHAT_ORDNER): string | undefined {
+  const datei = isAbsolute(pfad) ? pfad : join(ordner, pfad);
+  if (relative(ordner, datei).startsWith('..')) return undefined;
+  if (!herkunft.has(datei)) {
+    let wert: string | null = null;
+    try {
+      const fd = openSync(datei, 'r');
+      try {
+        const puffer = Buffer.alloc(2048);
+        const kopf = puffer.subarray(0, readSync(fd, puffer, 0, puffer.length, 0)).toString('utf8');
+        const m = /^---\n[\s\S]*?^projekt_pfad:\s*"?(.*?)"?\s*$/m.exec(kopf);
+        wert = m?.[1]?.trim() || null;
+      } finally { closeSync(fd); }
+    } catch { /* fehlt: kein Projekt */ }
+    herkunft.set(datei, wert);
+  }
+  return herkunft.get(datei) ?? undefined;
+}
 
 /**
  * `lesen.py --abruf` — dieselbe Datenbank, die die Modelle über MCP lesen,

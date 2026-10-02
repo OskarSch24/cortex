@@ -11,6 +11,7 @@ export const REPLAYED_KINDS = new Set<HostToWebview['kind']>([
   'routing',
   'delta',
   'image',
+  'video',
   'toolUse',
   // A lane's opening and its verdict are worth keeping; the progress ticks in
   // between are live-only and would bloat every stored conversation.
@@ -57,6 +58,19 @@ export interface ConversationRecord {
   /** Team membership is frozen for this conversation, including its tool scope. */
   teamAgent?: TeamAgent;
   teamWorkspace?: string;
+  /**
+   * Eigener Git-Worktree einer Schwarm-Einheit (teams/unitWorkspace.ts): hier
+   * arbeitet der Chat, nicht im Projektordner. Hat Vorrang vor projectPath.
+   */
+  unitWorkspace?: string;
+  /** Das Ziel des Chats (`/goal`): Cortex schickt Runden, bis es nachweislich erreicht ist. */
+  goal?: import('@cortex/core').ChatGoal & {
+    /** Wie die Runden laufen: Modell, Denkstufe, Rechte — so, wie der Nutzer `/goal` schickte. */
+    modes: import('./messageQueue.js').QueuedMessage['modes'];
+    tags: string[];
+    /** `@codex …` im `/goal`: jede Runde geht dorthin, nicht nur die erste. */
+    mention?: string;
+  };
 }
 
 /** So viele Stände bleiben je Chat; ältere Aufträge lassen sich nicht mehr zurücknehmen. */

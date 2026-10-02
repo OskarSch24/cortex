@@ -17,7 +17,35 @@ export interface TeamAgent {
   webSearch?: WebSearchMode;
   skillPaths: string[];
   dependsOn: string[];
+  /**
+   * Die Pfade, die dieser Einheit gehören (Globs relativ zum Projektordner,
+   * etwa `europa/importer/FR/**`). Beim Abschluss prüft Cortex den Diff der
+   * Einheit dagegen; was außerhalb liegt, gilt als Verstoß. Fehlt es, gehört
+   * der Einheit nichts Bestimmtes und es wird nicht geprüft.
+   */
+  owns?: string[];
 }
+
+/**
+ * Ein Schwarm als Pool: beliebig viele Einheiten (bis MAX_POOL_UNITS), von
+ * denen höchstens `concurrency` zugleich laufen. Eine Einheit ist an kein
+ * Konto gebunden — sie nimmt das nächste Konto mit freiem Platz — und wird
+ * nach einem Fehler bis `maxAttempts`-mal auf einem anderen Konto wiederholt.
+ */
+export interface TeamPool {
+  concurrency?: number;
+  maxAttempts?: number;
+}
+
+/**
+ * Wie die Einheiten eines Schwarms den Projektordner nutzen:
+ * - `shared`: alle im selben Ordner (Stand bis 24.09.2026).
+ * - `worktree`: jede Einheit in einem eigenen Git-Worktree mit eigenem Branch
+ *   (`schwarm/<Lauf>/<Einheit>`); vom Git ignorierte Ordner wie `daten/` oder
+ *   `.venv/` werden verlinkt. So können sich Einheiten im Code nicht
+ *   gegenseitig überschreiben.
+ */
+export type TeamIsolation = 'shared' | 'worktree';
 
 export interface AgentTeam {
   id: string;
@@ -33,6 +61,10 @@ export interface AgentTeam {
    * nicht Rolle für Rolle, sonst liefe ein Schwarm nacheinander statt nebeneinander.
    */
   sharedWorkspace?: boolean;
+  /** Schwarm als Pool (siehe TeamPool); ohne das Feld laufen alle Rollen wie bisher. */
+  pool?: TeamPool;
+  /** Ohne Angabe `shared`. */
+  isolation?: TeamIsolation;
   agents: TeamAgent[];
   automation?: AgentAutomation;
   updatedAt: number;
@@ -49,6 +81,49 @@ export interface TeamJob {
   error?: string;
   startedAt?: number;
   finishedAt?: number;
+  /** Wie oft die Einheit schon gestartet wurde (Pool). */
+  attempts?: number;
+  /** Das Konto des letzten Versuchs (Pool: frei gewählt). */
+  account?: string;
+  /** Branch der Einheit bei `isolation: 'worktree'`. */
+  branch?: string;
+  /** Ihr Worktree (Arbeitsordner des Rollen-Chats); nach dem Übernehmen aufgeräumt. */
+  worktree?: string;
+  /** Geänderte Dateien außerhalb von `owns` — ein Verstoß, der Branch bleibt ungemergt. */
+  outside?: string[];
+  /** Der Commit, ab dem die Arbeit der Einheit zählt (unitWorkspace `base`): zusammengeführt wird nur `base..branch`. */
+  base?: string;
+  /** Wie weit die Merge-Warteschlange mit dieser Einheit ist. */
+  merge?: UnitMerge;
+}
+
+/**
+ * Stand einer Einheit in der Merge-Warteschlange (teams/mergeQueue.ts):
+ * - `waiting`: fertig, wartet auf die Warteschlange
+ * - `merging`: wird gerade übernommen und geprüft
+ * - `merged`: auf dem Zusammenführungs-Branch, Prüfungen bestanden (`commit`)
+ * - `conflict`: ließ sich nicht konfliktfrei übernehmen (`detail`: Dateien)
+ * - `checks-failed`: übernommen, aber eine Prüfung scheiterte — zurückgenommen (`detail`: Ausgabe)
+ * - `outside`: hat Dateien außerhalb ihres Bereichs geändert — nicht übernommen
+ * - `skipped`: nichts geändert
+ */
+export type UnitMergeState = 'waiting' | 'merging' | 'merged' | 'conflict' | 'checks-failed' | 'outside' | 'skipped';
+export interface UnitMerge { state: UnitMergeState; detail?: string; commit?: string; at?: number }
+
+/**
+ * Die Merge-Warteschlange eines Schwarm-Laufs. Sie arbeitet in einem eigenen
+ * Worktree auf `integrationBranch` (von `targetBranch` abgezweigt), übernimmt
+ * fertige Einheiten der Reihe nach und prüft nach jeder mit `checks`. In den
+ * Branch des Nutzers geht das Ergebnis erst mit „übernehmen“ (`adopted`).
+ */
+export interface TeamMerge {
+  enabled: boolean;
+  checks: string[];
+  targetBranch?: string;
+  integrationBranch?: string;
+  integrationPath?: string;
+  adopted?: 'ok' | 'failed';
+  adoptDetail?: string;
 }
 export interface TeamRun {
   id: string;
@@ -67,6 +142,8 @@ export interface TeamRun {
   ownerId?: string;
   /** Monotonic cross-window stop request; only the owning runner cancels its tools. */
   stopRequested?: boolean;
+  /** Merge-Warteschlange (nur Schwärme mit `isolation: 'worktree'`). */
+  merge?: TeamMerge;
 }
 export interface TeamResources {
   servers: Array<{ name: string; title: string; providers?: string[] }>;
@@ -91,14 +168,23 @@ export const WEB_SEARCH_CHOICE_PROVIDERS: readonly string[] = ['claude', 'codex'
 /** Wie viele Rollen ein Team höchstens hat — die Besetzung. */
 export const MAX_TEAM_AGENTS = 20;
 
+/** Wie viele Einheiten ein Schwarm im Pool-Modus höchstens hat. */
+export const MAX_POOL_UNITS = 500;
+/** Wie viele Einheiten eines Pools höchstens zugleich laufen. */
+export const MAX_POOL_CONCURRENCY = 50;
+/** Wie oft eine Einheit im Pool höchstens gestartet wird. */
+export const DEFAULT_POOL_ATTEMPTS = 2;
+
 /**
- * Wie viele davon zugleich laufen. Besetzung ist nicht Gleichzeitigkeit: jede
- * Rolle bringt einen eigenen Anbieterprozess mit, und ein Konto verträgt nur
- * wenige Sitzungen nebeneinander. Steht hier, weil auch die Oberfläche die
- * echten Zahlen nennen soll statt einer eigenen Schätzung.
+ * Wie viele Rollen zugleich laufen: ein voll besetzter Schwarm auf einmal.
+ * Ein Konto begrenzt die Zahl seiner Sitzungen nicht — es begrenzt das
+ * Kontingent, und erreicht eine Rolle das Limit, übernimmt das nächste Konto.
+ * Was wirklich zählt, ist der Speicher: jede Rolle ist ein eigener
+ * Anbieterprozess. Schwarm-Rollen starten deshalb ohne externe MCP-Server
+ * (rund 150 MB statt über 1 GB je Grok-Rolle, gemessen mit grok 1.0.41).
+ * Steht hier, weil auch die Oberfläche die echten Zahlen nennen soll.
  */
-export const MAX_PARALLEL = 12;
-export const MAX_PER_ACCOUNT = 3;
+export const MAX_PARALLEL = 20;
 
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const string = (value: unknown, limit: number, field: string, required = false): string => {
@@ -114,6 +200,27 @@ const strings = (value: unknown, field: string): string[] => {
   if (!Array.isArray(value) || value.length > 100 || value.some(item => typeof item !== 'string' || !item || item.length > 4096)) throw new Error(`${field} ist ungültig.`);
   return [...new Set(value as string[])];
 };
+
+const integer = (value: unknown, min: number, max: number, message: string): number => {
+  if (!Number.isSafeInteger(value) || (value as number) < min || (value as number) > max) throw new Error(message);
+  return value as number;
+};
+
+/** Nur relative Pfade im Projektordner: kein `/` am Anfang, kein `..`, kein Backslash. */
+const ownedPaths = (value: unknown): string[] => {
+  if (!Array.isArray(value) || value.length > 50) throw new Error('Die Pfade einer Einheit sind ungültig (höchstens 50).');
+  const paths = value.filter(item => typeof item !== 'string' || item.trim()).map(item => {
+    if (typeof item !== 'string' || item.length > 200) throw new Error('Ein Pfad einer Einheit fehlt oder ist zu lang.');
+    if (item.startsWith('/') || item.includes('\\') || item.split('/').includes('..')) throw new Error(`Der Pfad „${item}“ muss relativ zum Projektordner sein.`);
+    return item;
+  });
+  return [...new Set(paths)];
+};
+
+const validatePool = (value: Record<string, unknown>): TeamPool => ({
+  ...(value.concurrency === undefined ? {} : { concurrency: integer(value.concurrency, 1, MAX_POOL_CONCURRENCY, `Ein Pool lässt 1 bis ${MAX_POOL_CONCURRENCY} Einheiten zugleich laufen.`) }),
+  ...(value.maxAttempts === undefined ? {} : { maxAttempts: integer(value.maxAttempts, 1, 5, 'Eine Einheit wird 1- bis 5-mal versucht.') }),
+});
 
 /** Reject unsupported saved levels instead of letting an adapter silently lower them. */
 export function teamAgentEffort(agent: Pick<TeamAgent, 'target' | 'effort'>): Effort | undefined {
@@ -132,14 +239,17 @@ export function teamProfileSignature(team: AgentTeam): string {
 
 /** Validate at the host boundary, including the handoff graph. Never trust a saved draft. */
 export function validateTeam(value: unknown): AgentTeam {
-  if (!object(value) || !Array.isArray(value.agents) || value.agents.length < 1 || value.agents.length > MAX_TEAM_AGENTS) throw new Error(`Ein Team braucht 1 bis ${MAX_TEAM_AGENTS} Agenten.`);
+  const pool = object(value) && object(value.pool) ? validatePool(value.pool) : undefined;
+  if (!object(value) || !Array.isArray(value.agents) || value.agents.length < 1 || value.agents.length > (pool ? MAX_POOL_UNITS : MAX_TEAM_AGENTS)) {
+    throw new Error(pool ? `Ein Schwarm braucht 1 bis ${MAX_POOL_UNITS} Einheiten.` : `Ein Team braucht 1 bis ${MAX_TEAM_AGENTS} Agenten.`);
+  }
   if (value.kind !== undefined && value.kind !== 'agent' && value.kind !== 'team') throw new Error('Unbekannte Agentenart.');
   if (value.kind === 'agent' && value.agents.length !== 1) throw new Error('Ein einzelner Agent hat genau eine Rolle. Erstelle ein Team für mehrere Rollen.');
   const agents = value.agents.map((entry): TeamAgent => {
     if (!object(entry) || !object(entry.target)) throw new Error('Der Agent braucht ein Konto.');
     const provider = entry.target.provider;
-    // OpenRouter nur ausdrücklich zugewiesen: automatisch bekommt es nie Arbeit (siehe Schwarm-Besetzung).
-    if (!['claude', 'codex', 'grok', 'copilot', 'openrouter'].includes(String(provider))) throw new Error('Dieser Anbieter unterstützt keine Teamaufträge.');
+    // OpenRouter und Z.ai nur ausdrücklich zugewiesen: automatisch bekommen sie nie Arbeit (siehe Schwarm-Besetzung).
+    if (!['claude', 'codex', 'grok', 'copilot', 'openrouter', 'zai'].includes(String(provider))) throw new Error('Dieser Anbieter unterstützt keine Teamaufträge.');
     if (entry.webSearch !== undefined && !(WEB_SEARCH_CHOICES as readonly unknown[]).includes(entry.webSearch)) throw new Error('Die Websuche ist ungültig.');
     if (entry.webSearch !== undefined && entry.webSearch !== 'standard' && !WEB_SEARCH_CHOICE_PROVIDERS.includes(String(provider))) throw new Error('Bei diesem Anbieter lässt sich die Websuche nicht umstellen.');
     if (!['safe', 'edits', 'full'].includes(String(entry.permissionMode))) throw new Error('Die Werkzeugfreigabe ist ungültig.');
@@ -155,6 +265,7 @@ export function validateTeam(value: unknown): AgentTeam {
       ...(entry.mcpServers === undefined ? {} : { mcpServers: strings(entry.mcpServers, 'MCP-Auswahl') }),
       ...(entry.webSearch === undefined || entry.webSearch === 'standard' ? {} : { webSearch: entry.webSearch as WebSearchMode }),
       skillPaths: strings(entry.skillPaths ?? [], 'Skills'), dependsOn: strings(entry.dependsOn ?? [], 'Übergaben'),
+      ...(entry.owns === undefined ? {} : { owns: ownedPaths(entry.owns) }),
     };
   });
   if (new Set(agents.map(agent => agent.id)).size !== agents.length) throw new Error('Agentenkennungen müssen eindeutig sein.');
@@ -163,7 +274,9 @@ export function validateTeam(value: unknown): AgentTeam {
     id: id(value.id), ...(value.kind ? { kind: value.kind } : {}), name: string(value.name, value.kind === 'agent' ? 80 : 100, value.kind === 'agent' ? 'Agentenname' : 'Teamname', true).trim(),
     description: string(value.description, 1000, 'Beschreibung'), instructions: string(value.instructions, 100_000, 'Team-Anweisungen'),
     ...(value.projectPath ? { projectPath: string(value.projectPath, 4096, 'Projekt') } : {}),
-    ...(value.sharedWorkspace === true ? { sharedWorkspace: true } : {}), agents, updatedAt: Date.now(),
+    ...(value.sharedWorkspace === true ? { sharedWorkspace: true } : {}),
+    ...(pool ? { pool } : {}), ...(value.isolation === 'shared' || value.isolation === 'worktree' ? { isolation: value.isolation } : {}),
+    agents, updatedAt: Date.now(),
     ...(value.automation === undefined ? {} : { automation: validateAutomationShape(value.automation) }),
   };
   teamOrder(team);

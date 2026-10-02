@@ -61,7 +61,7 @@ it('persists independent reasoning levels for every role and keeps old profiles 
 });
 
 it.each([
-  ['claude', undefined, 'ultra'], ['claude', 'future-model', 'high'], ['grok', 'grok-4.5', 'xhigh'],
+  ['claude', undefined, 'ultra'], ['claude', 'future-model', 'high'], ['grok', 'grok-4.7', 'max'],
   ['copilot', undefined, 'high'], ['codex', undefined, 'minimal'], ['claude', undefined, 'invalid'],
   ['claude', undefined, 3], ['claude', undefined, null], ['claude', undefined, ['high']],
 ])('rejects unsupported reasoning without changing saved state: %s %s %s', (provider, model, effort) => {
@@ -75,7 +75,7 @@ it.each([
 it('accepts model aliases and every supported explicit level including provider defaults', () => {
   expect(teamAgentEffort({ target: { provider: 'claude', account: 'work', model: 'opus' }, effort: 'max' })).toBe('max');
   expect(teamAgentEffort({ target: { provider: 'codex', account: 'work' }, effort: 'ultra' })).toBe('ultra');
-  expect(teamAgentEffort({ target: { provider: 'grok', account: 'work', model: 'grok-4.6' }, effort: 'xhigh' })).toBe('xhigh');
+  expect(teamAgentEffort({ target: { provider: 'grok', account: 'work', model: 'grok-4.7' }, effort: 'xhigh' })).toBe('xhigh');
 });
 
 it('keeps standalone agents separate from legacy one-role teams through persistence', () => {

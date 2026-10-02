@@ -14,6 +14,12 @@ export type ToolAction = 'read' | 'write' | 'edit' | 'search' | 'run' | 'fetch' 
 export interface ToolDetail {
   /** One line, always visible: the file, command or query. */
   detail?: string;
+  /**
+   * What the call is for, in the agent's own words. A command line says what
+   * runs; `python3 - <<'PY'` twenty times over says nothing about which of the
+   * twenty did what. The agent's own description of a shell call does.
+   */
+  description?: string;
   /** Body shown when the step is expanded. */
   preview?: string;
   /** File the tool touched, relative to the workspace when possible. */
@@ -91,19 +97,23 @@ function lineRange(input: Record<string, unknown>): string {
 /**
  * `name` is the provider's tool name; `input` its raw arguments. Unknown tools
  * still get a usable line rather than disappearing.
+ *
+ * Grok's own tools (`read_file`, `search_replace`, `run_terminal_command`,
+ * `list_dir`, …) come in under their plain names: its ACP `tool_call` carries
+ * no `kind`, so the name is all there is to go on.
  */
 export function describeToolUse(name: string, rawInput: unknown, cwd?: string): ToolDetail {
   const input = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as Record<string, unknown>;
   const tool = name.toLowerCase();
 
-  const filePath = str(input, 'file_path', 'filePath', 'path', 'notebook_path', 'notebookPath');
+  const filePath = str(input, 'file_path', 'filePath', 'path', 'notebook_path', 'notebookPath', 'target_file', 'target_directory');
   const short = filePath ? shortenPath(filePath, cwd) : undefined;
 
-  if (tool === 'read' || tool === 'readfile' || tool === 'view') {
+  if (tool === 'read' || tool === 'readfile' || tool === 'read_file' || tool === 'view') {
     return { action: 'read', path: short, detail: short ? short + lineRange(input) : undefined };
   }
 
-  if (tool === 'edit' || tool === 'multiedit' || tool === 'str_replace' || tool === 'applypatch') {
+  if (tool === 'edit' || tool === 'multiedit' || tool === 'str_replace' || tool === 'search_replace' || tool === 'applypatch') {
     const oldText = str(input, 'old_string', 'oldText', 'old_str');
     const newText = str(input, 'new_string', 'newText', 'new_str');
     const all = input.replace_all === true ? ' (all occurrences)' : '';
@@ -157,15 +167,26 @@ export function describeToolUse(name: string, rawInput: unknown, cwd?: string): 
     tool === 'exec' ||
     tool === 'execute' ||
     tool === 'commandexecution' ||
-    tool === 'terminal'
+    tool === 'terminal' ||
+    tool === 'run_terminal_command' ||
+    // Grok's background watcher: a command whose output lines arrive as events.
+    tool === 'monitor'
   ) {
     const command = str(input, 'command', 'cmd', 'script') ?? '';
     const first = command.split('\n')[0] ?? '';
+    const description = str(input, 'description')?.trim().split('\n')[0];
     return {
       action: 'run',
-      detail: str(input, 'description') ? `${first}` : first,
+      detail: first,
+      description: description ? clip(description, 1, 160) : undefined,
       preview: command.includes('\n') ? clip(command) : undefined,
     };
+  }
+
+  // One folder's contents. Searches keep their place in `detail`; only a
+  // listing sets `path` — that is how the transcript tells the two apart.
+  if (tool === 'list_dir' || tool === 'ls' || tool === 'list_directory') {
+    return { action: 'search', path: short, detail: short };
   }
 
   if (tool === 'glob' || tool === 'find') {
@@ -186,20 +207,20 @@ export function describeToolUse(name: string, rawInput: unknown, cwd?: string): 
     };
   }
 
-  if (tool === 'webfetch' || tool === 'fetch') {
+  if (tool === 'webfetch' || tool === 'web_fetch' || tool === 'fetch') {
     return { action: 'fetch', detail: str(input, 'url'), preview: str(input, 'prompt') };
   }
 
-  if (tool === 'websearch') {
+  if (tool === 'websearch' || tool === 'web_search') {
     return { action: 'fetch', detail: str(input, 'query') };
   }
 
-  if (tool === 'task' || tool === 'agent') {
+  if (tool === 'task' || tool === 'agent' || tool === 'spawn_subagent') {
     const description = str(input, 'description', 'subagent_type');
     return { action: 'task', detail: description, preview: str(input, 'prompt') };
   }
 
-  if (tool === 'todowrite') {
+  if (tool === 'todowrite' || tool === 'todo_write') {
     const todos = Array.isArray(input.todos) ? input.todos : [];
     const lines = todos
       .map((t) => {
@@ -257,6 +278,7 @@ export function toolUseEvent(name: string, info: ToolDetail): Extract<AdapterEve
     type: 'tool-use',
     name,
     detail: info.detail,
+    description: info.description,
     preview: info.preview,
     path: info.path,
     action: info.action,

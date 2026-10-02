@@ -116,6 +116,8 @@ const PATHS: Record<string, () => ComponentChildren> = {
   eye: () => <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="3" /></>,
   play: () => <path d="M7 4.5v15L19.5 12Z" />,
   stop: () => <rect x="6" y="6" width="12" height="12" rx="2" />,
+  pause: () => <path d="M8 5v14M16 5v14" />,
+  target: () => <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.2" fill="currentColor" /></>,
   layers: () => <path d="m12 3 9 4.5-9 4.5-9-4.5Zm-9 9 9 4.5 9-4.5M3 16.5 12 21l9-4.5" />,
   book: () => <><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5ZM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5Z" /></>,
 };

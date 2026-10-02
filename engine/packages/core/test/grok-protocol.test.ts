@@ -13,9 +13,13 @@ it('never passes model arguments to the stdio subcommand', () => {
 });
 it('authenticates and selects the exact model for new and resumed sessions', async () => {
  for (const resume of [undefined, 'fake-session-1']) {
-  const events = await run('grok-4.5', resume);
-  expect(events.find(e => e.type === 'result')).toMatchObject({text:'grok-4.5'});
+  const events = await run('grok-4.7-build-fast', resume);
+  expect(events.find(e => e.type === 'result')).toMatchObject({text:'grok-4.7-build-fast'});
  }
+});
+it('runs a saved choice of a retired model on its successor', async () => {
+ const events = await run('grok-4.6');
+ expect(events.find(e => e.type === 'result')).toMatchObject({text:'grok-4.7'});
 });
 it('does not silently run the default model if selection fails', async () => {
  const events = await run('unknown');
@@ -24,19 +28,19 @@ it('does not silently run the default model if selection fails', async () => {
 });
 
 it('passes the reasoning effort as a session config option', async () => {
- const events = await run('grok-4.6', undefined, { prompt: 'CONFIG_CHECK', effort: 'high' });
+ const events = await run('grok-4.7', undefined, { prompt: 'CONFIG_CHECK', effort: 'high' });
  expect(events.find(e => e.type === 'result')).toMatchObject({ text: '{"reasoning_effort":"high"}' });
 });
 it('still answers when the CLI is too old for the effort option', async () => {
  // grok 1.0.13 has no session/set_config_option and answers -32601. Losing a
  // dial must not lose the turn — before this, every run with an effort set
  // died with the bare protocol text "Method not found".
- const events = await run('grok-4.6', undefined, { effort: 'high', env: { ...process.env, GROK_WITHOUT_CONFIG_OPTIONS: '1' } });
+ const events = await run('grok-4.7', undefined, { effort: 'high', env: { ...process.env, GROK_WITHOUT_CONFIG_OPTIONS: '1' } });
  expect(events.some(e => e.type === 'error')).toBe(false);
- expect(events.find(e => e.type === 'result')).toMatchObject({ text: 'grok-4.6' });
+ expect(events.find(e => e.type === 'result')).toMatchObject({ text: 'grok-4.7' });
  expect(events.find(e => e.type === 'notice')).toMatchObject({ text: expect.stringContaining('Denk-Aufwand') });
 });
 it('names the outdated CLI instead of echoing "Method not found"', async () => {
- const events = await run('grok-4.6', undefined, { effort: 'high', env: { ...process.env, GROK_WITHOUT_CONFIG_OPTIONS: '1' } });
+ const events = await run('grok-4.7', undefined, { effort: 'high', env: { ...process.env, GROK_WITHOUT_CONFIG_OPTIONS: '1' } });
  expect(events.some(e => e.type === 'notice' && /Method not found/i.test(e.text))).toBe(false);
 });

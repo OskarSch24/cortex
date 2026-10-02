@@ -1,4 +1,6 @@
 import { isWidgetLang, parseWidget } from './widgets/spec.js';
+import { GOAL_LANG, readGoalBlock } from '../../../core/src/goal/goal.js';
+import { goalReportLabel } from './goalReport.js';
 
 const LABELS: Record<string, string> = { location: 'Ort', temp: 'Temperatur', condition: 'Wetter', date: 'Datum', high: 'Höchstwert', low: 'Tiefstwert', wind: 'Wind', rain: 'Regen', title: 'Titel', label: 'Bezeichnung', text: 'Text', value: 'Wert', price: 'Kurs', change: 'Änderung', symbol: 'Symbol', source: 'Quelle', name: 'Name', status: 'Status', url: 'Link', path: 'Datei', note: 'Hinweis', detail: 'Details', done: 'Erledigt', total: 'Gesamt', passed: 'Bestanden', durationSec: 'Dauer in Sekunden', station: 'Station', destination: 'Ziel', from: 'Von', to: 'Nach', amount: 'Betrag', rate: 'Kurs', question: 'Frage', explanation: 'Erklärung' };
 const DECORATION = new Set(['type', 'tone', 'color', 'icon', 'series', 'peaks', 'points', 'edges', 'background', 'primary', 'prompt']);
@@ -14,6 +16,8 @@ function readable(value: unknown, key = '', depth = 0): string {
 
 export function answerForClipboard(text: string): string {
   return text.replace(/```([\w.-]+)\s*\n([\s\S]*?)```/g, (block, lang: string, code: string) => {
+    // Die Statusmeldung einer Ziel-Runde als Satz, nicht als JSON.
+    if (lang === GOAL_LANG) { const report = readGoalBlock(code); return report ? `${goalReportLabel(report.status)}${report.note ? `: ${report.note}` : ''}` : ''; }
     if (!isWidgetLang(lang)) return block;
     const parsed = parseWidget(code);
     return parsed.ok ? readable(parsed.spec) : '[Widget konnte nicht als Text gelesen werden]';

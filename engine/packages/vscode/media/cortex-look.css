@@ -1,38 +1,41 @@
-/* ── Cortex-Oberfläche: Inseln, runde Ecken, einklappbare Bereiche ─────────
+/* ── Cortex-Oberfläche: Flächen, runde Ecken, einklappbare Bereiche ───────
    Der Aufbau bleibt: Seitenleiste links, Arbeitsfläche in der Mitte, Dock
-   rechts, Einstellungen mit eigener Leiste. Jede dieser Flächen ist eine
-   abgerundete Insel auf dem dunkleren Grund (--cx-ground), mit --cx-gap
-   Abstand zueinander und zum Fensterrand. Die Datei wird als letzte geladen;
-   Farben und Radien kommen aus den Tokens in cortex.css.                    */
+   rechts, Einstellungen mit eigener Leiste. Die Flächen stoßen ohne Lücke
+   aneinander und reichen bis an den Fensterrand; zwischen ihnen liegt nur
+   eine 1-px-Linie (--cx-line). Runde Ecken tragen nur noch Karten, Menüs und
+   Eingaben. Die Datei wird als letzte geladen; Farben und Radien kommen aus
+   den Tokens in cortex.css.                                                 */
 
 /* ── Grund und Inseln ─────────────────────────────────────────────────── */
 .cx-shell { box-sizing: border-box; gap: var(--cx-gap); padding: var(--cx-gap); background: var(--cx-ground); }
 .cx-sidebar, .cx-mini-rail, .cx-main, .cxs-nav, .cxs-main {
-  box-sizing: border-box; border: 1px solid var(--cx-line); border-radius: var(--cx-r-island);
+  box-sizing: border-box; border: 0; border-radius: 0;
 }
+.cx-sidebar, .cx-mini-rail, .cxs-nav { border-right: 1px solid var(--cx-line); }
 .cx-sidebar { height: auto; padding: 0 8px; background: var(--cx-rail); }
 .cx-shell .cx-sidebar.closed { margin-left: calc(-1 * var(--cx-sidebar-width, 250px) - var(--cx-gap)); }
 .cx-sidebar.peek { top: var(--cx-gap); bottom: var(--cx-gap); left: var(--cx-gap); box-shadow: 0 18px 50px #000a; }
 .cx-main { background: var(--cx-bg); overflow: hidden; }
-/* Im Chat sind Verlauf und Übersichtskarte eine Insel (.cx-chat-island);
-   Dock und Prüfansicht rechts daneben sind eigene. Im Vollbild des Docks
-   löst sich die Chat-Insel auf, ihre Eingabe schwebt dann über dem Dock. */
+/* Im Chat sind Verlauf und Übersichtskarte eine Fläche (.cx-chat-island);
+   Dock und Prüfansicht rechts daneben sind eigene, links mit einer Linie
+   abgesetzt. Im Vollbild des Docks löst sich die Chat-Fläche auf, ihre
+   Eingabe schwebt dann über dem Dock. */
 .cx-main.has-workspace { background: transparent; border: 0; border-radius: 0; overflow: visible; }
 .cx-workspace { gap: var(--cx-gap); }
-.cx-chat-island { display: flex; flex: 1; min-width: 270px; position: relative; background: var(--cx-bg); border: 1px solid var(--cx-line); border-radius: var(--cx-r-island); }
+.cx-chat-island { display: flex; flex: 1; min-width: 270px; position: relative; background: var(--cx-bg); border: 0; border-radius: 0; }
 @media (max-width: 1000px) { .cx-chat-island { min-width: 0; } }
 .cx-workspace.dock-full > .cx-chat-island { display: contents; }
 .cx-workspace:has(> .cx-dock.overwide, > .cx-dock.morphing) > .cx-chat-island { min-width: 0; overflow: hidden; }
-.cx-dock { border: 1px solid var(--cx-line) !important; border-radius: var(--cx-r-island); overflow: hidden; background: var(--cx-bg); }
+.cx-dock { border: 0 !important; border-left: 1px solid var(--cx-line) !important; border-radius: 0; overflow: hidden; background: var(--cx-bg); }
 .cx-dock-tabs { margin-top: 0; padding: 8px 8px 8px 10px; border-bottom: 1px solid var(--cx-line); }
 /* Die Übersichtskarte schwebt rechts im Chat, als Karte in seiner Insel. */
 .cx-control-panel { margin-top: 56px; margin-right: 16px; background: var(--cx-composer); border: 1px solid rgb(var(--cx-ink) / 0.07); border-radius: var(--cx-r-card); box-shadow: none; }
-.cx-review { margin: 0; border-color: var(--cx-line); border-radius: var(--cx-r-island); background: var(--cx-bg); }
+.cx-review { margin: 0; border: 0; border-left: 1px solid var(--cx-line); border-radius: 0; background: var(--cx-bg); }
 .cx-review-head { background: transparent; }
 
 /* ── Seitenleiste ─────────────────────────────────────────────────────── */
-.cx-rail-brand { margin-top: 4px; padding: 0 2px 0 6px; }
-.cx-windowed .cx-rail-brand { margin-top: 28px; }
+.cx-rail-brand { margin-top: 13px; padding: 0 2px 0 6px; }
+.cx-windowed .cx-rail-brand { margin-top: 37px; }
 .cx-rail-brand > span { font-size: 15.5px; font-weight: 700; letter-spacing: -.2px; }
 .cx-shell .cx-icon { border-radius: 999px; }
 .cx-rail-nav { margin: 8px 0 6px; gap: 1px; }
@@ -80,7 +83,7 @@
 /* Eingeklappt: eine schmale Insel mit denselben Wegen. Im Fenstermodus
    beginnt sie unter den Ampelknöpfen. */
 .cx-mini-rail { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 56px; flex-shrink: 0; padding: 10px 0; background: var(--cx-rail); }
-.cx-windowed .cx-mini-rail { padding-top: 38px; }
+.cx-windowed .cx-mini-rail { padding-top: 47px; }
 .cx-mini-rail .cx-icon { position: relative; width: 40px; height: 40px; border-radius: 12px; }
 .cx-mini-rail .cx-icon.selected { background: rgb(var(--cx-ink) / 0.07); color: var(--cx-text); }
 .cx-mini-brand { margin-bottom: 8px; }
@@ -162,8 +165,8 @@
 
 /* ── Einstellungen ────────────────────────────────────────────────────── */
 .cx-settings-mode .cxs-shell { gap: var(--cx-gap); background: transparent; }
-.cxs-nav { width: 256px; min-width: 256px; height: auto; background: var(--cx-rail); box-shadow: none; padding-top: 12px; }
-.cx-windowed .cxs-nav { padding-top: 36px; }
+.cxs-nav { width: 256px; min-width: 256px; height: auto; background: var(--cx-rail); box-shadow: none; padding-top: 21px; }
+.cx-windowed .cxs-nav { padding-top: 45px; }
 .cxs-main { background: var(--cx-bg); overflow: hidden; }
 .cxs-nav-item, .cxs-back { border-radius: var(--cx-r-row); font-weight: 500; }
 .cxs-nav-search { border-radius: 999px; }
@@ -198,3 +201,37 @@
 [data-cx-theme=hell] .md a.md-link, [data-cx-theme=hell] .cx-settings-mode { --cxs-link: #2f63c4; }
 [data-cx-theme=hell] .md a.md-link { color: #2f63c4; }
 [data-cx-theme=hell] .cx-sidebar.peek { box-shadow: 0 18px 50px #0003; }
+
+/* ── Ziel (/goal) ─────────────────────────────────────────────────────
+   Die Leiste über dem Eingabefeld ist gebaut wie die Warteschlange: ein
+   Reiter, den das Eingabefeld unten überlappt. Farbe nur als Signal —
+   Grün, solange eine Runde läuft, Bernstein, wenn das Ziel dich braucht. */
+.cx-goal-strip { position: relative; margin: 0 10px -14px; padding: 5px 9px 20px; border: 1px solid rgb(var(--cx-ink) / 0.08); border-bottom: 0; border-radius: 18px 18px 0 0; background: var(--cx-raised); flex-shrink: 0; }
+.cx-goal-strip + .cx-message-queue { border-radius: 14px 14px 0 0; }
+.cx-goal-row { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 2px 2px 2px 4px; }
+.cx-goal-row > svg { flex-shrink: 0; color: var(--cx-soft); }
+.cx-goal-text { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 1px; }
+.cx-goal-objective, .cx-goal-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-goal-objective { color: var(--cx-text); font: 500 13.5px/20px var(--cx-body-font); }
+.cx-goal-note { color: var(--cx-muted); font: 12px/17px var(--cx-body-font); }
+.cx-goal-state { display: flex; flex-shrink: 0; align-items: center; gap: 5px; color: var(--cx-muted); font: 500 12px/20px var(--cx-body-font); white-space: nowrap; }
+.cx-goal-state.tone-running { color: var(--cx-green); }
+.cx-goal-state.tone-attention { color: var(--cx-amber); }
+.cx-goal-action { display: flex; flex-shrink: 0; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border: 0; border-radius: 999px; background: rgb(var(--cx-ink) / 0.06); color: var(--cx-text); font: 500 12px var(--cx-body-font); }
+.cx-goal-action:hover { background: rgb(var(--cx-ink) / 0.1); }
+.cx-goal-row .cx-icon { flex-shrink: 0; color: var(--cx-muted); }
+.cx-goal-row .cx-icon:hover { color: var(--cx-text); }
+/* Schmal: nur die Icons bleiben sichtbar — die Worte bleiben für Screenreader da. */
+@media (max-width: 1000px) { .cx-goal-action span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .cx-goal-action { padding: 0 8px; } .cx-goal-row { gap: 7px; } }
+@media (max-width: 780px) { .cx-goal-state span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
+
+/* Eine Runde, die Cortex für das Ziel geschickt hat: eine Trennzeile, keine Blase. */
+.tl-goal-round { display: flex; align-items: center; gap: 8px; margin: 22px 0 12px; color: var(--cx-muted); font: 500 12.5px/18px var(--cx-body-font); }
+.tl-goal-round > svg { flex-shrink: 0; }
+.tl-goal-round::after { content: ''; flex: 1; height: 1px; background: rgb(var(--cx-ink) / 0.07); }
+
+/* Die Statusmeldung am Ende einer Ziel-Runde, als Zeile in der Antwort. */
+.md-goal-report { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 4px; padding: 9px 12px; border-radius: var(--cx-r-row); background: rgb(var(--cx-ink) / 0.04); color: var(--cx-soft); font: 13px/19px var(--cx-body-font); }
+.md-goal-report > svg { flex-shrink: 0; margin-top: 2.5px; color: var(--cx-soft); }
+.md-goal-report strong { flex-shrink: 0; color: var(--cx-text); font-weight: 600; }
+.md-goal-report.is-blocked > svg, .md-goal-report.is-blocked strong { color: var(--cx-amber); }

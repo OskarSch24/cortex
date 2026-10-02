@@ -7,6 +7,8 @@ import { Transcript } from './components/Transcript.js';
 import { applyHostMessage, type TranscriptItem } from '../src/panel/transcript.js';
 import { Composer, type PinnedTarget } from './components/Composer.js';
 import { QueuedMessages } from './components/QueuedMessages.js';
+import { GoalStrip } from './components/GoalStrip.js';
+import type { ChatGoal } from '../../core/src/goal/goal.js';
 import { HistoryList } from './components/HistoryList.js';
 import { AccountsView } from './components/AccountsView.js';
 import { RulesView } from './components/RulesView.js';
@@ -165,6 +167,7 @@ function ChatApp() {
   const [pinnedStandard, setPinnedStandard] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [goal, setGoal] = useState<ChatGoal>();
   const [queued, setQueued] = useState<QueuedMessageDto[]>([]);
   const [queuePaused, setQueuePaused] = useState(false);
   const [queuePauseReason, setQueuePauseReason] = useState<'error' | 'stopped' | 'restored' | 'project'>();
@@ -212,7 +215,8 @@ function ChatApp() {
         setAttachments((prev) => [...new Set([...prev, ...msg.paths])]);
       }
       if (msg.kind === 'messageQueue') { setQueued(msg.items); setQueuePaused(msg.paused); setQueuePauseReason(msg.pauseReason); }
-      if (msg.kind === 'conversationReset') { setItems([]); setQueued([]); setQueuePaused(false); }
+      if (msg.kind === 'goal') setGoal(msg.goal);
+      if (msg.kind === 'conversationReset') { setItems([]); setQueued([]); setQueuePaused(false); setGoal(undefined); }
     };
     window.addEventListener('message', onMessage);
     vscode.postMessage({ kind: 'ready' });
@@ -289,6 +293,7 @@ function ChatApp() {
             ↓ {missed ? 'new activity' : 'latest'}
           </button>
         )}
+        <GoalStrip goal={goal} running={running} />
         <QueuedMessages items={queued} paused={queuePaused} pauseReason={queuePauseReason} />
         <Composer
           accounts={accounts}

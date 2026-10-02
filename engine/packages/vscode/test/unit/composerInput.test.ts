@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeToken, submitsInput } from '../../webview/components/composerInput.js';
+import { activeToken, atMessageStart, submitsInput } from '../../webview/components/composerInput.js';
 
 describe('composer and inline editor keyboard input', () => {
   it('never sends while confirming an IME composition', () => {
@@ -30,6 +30,14 @@ describe('composer and inline editor keyboard input', () => {
     }
     const draft = '/überarbeiten Mein Entwurf';
     expect(activeToken(draft, '/überarbeiten'.length)).toEqual({ start: 0, token: '/überarbeiten' });
-    expect(activeToken('Bitte /überarbeiten', 'Bitte /überarbeiten'.length)).toBeUndefined();
+  });
+  it('offers commands anywhere in the first paragraph, but not in pasted material or paths', () => {
+    expect(activeToken('Bitte /überarbeiten', 'Bitte /überarbeiten'.length)).toEqual({ start: 6, token: '/überarbeiten' });
+    expect(activeToken('/goal /te', 9)).toEqual({ start: 6, token: '/te' });
+    const pasted = 'Was steht im Log?\n\nGET /te';
+    expect(activeToken(pasted, pasted.length)).toBeUndefined();
+    expect(activeToken('Starte /usr/bin', 15)).toBeUndefined();
+    expect(atMessageStart('  /goal', 2)).toBe(true);
+    expect(atMessageStart('/goal /test', 6)).toBe(false);
   });
 });

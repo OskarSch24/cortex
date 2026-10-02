@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { AccountProfile, ProviderId } from '../types.js';
 import { isSseUrl } from './transport.js';
+import { gatedMcpServer } from './runPolicy.js';
 import { readJson } from '../util/jsonFile.js';
 
 export { parseMcpFile } from './mcpFile.js';
@@ -118,8 +119,11 @@ export function syncMcpToProfile(
         // Grok findet seine Konfiguration unter HOME/.grok, nicht im
         // Wurzelordner. Seit 1.0 kennt es `url`, `type = "sse"` und
         // `[mcp_servers.x.headers]` selbst — `mcp-remote` als Umweg hätte bei
-        // einer 401 von sich aus einen Browser geöffnet.
-        writeTomlServers(join(account.homeDir, '.grok', 'config.toml'), servers, 'headers', true);
+        // einer 401 von sich aus einen Browser geöffnet. Jeder lokale Server
+        // steht hinter dem Tor, damit ein Lauf (etwa eine Schwarm-Rolle) nur
+        // die Server startet, die er braucht.
+        const gated = Object.fromEntries(Object.entries(servers).map(([name, def]) => [name, gatedMcpServer(name, def)]));
+        writeTomlServers(join(account.homeDir, '.grok', 'config.toml'), gated, 'headers', true);
         break;
       }
       default:

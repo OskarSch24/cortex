@@ -141,4 +141,20 @@ describe('Arbeitsuhr', () => {
     expect(runStart(items)).toBe(5_000);
     expect(runStart(items.slice(0, 2))).toBeUndefined();
   });
+
+  it('zeigt Tätigkeit und Uhr nur einmal, unter nachgeschickten Nachrichten', async () => {
+    const { liveState } = await import('../../webview/components/Transcript.js');
+    const working: Segment[] = [{ kind: 'text', text: 'Ich baue die Alternative …' }];
+    const items = [
+      { kind: 'user' as const, text: 'Board bauen', at: 1_000 },
+      { kind: 'assistant' as const, messageId: 'a', segments: working, done: false },
+      { kind: 'user' as const, text: 'schlanker bitte', at: 5_000 },
+      { kind: 'assistant' as const, messageId: 'b', segments: [], done: false },
+      { kind: 'user' as const, text: 'nimm diese Farben', at: 9_000 },
+      { kind: 'assistant' as const, messageId: 'c', segments: [], done: false },
+    ];
+    // Eine Anzeige, ganz unten — sie sagt, woran die erste Antwort gerade arbeitet.
+    expect(liveState(items)).toEqual({ at: 5, segments: working });
+    expect(liveState(items.slice(0, 1))).toEqual({ at: -1 });
+  });
 });

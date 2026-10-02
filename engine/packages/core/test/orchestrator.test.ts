@@ -94,22 +94,52 @@ describe('orchestrator failover', () => {
   });
 
   it('cannot silently relax MCP selection on provider failover', async () => {
-    const claude = new FakeAdapter('claude'), grok = new FakeAdapter('grok');
+    const claude = new FakeAdapter('claude'), codex = new FakeAdapter('codex');
     claude.script('claude-a', [{ type: 'limit', scope: 'session', raw: 'limit' }]);
-    grok.script('grok-a', [{ type: 'result', text: 'must not run' }]);
-    const adapters = new AdapterRegistry(); adapters.register(claude); adapters.register(grok);
-    const scopedAccounts: AccountProfile[] = [accounts[0]!, { ...accounts[0]!, id: 'grok-a', provider: 'grok' }];
+    codex.script('codex-a', [{ type: 'result', text: 'must not run' }]);
+    const adapters = new AdapterRegistry(); adapters.register(claude); adapters.register(codex);
+    const scopedAccounts: AccountProfile[] = [accounts[0]!, { ...accounts[0]!, id: 'codex-a', provider: 'codex' }];
     const hostArgs = vi.fn();
     const orchestrator = new Orchestrator({ adapters, quota: new QuotaTracker(), sessions: new SessionStore(),
-      getRules: () => ({ ...rules, defaultChain: [{ provider: 'claude', account: 'a' }, { provider: 'grok', account: 'a' }] }),
+      getRules: () => ({ ...rules, defaultChain: [{ provider: 'claude', account: 'a' }, { provider: 'codex', account: 'a' }] }),
       getAccounts: () => scopedAccounts, resolveAccount: async target => scopedAccounts.find(account => account.provider === target.provider),
       getHostArgs: hostArgs,
     });
     const events = await collect(orchestrator.run({ ...task, routingMode: 'manual', mcpServers: {} }, new AbortController().signal));
     expect(claude.runs).toHaveLength(1);
-    expect(grok.runs).toHaveLength(0);
+    expect(codex.runs).toHaveLength(0);
     expect(hostArgs).toHaveBeenCalledTimes(1);
-    expect(events.at(-1)).toMatchObject({ type: 'error', message: expect.stringContaining('Grok'), retryable: false });
+    // Codex wird übersprungen; die Kette endet als Limit, damit der Schwarm
+    // auf ein Konto ausweichen kann, das die Auswahl einhält.
+    expect(events.at(-1)).toMatchObject({ type: 'chain-exhausted' });
+  });
+
+  it('skips a provider that cannot keep the MCP selection and runs the next one', async () => {
+    const claude = new FakeAdapter('claude'), codex = new FakeAdapter('codex');
+    claude.script('claude-a', [{ type: 'result', text: 'ok' }]);
+    const adapters = new AdapterRegistry(); adapters.register(claude); adapters.register(codex);
+    const scopedAccounts: AccountProfile[] = [accounts[0]!, { ...accounts[0]!, id: 'codex-a', provider: 'codex' }];
+    const orchestrator = new Orchestrator({ adapters, quota: new QuotaTracker(), sessions: new SessionStore(),
+      getRules: () => ({ ...rules, defaultChain: [{ provider: 'codex', account: 'a' }, { provider: 'claude', account: 'a' }] }),
+      getAccounts: () => scopedAccounts, resolveAccount: async target => scopedAccounts.find(account => account.provider === target.provider),
+    });
+    const events = await collect(orchestrator.run({ ...task, routingMode: 'manual', mcpServers: {} }, new AbortController().signal));
+    expect(codex.runs).toHaveLength(0);
+    expect(claude.runs).toHaveLength(1);
+    expect(events.some(event => event.type === 'error')).toBe(false);
+  });
+
+  it('names the MCP reason when no account in the chain can keep the selection', async () => {
+    const codex = new FakeAdapter('codex');
+    const adapters = new AdapterRegistry(); adapters.register(codex);
+    const scopedAccounts: AccountProfile[] = [{ ...accounts[0]!, id: 'codex-a', provider: 'codex' }];
+    const orchestrator = new Orchestrator({ adapters, quota: new QuotaTracker(), sessions: new SessionStore(),
+      getRules: () => ({ ...rules, defaultChain: [{ provider: 'codex', account: 'a' }] }),
+      getAccounts: () => scopedAccounts, resolveAccount: async target => scopedAccounts.find(account => account.provider === target.provider),
+    });
+    const events = await collect(orchestrator.run({ ...task, routingMode: 'manual', mcpServers: {} }, new AbortController().signal));
+    expect(codex.runs).toHaveLength(0);
+    expect(events.at(-1)).toMatchObject({ type: 'error', message: expect.stringContaining('Codex'), retryable: false });
   });
 
   it('fails over to the next target on limit and records cooldown', async () => {

@@ -209,10 +209,25 @@ export function embedHistory(turns: ConversationTurn[], prompt: string, budget: 
   if (turns.length === 0) return prompt;
   const { parts, omitted } = fitTurns(turns, budget);
   return (
-    'Earlier conversation (for context, do not repeat):\n---\n' +
+    EARLIER_HEAD +
     (omitted > 0 ? `(${omitted} older messages did not fit here.)\n\n` : '') +
     parts.join('\n\n') +
-    '\n---\n\nCurrent request:\n' +
+    CURRENT_HEAD +
     prompt
   );
+}
+
+const EARLIER_HEAD = 'Earlier conversation (for context, do not repeat):\n---\n';
+const CURRENT_HEAD = '\n---\n\nCurrent request:\n';
+
+/**
+ * The earlier conversation `embedHistory` put in front of a prompt, or
+ * nothing when there was none — for a model that takes context apart from the
+ * question, such as a decision model that answers about a stated `state`.
+ */
+export function earlierConversation(prompt: string): string | undefined {
+  if (!prompt.startsWith(EARLIER_HEAD)) return undefined;
+  const end = prompt.indexOf(CURRENT_HEAD, EARLIER_HEAD.length);
+  const history = end < 0 ? '' : prompt.slice(EARLIER_HEAD.length, end).trim();
+  return history || undefined;
 }

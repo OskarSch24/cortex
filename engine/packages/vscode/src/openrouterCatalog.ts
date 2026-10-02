@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import {
-  currentDefaultFavorites,
+  OPENROUTER_DEFAULT_FAVORITES,
   freeReviewChain,
   type OpenRouterAdapter,
   type OpenRouterModel,
@@ -8,7 +8,12 @@ import {
 import type { AccountStore } from './storage/accountStore.js';
 import { ModelListCache } from './modelListCache.js';
 
-const CACHE_KEY = 'cortex.openrouterCatalog';
+/**
+ * Seit die Liste auch Bild-, Video- und Entscheidungsmodelle führt, unter
+ * neuem Schlüssel: ein älterer Stand kannte nur Chatmodelle und hätte die
+ * anderen bis zum nächsten Abruf als „nicht mehr gelistet“ aussortiert.
+ */
+const CACHE_KEY = 'cortex.openrouterCatalogAllKinds';
 
 /**
  * OpenRouter's live model list, and which of those models the chat picker
@@ -47,7 +52,7 @@ export class OpenRouterCatalog {
     // Only a list the user actually saved counts — an emptied one stays empty
     // instead of snapping back to the defaults.
     const saved = vscode.workspace.getConfiguration('cortex').inspect<string[]>('openrouterModels')?.globalValue;
-    return Array.isArray(saved) ? saved : currentDefaultFavorites(this.catalog);
+    return Array.isArray(saved) ? saved : OPENROUTER_DEFAULT_FAVORITES.map((m) => m.id);
   }
 
   /** The model a run without a named model gets; unset until the user picks one. */
@@ -82,12 +87,19 @@ export class OpenRouterCatalog {
     // Before the first catalog read nothing can be checked, so favourites pass
     // as they are; afterwards a model OpenRouter retired is dropped quietly.
     const known = new Map(this.catalog.map((m) => [m.id, m]));
+    const builtIn = new Map(OPENROUTER_DEFAULT_FAVORITES.map((m) => [m.id, m]));
     // The default stands first in every picker, even when it is not a favourite.
     const fallback = this.defaultModel();
     const ids = fallback ? [fallback, ...this.favorites().filter((id) => id !== fallback)] : this.favorites();
     const favorites = ids
       .filter((id) => id === fallback || !this.catalog.length || known.has(id))
-      .map((id) => ({ id, label: known.get(id)?.label ?? id }));
+      .map((id) => {
+        const listed = known.get(id);
+        // What it makes: the catalog knows; before the first read, the built-in list does.
+        const output = listed ? (listed.kind && listed.kind !== 'text' ? listed.kind : undefined) : builtIn.get(id)?.output;
+        return { id, label: listed?.label ?? builtIn.get(id)?.label ?? id, ...(output ? { output } : {}) };
+      });
+    this.adapter.setCatalog(this.catalog);
     this.adapter.setModels(favorites, this.catalog.length ? freeReviewChain(this.catalog) : undefined, fallback);
   }
 }

@@ -48,7 +48,8 @@ describe('slash commands', () => {
     expect(new Set(SLASH_COMMANDS.map((cmd) => cmd.name)).size).toBe(SLASH_COMMANDS.length);
     for (const cmd of SLASH_COMMANDS) {
       if (cmd.kind === 'action') expect(cmd.action).toBeDefined();
-      else expect(cmd.template).toBeTruthy();
+      else if (cmd.kind === 'prompt') expect(cmd.template).toBeTruthy();
+      else expect(cmd.name).toBe('goal');
     }
   });
 

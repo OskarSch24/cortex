@@ -5,6 +5,12 @@
 
 export const OPENROUTER_API_BASE = 'https://openrouter.ai/api/v1';
 export const OPENROUTER_CHAT_URL = `${OPENROUTER_API_BASE}/chat/completions`;
+/** Bilder: eine Anfrage, die Bilder kommen als Base64 zurück. */
+export const OPENROUTER_IMAGES_URL = `${OPENROUTER_API_BASE}/images`;
+/** Videos: ein Auftrag, dessen Stand man abfragt, bis die Datei bereitliegt. */
+export const OPENROUTER_VIDEOS_URL = `${OPENROUTER_API_BASE}/videos`;
+/** Entscheidungsmodelle wie Jev — noch unter `alpha`, nicht unter `v1`. */
+export const OPENROUTER_DECISIONS_URL = 'https://openrouter.ai/api/alpha/decisions';
 
 /** Schlüssel, JSON und die Zuordnungs-Header, die OpenRouter für seine App-Rangliste nutzt. */
 export function openRouterHeaders(key: string): Record<string, string> {

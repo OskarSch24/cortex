@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tableCells } from '../../webview/components/Markdown.js';
+import { INLINE, linkDest, tableCells } from '../../webview/components/Markdown.js';
 
 describe('Markdown-Tabellen', () => {
   it('teilt an jedem Spaltenstrich', () => {
@@ -24,5 +24,26 @@ describe('Markdown-Tabellen', () => {
   it('ist keine Tabellenzeile, wenn nur maskierte Striche folgen', () => {
     expect(tableCells('| a \\| b')).toBeUndefined();
     expect(tableCells('kein | Tisch')).toBeUndefined();
+  });
+});
+
+describe('Markdown-Links', () => {
+  const match = (text: string) => INLINE.exec(text);
+
+  it('erkennt ein Ziel in spitzen Klammern mit Leerzeichen', () => {
+    const m = match('Quellen: [Welle-3-Stand](</Users/o/Persönliche Projekte/Welle 3/index.html>) und mehr');
+    expect(m?.[4]).toBe('Welle-3-Stand');
+    expect(m?.[5]).toBe('/Users/o/Persönliche Projekte/Welle 3/index.html');
+  });
+
+  it('behält das einfache Ziel ohne Klammern', () => {
+    const m = match('[Datei](src/app.ts:12)');
+    expect(m?.[6]).toBe('src/app.ts:12');
+  });
+
+  it('dekodiert Dateipfade, lässt Web-Adressen unberührt', () => {
+    expect(linkDest('/Users/o/Welle%203/index.html')).toBe('/Users/o/Welle 3/index.html');
+    expect(linkDest('https://example.com/a%20b')).toBe('https://example.com/a%20b');
+    expect(linkDest('/kaputt%E0')).toBe('/kaputt%E0');
   });
 });

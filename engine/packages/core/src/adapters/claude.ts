@@ -1,4 +1,4 @@
-import { CLAUDE_MODELS, supportedEffort } from '../models/catalog.js';
+import { CLAUDE_MODELS, currentModel, supportedEffort } from '../models/catalog.js';
 import { claudeContent } from './attachments.js';
 import type { LoginFlow, ProviderAdapter, RunRequest } from './adapter.js';
 import { cliSetupError, spawnLines } from './spawn.js';
@@ -118,7 +118,7 @@ export class ClaudeAdapter implements ProviderAdapter {
       '--include-partial-messages',
       ...(asking ? [] : PERMISSION_ARGS[req.permissionMode]),
     ];
-    if (req.model) args.push('--model', req.model);
+    if (req.model) args.push('--model', currentModel(this.id, req.model));
     if (req.resumeSessionId) args.push('--resume', req.resumeSessionId);
     // Cut the transcript after that message and continue in a new session id,
     // so the conversation it came from keeps its later turns.

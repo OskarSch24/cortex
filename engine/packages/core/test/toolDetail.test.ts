@@ -102,6 +102,37 @@ describe('codex item shapes', () => {
   });
 });
 
+describe('grok tool names', () => {
+  // Grok's ACP tool_call has no `kind`; its own tool name is all there is.
+  it('reads, edits and writes files under their Grok names', () => {
+    const read = describeToolUse('read_file', { target_file: `${CWD}/stand/notiz.md`, offset: 10, limit: 5 }, CWD);
+    expect(read).toMatchObject({ action: 'read', path: 'stand/notiz.md', detail: 'stand/notiz.md:10-14' });
+
+    const edit = describeToolUse('search_replace', { file_path: `${CWD}/a.py`, old_string: 'x = 1', new_string: 'x = 2\ny = 3' }, CWD);
+    expect(edit).toMatchObject({ action: 'edit', path: 'a.py', added: 2, removed: 1 });
+
+    expect(describeToolUse('write', { file_path: `${CWD}/b.txt`, content: 'hi' }, CWD).action).toBe('write');
+  });
+
+  it('keeps the agent’s own description of a command', () => {
+    const run = describeToolUse('run_terminal_command', { command: "python3 - <<'PY'\nprint(1)\nPY", description: 'Count open fields per ministry' }, CWD);
+    expect(run).toMatchObject({ action: 'run', detail: "python3 - <<'PY'", description: 'Count open fields per ministry' });
+    expect(describeToolUse('Bash', { command: 'git status', description: 'Show working tree status' }, CWD).description).toBe('Show working tree status');
+    expect(describeToolUse('Bash', { command: 'ls' }, CWD).description).toBeUndefined();
+  });
+
+  it('marks a folder listing by its path, unlike a search', () => {
+    expect(describeToolUse('list_dir', { target_directory: `${CWD}/europa/stand` }, CWD)).toEqual({ action: 'search', path: 'europa/stand', detail: 'europa/stand' });
+    expect(describeToolUse('grep', { pattern: 'Ministerium', path: `${CWD}/europa` }, CWD)).toEqual({ action: 'search', detail: '"Ministerium" in europa' });
+  });
+
+  it('knows the web, subagent and task-list tools', () => {
+    expect(describeToolUse('web_fetch', { url: 'https://www.legifrance.gouv.fr/x' }, CWD)).toMatchObject({ action: 'fetch', detail: 'https://www.legifrance.gouv.fr/x' });
+    expect(describeToolUse('spawn_subagent', { description: 'FR ministries', prompt: 'Fill the gaps' }, CWD)).toMatchObject({ action: 'task', detail: 'FR ministries' });
+    expect(describeToolUse('todo_write', { todos: [{ id: '1', content: 'lesen', status: 'completed' }] }, CWD)).toMatchObject({ action: 'other', preview: '✓ lesen' });
+  });
+});
+
 describe('acp tool kinds', () => {
   it('maps every ACP kind to a real action', () => {
     expect(describeToolUse('read', { path: `${CWD}/a.ts` }, CWD).action).toBe('read');

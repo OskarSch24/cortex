@@ -40,8 +40,10 @@
   --cx-r-island: 14px;
   --cx-r-card: 16px;
   --cx-r-input: 22px;
-  /* Abstand zwischen den Inseln und zum Fensterrand. */
-  --cx-gap: 8px;
+  /* Abstand zwischen den Flächen und zum Fensterrand. Seit 28.09.2026 keiner
+     mehr: die Flächen stoßen aneinander, getrennt nur durch eine 1-px-Linie.
+     Mit Einheit, weil calc() ein nacktes 0 nicht annimmt. */
+  --cx-gap: 0px;
   /* Höhe des Bands oben, das jede Fläche frei hält: links liegen darin die
      Ampelknöpfe (Electron mittet sie: 16 px hoch ab y = 14), rechts die
      Werkzeug-Icons der Fenstertitelzeile. Dieselbe Zahl steht als TITLE in
@@ -839,9 +841,6 @@
 .cx-control-sub.is-completed > svg { color: #7fbf8f; }
 .cx-control-sub.is-failed > svg, .cx-control-sub.is-blocked > svg { color: #d98080; }
 .cx-control-sub:disabled { opacity: .6; }
-.cx-tree-task-open > svg { flex-shrink: 0; margin-right: 6px; color: #8d8d8d; vertical-align: -1px; }
-/* Rollen-Chats eines Schwarms eingerückt unter ihrem Ursprungs-Chat. */
-.cx-tree-task.nested .cx-tree-task-open { padding-left: 48px; }
 .cx-control-group + .cx-control-group, .cx-control-group + .cx-control-row { border-top: 1px solid #ffffff0a; }
 .cx-control-close { width: 22px; }
 .cx-control-more { color: #999; }
@@ -1503,6 +1502,8 @@ button.cx-exo-instanz:hover .cx-exo-instanz-name.geplant { color: var(--cx-text)
 .cx-c-filelink { display: inline; padding: 0; border: 0; background: none; font: inherit; color: #6f7074; cursor: pointer; }
 .cx-c-filelink:hover { color: var(--cx-text); text-decoration: underline; text-underline-offset: 3px; }
 .cx-c-counts { color: #8f9094; }
+/* Worauf sich ein Schritt bezog oder wozu er lief: hinter dem Satz, leiser als er. */
+.cx-c-subject { color: var(--cx-dim); }
 .cx-c-newdot { display: inline-block; width: 6px; height: 6px; margin-left: 2px; border-radius: 50%; background: #4a8cff; vertical-align: 2px; }
 .cx-c-preview { margin: 6px 0 6px 23px; padding: 8px 10px; max-height: 260px; overflow: auto; border-radius: 8px; background: #ffffff08; color: #b9babd; font: 12px/1.55 var(--mono); white-space: pre-wrap; word-break: break-word; }
 .cx-c-preview .add { color: #7ccf8e; }
@@ -1751,6 +1752,14 @@ button.cx-exo-instanz:hover .cx-exo-instanz-name.geplant { color: var(--cx-text)
   .cx-image-toolbar { height: auto; min-height: 78px; }
 }
 @media (prefers-reduced-motion: reduce) { .cx-image-pending > span { animation: none; } }
+/* Videos eines Videomodells: der Player, darunter der Text, den es gesprochen hat. */
+.cx-video-card { display: grid; gap: 12px; margin-top: 12px; }
+.cx-video { margin: 0; max-width: 520px; }
+.cx-video video { display: block; width: 100%; max-height: 520px; border-radius: 12px; background: #000; }
+.cx-video figcaption { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--cx-dim); font-size: 12.5px; }
+.cx-video figcaption span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Was ein Modell liefert, das nicht chattet: klein unter seinem Namen im Modellmenü. */
+.cx-rz-output { display: inline-flex; align-items: center; gap: 4px; }
 .cx-shell .attachment-row.has-preview .attachment-x { opacity: 1; }
 .cx-control-panel.has-images { flex-basis: 302px; margin: 59px 16px 24px 0; padding: 12px 14px 14px; border-radius: 20px; background: #252525; }
 .cx-control-panel.has-images .cx-control-heading { min-height: 28px; margin-bottom: 0; font-size: 14px; }
@@ -2534,3 +2543,33 @@ button.cx-exo-instanz:hover .cx-exo-instanz-name.geplant { color: var(--cx-text)
 .cx-loc-chip-x { display: grid; place-items: center; align-self: flex-start; width: 24px; height: 24px; flex-shrink: 0; border: 0; border-radius: 50%; background: transparent; color: var(--cx-dim); }
 .cx-loc-chip-x:hover { background: #ffffff10; color: var(--cx-text); }
 .cx-loc-radius input:focus-visible { outline: 1px solid #ffffff38; outline-offset: 3px; border-radius: 6px; }
+
+/* Schwarm als Pool — Karte mit den ersten Einheiten, Übersicht mit Verstößen und Rest-Zeile. */
+.cx-w-pool-unit { min-height: 40px; padding-top: 6px; padding-bottom: 6px; align-items: flex-start; }
+.cx-w-pool-unit .cx-w-ava { width: 18px; height: 18px; margin-top: 1px; border-radius: 6px; }
+.cx-w-pool-name { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.cx-w-pool-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-w-pool-owns { font-size: 11.5px; line-height: 16px; }
+.cx-w-pool-role { flex: 0 1 auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-w-pool-more { min-height: 32px; gap: 8px; color: #707277; }
+.cx-control-sub.is-outside > svg { color: #d9b36a; }
+.cx-control-account { color: #5f5f5f; }
+.cx-shell .cx-control-row.cx-control-rest { color: #7d7d7d; }
+
+/* Merge-Warteschlange im Schwarm — Stand je Einheit, Zusammenfassung, Starten/Übernehmen/Anhalten. */
+.cx-control-merge { display: inline-flex; align-items: center; gap: 4px; color: #7d7d7d; }
+.cx-control-merge > svg { flex-shrink: 0; }
+.cx-control-merge.is-merged > svg { color: #7fbf8f; }
+.cx-control-merge.is-conflict, .cx-control-merge.is-checks-failed, .cx-control-merge.is-outside { color: #d9b36a; }
+.cx-control-merge.is-merging > svg { animation: cx-merge-turn 1.4s linear infinite; }
+@keyframes cx-merge-turn { to { transform: rotate(360deg); } }
+.cx-shell .cx-control-row.cx-control-merge-sum { color: #a8a8a8; }
+.cx-shell .cx-control-row.cx-control-merge-sum > span { white-space: normal; }
+.cx-control-merge-done > svg { color: #7fbf8f; }
+.cx-control-merge-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0 8px 29px; }
+.cx-control-merge-actions > button { min-height: 28px; }
+.cx-control-merge-actions > .cx-ghost { padding: 0 8px; font-size: 12px; }
+.cx-control-panel .cx-control-merge-actions > .cx-primary:hover { color: #131416; }
+.cx-control-merge-warn { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 8px 29px; color: #d9b36a; font: 11.5px/1.5 var(--cx-body-font); }
+.cx-control-merge-warn > svg { flex-shrink: 0; margin-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .cx-control-merge.is-merging > svg { animation: none; } }

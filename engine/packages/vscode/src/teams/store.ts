@@ -105,6 +105,22 @@ export class TeamStore {
     }
   }
 
+  /**
+   * Schreibt nur den Merge-Stand eines Laufs (TeamRun.merge und TeamJob.merge).
+   * Die Merge-Warteschlange arbeitet über das Ende des Laufs hinaus und nach
+   * einem Neustart auch an Läufen, die diesem Fenster nicht gehören — deshalb
+   * nicht über persist(), das nur eigene Läufe schreibt.
+   */
+  updateMerge(runId: string, change: (run: TeamRun) => void): void {
+    const local = this.runs.find(run => run.id === runId);
+    if (local) change(local);
+    this.mutate(latest => {
+      if (this.ownedRunIds.has(runId)) { this.mergeOwnedRuns(latest); return; }
+      const run = latest.runs.find(candidate => candidate.id === runId);
+      if (run) change(run);
+    });
+  }
+
   private mergeOwnedRuns(latest: TeamFile): void {
     const own = new Map(this.runs.filter(run => this.ownedRunIds.has(run.id)).map(run => [run.id, run]));
     latest.runs = latest.runs.map(run => {

@@ -79,6 +79,18 @@ describe('ACP adapter', () => {
     expect(tool).toMatchObject({ name: 'Shell', detail: 'ls -la' });
   });
 
+  it('names Grok’s tool calls and gives its web search the query it ran', async () => {
+    const events = await collect(run('GROKCALLS please'));
+    const shown = events.filter((e) => e.type === 'tool-use' || e.type === 'text-delta');
+    expect(shown.map((e) => (e.type === 'tool-use' ? [e.name, e.action, e.detail, e.description] : ['text', e.text]))).toEqual([
+      ['run_terminal_command', 'run', 'ls', 'List the import folder'],
+      ['WebSearch', 'fetch', 'cortex acp', undefined],
+      // Its result never came: it still shows, before the answer.
+      ['WebSearch', 'fetch', undefined, undefined],
+      ['text', 'done'],
+    ]);
+  });
+
   it('answers permission requests from the mode, silently, when not asking', async () => {
     const granted = await collect(run('PERMISSION check', { permissionMode: 'edits' }));
     expect((granted.at(-1) as { text: string }).text).toContain('PERMISSION-GRANTED');

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
-import { CLAUDE_MODELS, CODEX_MODELS, claudeModelsFromCatalog, latestClaudeModel, modelOption, setClaudeModels, supportedEffort } from '../src/models/catalog.js';
+import { CLAUDE_MODELS, CODEX_MODELS, GROK_MODELS, claudeModelsFromCatalog, currentModel, latestClaudeModel, modelOption, setClaudeModels, supportedEffort } from '../src/models/catalog.js';
 it('excludes Haiku and uses versioned Claude model IDs', () => {
- expect(CLAUDE_MODELS.map(m => m.id)).toEqual(['claude-sonnet-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-fable-5-1']);
+ expect(CLAUDE_MODELS.map(m => m.id)).toEqual(['claude-sonnet-5', 'claude-opus-5-5', 'claude-fable-5-1']);
  expect(latestClaudeModel('opus')).toBe('claude-opus-5-5');
  expect(modelOption('claude', 'opus')?.label).toBe('Opus 5.5');
 });
@@ -12,7 +12,7 @@ it('takes new Claude releases from the public catalog, never older ones', () => 
  ]);
  expect(found.map(m => m.id)).toEqual(['claude-opus-6', 'claude-sonnet-5-2', 'claude-opus-4-8']);
  expect(setClaudeModels(found).map(m => m.label)).toEqual(['Opus 6', 'Sonnet 5.2']);
- expect(CLAUDE_MODELS.map(m => m.id)).toEqual(['claude-sonnet-5-2', 'claude-sonnet-5', 'claude-opus-6', 'claude-opus-5-5', 'claude-opus-5', 'claude-fable-5-1']);
+ expect(CLAUDE_MODELS.map(m => m.id)).toEqual(['claude-sonnet-5-2', 'claude-sonnet-5', 'claude-opus-6', 'claude-opus-5-5', 'claude-fable-5-1']);
  expect(latestClaudeModel('opus')).toBe('claude-opus-6');
  expect(setClaudeModels(found)).toEqual([]);
 });
@@ -22,4 +22,13 @@ it('offers Terra, Sol and Astra and respects provider capabilities', () => {
  expect(supportedEffort('claude','claude-fable-5-1','ultra')).toBe('high');
  expect(supportedEffort('grok','grok','max')).toBeUndefined();
  expect(supportedEffort('claude','unknown-model','max')).toBeUndefined();
+});
+it('offers only Grok 4.7 and moves retired picks to their successor', () => {
+ expect(GROK_MODELS.map(m => m.id)).toEqual(['grok-4.7', 'grok-4.7-build-fast']);
+ expect(modelOption('grok', 'grok-4.6')?.id).toBe('grok-4.7');
+ expect(supportedEffort('grok', 'grok-4.5', 'xhigh')).toBe('xhigh');
+ expect(currentModel('grok', 'grok-4.6')).toBe('grok-4.7');
+ expect(currentModel('claude', 'claude-opus-5')).toBe('claude-opus-5-5');
+ expect(modelOption('claude', 'claude-opus-5')?.label).toBe('Opus 5.5');
+ expect(currentModel('claude', 'sonnet')).toBe('sonnet');
 });

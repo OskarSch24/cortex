@@ -1,6 +1,13 @@
 import type { Effort } from '../types.js';
 
-export interface ModelOption { id: string; label: string; efforts?: Effort[]; defaultEffort?: Effort }
+export interface ModelOption {
+  id: string;
+  label: string;
+  efforts?: Effort[];
+  defaultEffort?: Effort;
+  /** A model that does not chat but makes images, videos or typed decisions — the picker says which. */
+  output?: 'image' | 'video' | 'decisions';
+}
 const claudeEfforts: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
 // Codex subscription CLI capabilities (model catalog), not the API's effort scale.
 const codexEfforts: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
@@ -12,7 +19,6 @@ const codexEfforts: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'
 export const CLAUDE_MODELS: ModelOption[] = [
   { id: 'claude-sonnet-5', label: 'Sonnet 5', efforts: claudeEfforts, defaultEffort: 'high' },
   { id: 'claude-opus-5-5', label: 'Opus 5.5', efforts: claudeEfforts, defaultEffort: 'high' },
-  { id: 'claude-opus-5', label: 'Opus 5', efforts: claudeEfforts, defaultEffort: 'high' },
   { id: 'claude-fable-5-1', label: 'Fable 5.1', efforts: claudeEfforts, defaultEffort: 'high' },
 ];
 /** Families the picker offers, in picker order. Haiku stays out on purpose. */
@@ -79,16 +85,40 @@ export const CODEX_MODELS: ModelOption[] = [
   { id: 'gpt-6-astra', label: 'GPT-6 Astra', efforts: codexEfforts, defaultEffort: 'medium' },
 ];
 export const GROK_MODELS: ModelOption[] = [
-  { id: 'grok-4.6', label: 'Grok 4.6', efforts: ['low', 'medium', 'high', 'xhigh'], defaultEffort: 'high' },
-  { id: 'grok-4.5', label: 'Grok 4.5', efforts: ['low', 'medium', 'high'], defaultEffort: 'high' },
+  { id: 'grok-4.7', label: 'Grok 4.7', efforts: ['low', 'medium', 'high', 'xhigh'], defaultEffort: 'high' },
+  { id: 'grok-4.7-build-fast', label: 'Grok 4.7 Build Fast', efforts: ['low', 'medium', 'high', 'xhigh'], defaultEffort: 'high' },
 ];
+/**
+ * GLM über die Z.ai-API. Beide denken immer; `reasoning_effort` kennt nur diese
+ * drei Stufen, Z.ais Vorgabe ist `max`.
+ */
+const glmEfforts: Effort[] = ['low', 'high', 'max'];
+export const ZAI_MODELS: ModelOption[] = [
+  { id: 'glm-5.3', label: 'GLM-5.3', efforts: glmEfforts, defaultEffort: 'max' },
+  { id: 'glm-5.3-flash', label: 'GLM-5.3 Flash', efforts: glmEfforts, defaultEffort: 'max' },
+];
+/**
+ * Models taken out of the picker, and what a saved chat, rule or team that
+ * still names one runs instead — so an old choice keeps working rather than
+ * failing validation or quietly running a model nobody can pick anymore.
+ */
+const RETIRED_MODELS: Record<string, Record<string, string>> = {
+  claude: { 'claude-opus-5': 'claude-opus-5-5' },
+  grok: { 'grok-4.6': 'grok-4.7', 'grok-4.5': 'grok-4.7' },
+};
+/** The model a run actually uses: a retired name becomes its successor. */
+export function currentModel(provider: string, model: string): string;
+export function currentModel(provider: string, model: string | undefined): string | undefined;
+export function currentModel(provider: string, model: string | undefined): string | undefined {
+  return (model && RETIRED_MODELS[provider]?.[model]) || model;
+}
 export function modelsFor(provider: string): ModelOption[] {
-  return provider === 'claude' ? CLAUDE_MODELS : provider === 'codex' ? CODEX_MODELS : provider === 'grok' ? GROK_MODELS : [];
+  return provider === 'claude' ? CLAUDE_MODELS : provider === 'codex' ? CODEX_MODELS : provider === 'grok' ? GROK_MODELS : provider === 'zai' ? ZAI_MODELS : [];
 }
 export function modelOption(provider: string, model?: string): ModelOption | undefined {
   const list = modelsFor(provider);
   const alias = provider === 'claude' && (CLAUDE_FAMILIES as readonly string[]).includes(model ?? '') ? latestClaudeModel(model as ClaudeFamily) : undefined;
-  return list.find(m => m.id === (alias ?? model)) ?? (!model ? list[0] : undefined);
+  return list.find(m => m.id === (alias ?? currentModel(provider, model))) ?? (!model ? list[0] : undefined);
 }
 /**
  * Whether this provider actually offers that model name.

@@ -8,6 +8,12 @@
  * besprochen und entschieden wurde.
  */
 
+/**
+ * Die Chat-Ablagen im Exokortex: Cortex' eigene und die aus Claude Code,
+ * Codex und den Datenexporten (`bruecke/ki_chats.py`, Ordner ~/KI-Chats).
+ */
+export const CHAT_PROJEKTE = ['proj_cortex_chats', 'proj_ki_chats'] as const;
+
 export interface Suchbereich {
   id: string;
   name: string;
@@ -28,7 +34,7 @@ export interface Suchbereich {
 }
 
 export const STANDARD_BEREICHE: Suchbereich[] = [
-  { id: 'chats', name: 'Frühere Chats', projekte: ['proj_cortex_chats'], stichwoerter: [], immer: true },
+  { id: 'chats', name: 'Frühere Chats', projekte: [...CHAT_PROJEKTE], stichwoerter: [], immer: true },
   {
     id: 'nordwind',
     name: 'Nordwind Studio',
@@ -112,6 +118,62 @@ export function waehleBereiche(prompt: string, cwd: string | undefined, bereiche
   return { projekte: [...projekte], bereiche: namen };
 }
 
+/** Wozu ein Chat in einem Projekt gehört, und was er darüber hinaus nennen darf. */
+export interface ProjektRahmen {
+  /** Der Projektordner des Chats. */
+  ordner: string;
+  /** Bereiche, zu denen der Ordner gehört. */
+  heimat: Suchbereich[];
+  /** Andere Bereiche, die die Nachricht oder der Zettel ausdrücklich nennt. */
+  genannt: Suchbereich[];
+  /** Stammt ein früherer Chat aus diesem Ordner (`projekt_pfad`), gehört er dazu? */
+  gehoertDazu: (chatOrdner: string) => boolean;
+  /** Was der Abruf durchsuchen darf: die immer gesuchten Bereiche, Heimat und Genanntes. */
+  projekte: string[];
+  /** Die Vorgabe für das Modell, als Brief-Abschnitt. */
+  anweisung: string;
+}
+
+/**
+ * Der Rahmen eines Chats, der in einem Projekt läuft. Heimat ist der Bereich
+ * des Ordners; ein fremder Bereich zählt nur, wenn sein Name oder ein
+ * Stichwort fällt — der Arbeitsordner allein holt keinen.
+ */
+export function projektRahmen(ordner: string, text: string, bereiche: Suchbereich[]): ProjektRahmen {
+  const pfad = normalisiere(ordner);
+  const imOrdner = (b: Suchbereich) => (b.ordner ?? []).some((o) => !!o.trim() && pfad.toLowerCase().includes(o.trim().toLowerCase()));
+  const heimat = bereiche.filter((b) => !b.immer && imOrdner(b));
+  // Innerhalb eines Projekts zählt nur ein Name oder eindeutiges Stichwort —
+  // zwei allgemeine Wörter („Workflow“, „Vektor“) holen kein fremdes Projekt.
+  const eindeutig = bereiche.map((b) => ({ ...b, allgemein: [] }));
+  const genanntNamen = new Set(waehleBereiche(text, undefined, eindeutig).bereiche);
+  const genannt = bereiche.filter((b) => !b.immer && genanntNamen.has(b.name) && !heimat.includes(b));
+  const erlaubteTeile = [...heimat, ...genannt].flatMap((b) => b.ordner ?? []).map((o) => o.trim().toLowerCase()).filter(Boolean);
+  const gehoertDazu = (chatOrdner: string) => {
+    const c = normalisiere(chatOrdner);
+    return c === pfad || c.startsWith(`${pfad}/`) || erlaubteTeile.some((t) => c.toLowerCase().includes(t));
+  };
+  const name = pfad.split('/').pop() || pfad;
+  const kennungen = heimat.flatMap((b) => b.projekte);
+  const zeilen = [
+    `Dieser Chat gehört zum Projekt im Ordner ${pfad}` +
+      (heimat.length ? ` (im Exokortex: ${heimat.map((b) => b.name).join(', ')} — ${kennungen.join(', ')}).` : ` („${name}“).`),
+    'Beziehe Fragen ohne ausdrückliche Projektangabe auf dieses Projekt: „die Scrapes“, „die Plattform“, „der Stand“ meinen die Dinge dieses Projekts.',
+    kennungen.length
+      ? `Suchst du selbst im Exokortex, schränke «suche» auf ${kennungen.map((k) => `projekt=${k}`).join(' oder ')} ein.`
+      : 'Dieses Projekt hat im Exokortex keinen eigenen Bereich. Stütze dich zuerst auf den Projektordner.',
+    genannt.length
+      ? `Die Nachricht nennt ausdrücklich auch: ${genannt.map((b) => `${b.name} (${b.projekte.join(', ')})`).join(', ')} — dort darfst du ebenfalls suchen.`
+      : 'Material und frühere Chats anderer Projekte gehören nicht in die Antwort. Findest du im Projekt nichts, sag das, statt auf ein anderes Projekt auszuweichen.',
+  ];
+  const projekte = [...new Set([...bereiche.filter((b) => b.immer), ...heimat, ...genannt].flatMap((b) => b.projekte).map((p) => p.trim()).filter(Boolean))];
+  return { ordner: pfad, heimat, genannt, gehoertDazu, projekte, anweisung: zeilen.join('\n') };
+}
+
+function normalisiere(pfad: string): string {
+  return pfad.trim().replace(/\/+$/, '');
+}
+
 /** Liest gespeicherte Bereiche; was nicht passt, fällt auf die Vorgabe zurück. */
 export function leseBereiche(wert: unknown): Suchbereich[] {
   if (!Array.isArray(wert)) return STANDARD_BEREICHE;
@@ -123,7 +185,9 @@ export function leseBereiche(wert: unknown): Suchbereich[] {
       Array.isArray((b as Suchbereich).projekte) &&
       Array.isArray((b as Suchbereich).stichwoerter),
   );
-  return gut.length > 0 ? gut : STANDARD_BEREICHE;
+  if (gut.length === 0) return STANDARD_BEREICHE;
+  // Gespeicherte Einstellungen stammen oft aus der Zeit vor ~/KI-Chats.
+  return gut.map((b) => (b.id === 'chats' ? { ...b, projekte: [...new Set([...b.projekte, ...CHAT_PROJEKTE])] } : b));
 }
 
 function escape(s: string): string {
